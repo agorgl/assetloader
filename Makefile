@@ -54,7 +54,7 @@ QUIET ?= 0
 # - DEFINES variable (list defines in form of PROPERTY || PROPERTY=VALUE)
 # - ADDINCS variable (list with additional include dirs)
 # - MOREDEPS variable (list with additional dep dirs)
-include Makefile.conf
+-include Makefile.conf
 
 # Defaults
 TARGETNAME ?= $(notdir $(CURDIR))
@@ -139,6 +139,11 @@ INCDIR += $(strip $(foreach addinc, $(ADDINCS), -I$(addinc)))
 # Library flags
 LIBFLAGS = $(strip $(foreach lib, $(LIBS), -l$(lib)))
 
+# Master output
+ifdef PRJTYPE
+	MASTEROUT = $(TARGETDIR)/$(VARIANT)/$(TARGET)
+endif
+
 #---------------------------------------------------------------
 # Toolchain dependent values
 #---------------------------------------------------------------
@@ -176,26 +181,26 @@ archive = $(AR) $(ARFLAGS) -o $@ $?
 .SUFFIXES:
 
 # Main build rule
-build: variables $(OBJ) $(TARGETDIR)/$(VARIANT)/$(TARGET)
+build: variables $(OBJ) $(MASTEROUT)
 
 # Full build rule
 all: deps build
 
 # Executes target
 run: build
-	$(eval exec = $(TARGETDIR)/$(VARIANT)/$(TARGET))
+	$(eval exec = $(MASTEROUT))
 	@echo Executing $(exec) ...
 	@$(exec)
 
 # Set variables for current build execution
 variables:
-	@echo Making $(VARIANT) build...
 	$(eval CFLAGS = $(call compiler_flags, $(VARIANT)))
 	$(eval LIBDIR = $(call libdir, $(VARIANT)))
 
 # Print build debug info
 showvars: variables
-	@echo DEPS: $(DEPNAMES)
+	@echo DEPS: $(DEPS)
+	@echo DEPNAMES: $(DEPNAMES)
 	@echo CFLAGS: $(CFLAGS)
 	@echo LIBDIR: $(LIBDIR)
 
@@ -213,7 +218,6 @@ showvars: variables
 	$(eval lcommand = $(archive))
 	@$(lcommand)
 
-# $(eval lcommand = $(call archive, $<, $@))
 #
 # Compile rules
 #
@@ -238,25 +242,27 @@ build-$(strip $(1)):
 	@echo ===================================
 	@echo Building $(strip $(1))
 	@echo ===================================
-	@$(MAKE) -C $(2)/$(strip $(1)) -f ../../$(firstword $(MAKEFILE_LIST)) all
+	@$(eval MKFILE = $(CURDIR)/Makefile)
+	@$(MAKE) -C $(strip $(1)) -f $(MKFILE) all
 endef
 
 # Generate dependency build rules
-$(foreach dep, $(DEPNAMES), $(eval $(call build-rule, $(dep), $(DEPSDIR))))
+$(foreach dep, $(DEPS), $(eval $(call build-rule, $(dep))))
 # Dependencies build rule
-deps: $(foreach dep, $(DEPNAMES), build-$(dep))
+deps: $(foreach dep, $(DEPS), build-$(dep))
 
 # Clean rule template (1=Name, 2=Dir)
 define clean-rule
 clean-$(strip $(1)):
 	@echo Cleaning $(strip $(1))
-	@$(MAKE) -C $(2)/$(strip $(1)) -f ../../$(firstword $(MAKEFILE_LIST)) clean
+	@$(eval MKFILE = $(CURDIR)/Makefile)
+	@$(MAKE) -C $(strip $(1)) -f $(MKFILE) clean
 endef
 
 # Generate dependency clean rules
-$(foreach dep, $(DEPNAMES), $(eval $(call clean-rule, $(dep), $(DEPSDIR))))
+$(foreach dep, $(DEPS), $(eval $(call clean-rule, $(dep))))
 # Depencencies clean rule
-depsclean: $(foreach dep, $(DEPNAMES), clean-$(dep))
+depsclean: $(foreach dep, $(DEPS), clean-$(dep))
 
 # Non file targets
 .PHONY: all \
