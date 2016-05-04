@@ -136,6 +136,8 @@ DEPNAMES = $(strip $(foreach d, $(DEPS), $(lastword $(subst /, , $d))))
 INCDIR = $(strip -Iinclude $(foreach dep, $(DEPS), -I$(dep)include))
 # Include directories (explicit)
 INCDIR += $(strip $(foreach addinc, $(ADDINCS), -I$(addinc)))
+# Library search directories
+LIBSDIR = $(strip $(foreach dep, $(DEPS), $(dep)lib)) $(ADDLIBDIR)
 # Library flags
 LIBFLAGS = $(strip $(foreach lib, $(LIBS), -l$(lib)))
 
@@ -162,7 +164,7 @@ LDFLAGS = -static -static-libgcc
 # Variant dependent values
 #---------------------------------------------------------------
 # Library directories
-libdir = $(strip $(foreach dep, $(DEPS), -L$(dep)lib/$(strip $(1))))
+libdir = $(strip $(foreach libsdr, $(LIBSDIR), -L$(libsdr)/$(strip $(1))))
 # Compiler flags
 compiler_flags = $(strip $(if $(filter $(1), Debug), -g -O0, -O2) -Wall -Wextra)
 
