@@ -9,7 +9,7 @@ struct image* image_from_mem_buf(const unsigned char* data, size_t sz, const cha
         return image_from_png(data, sz);
     } else if (strcmp(hint, "jpg") == 0 || strcmp(hint, "jpeg") == 0) {
         return image_from_jpeg(data, sz);
-    } else if (strcmp(hint, "tiff") == 0) {
+    } else if (strcmp(hint, "tif") == 0 || strcmp(hint, "tiff") == 0) {
         return image_from_tiff(data, sz);
     } else if (strcmp(hint, "tga") == 0) {
         return image_from_tga(data, sz);

@@ -89,8 +89,8 @@ void init(struct game_context* ctx)
     /* Create sample texture */
     glGenTextures(1, &ctx->diff_tex);
     glBindTexture(GL_TEXTURE_2D, ctx->diff_tex);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     /*
     struct pix { GLubyte r, g, b, a; };
@@ -106,7 +106,7 @@ void init(struct game_context* ctx)
     struct image* im = image_from_file("ext/mahogany_wood.jpg");
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, im->width, im->height, 0, GL_RGB, GL_UNSIGNED_BYTE, im->data);
     */
-    struct image* im = image_from_file("ext/tree.png");
+    struct image* im = image_from_file("ext/Bark2.tif");
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, im->width, im->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, im->data);
     image_delete(im);
 }
