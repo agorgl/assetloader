@@ -106,8 +106,14 @@ void init(struct game_context* ctx)
     struct image* im = image_from_file("ext/mahogany_wood.jpg");
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, im->width, im->height, 0, GL_RGB, GL_UNSIGNED_BYTE, im->data);
     */
-    struct image* im = image_from_file("ext/Bark2.tif");
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, im->width, im->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, im->data);
+    struct image* im = image_from_file("ext/wall.tga");
+    glTexImage2D(
+        GL_TEXTURE_2D, 0,
+        im->channels == 4 ? GL_RGBA : GL_RGB,
+        im->width, im->height, 0,
+        im->channels == 4 ? GL_RGBA : GL_RGB,
+        GL_UNSIGNED_BYTE,
+        im->data);
     image_delete(im);
 }
 
