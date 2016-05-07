@@ -47,7 +47,8 @@ float saturate(float x);
 bool between(float x, float bottom, float top);
 bool between_or(float x, float bottom, float top);
 
-float lerp(float p1, float p2, float amount);
+/* lerp name conflicts with OpenAL definition... */
+float lerpp(float p1, float p2, float amount);
 float smoothstep(float p1, float p2, float amount);
 float smootherstep(float p1, float p2, float amount);
 float cosine_interp(float p1, float p2, float amount);

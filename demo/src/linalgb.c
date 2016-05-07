@@ -47,8 +47,12 @@ float saturate(float x) {
     return x;
 }
 
-float lerp(float p1, float p2, float amount) {
+static float lerp(float p1, float p2, float amount) {
     return (p2 * amount) + (p1 * (1-amount));
+}
+
+float lerpp(float p1, float p2, float amount) {
+    return lerp(p1, p2, amount);
 }
 
 float smoothstep(float p1, float p2, float amount) {

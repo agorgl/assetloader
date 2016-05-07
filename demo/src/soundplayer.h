@@ -28,43 +28,26 @@
 /*   ' ') '( (/                                                                                                      */
 /*     '   '  `                                                                                                      */
 /*********************************************************************************************************************/
-#include "mainloop.h"
-#include "game.h"
-#include "soundplayer.h"
-#include <assets/assetload.h>
+#ifndef _SOUND_PLAYER_H_
+#define _SOUND_PLAYER_H_
 
-int main(int argc, char* argv[])
-{
-    (void) argc;
-    (void) argv;
+#include <assets/sound/sound.h>
 
-    /* Play opening sound */
-    sound_player_t* sp = sound_player_create();
-    struct sound* snd = sound_from_file("ext/Realization.wav");
-    play(sp, snd);
+/* Opaque sound player context */
+typedef struct sound_player sound_player_t;
 
-    /* Initialize */
-    struct game_context ctx = {};
-    init(&ctx);
+/* Creation and deletion */
+sound_player_t* sound_player_create();
+void sound_player_destroy(sound_player_t* sp);
 
-    /* Setup mainloop parameters */
-    struct mainloop_data mld = {};
-    mld.max_frameskip = 5;
-    mld.updates_per_second = 60;
-    mld.update_callback = update;
-    mld.render_callback = render;
-    mld.userdata = &ctx;
-    ctx.should_terminate = &mld.should_terminate;
+/* Actions */
+void play(sound_player_t* sp, struct sound* snd);
+void get_devices(sound_player_t* sp);
+void set_playback_device(const char* device);
+float get_master_volume(sound_player_t* sp);
+void set_master_volume(sound_player_t* sp, float vol); /* [0 - 100] */
+void adjust_volume(sound_player_t* sp, float percent);
+void mute(sound_player_t* sp, int mute);
+int is_mute(sound_player_t* sp);
 
-    /* Run mainloop */
-    mainloop(&mld);
-
-    /* De-initialize */
-    shutdown(&ctx);
-
-    /* Free sound resources */
-    sound_delete(snd);
-    sound_player_destroy(sp);
-
-    return 0;
-}
+#endif // ! _SOUND_PLAYER_H_
