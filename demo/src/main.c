@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
 
     /* Play opening sound */
     sound_player_t* sp = sound_player_create();
-    struct sound* snd = sound_from_file("ext/Realization.wav");
+    struct sound* snd = sound_from_file("ext/old city theme.ogg");
     play(sp, snd);
 
     /* Initialize */
