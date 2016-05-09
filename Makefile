@@ -144,6 +144,8 @@ else
 	TARGET = $(TARGETNAME)$(EXECEXT)
 endif
 
+# Compiler flags
+CFLAGS = $(strip $(if $(filter $(VARIANT), Debug), -g -O0, -O2) -Wall -Wextra)
 # Dependencies
 DEPSDIR = deps
 DEPS = $(strip $(sort $(dir $(wildcard $(DEPSDIR)/*/)))) $(MOREDEPS)
@@ -153,7 +155,9 @@ INCDIR = $(strip $(INCFLAG)include $(foreach dep, $(DEPS), $(INCFLAG)$(dep)inclu
 # Include directories (explicit)
 INCDIR += $(strip $(foreach addinc, $(ADDINCS), $(INCFLAG)$(addinc)))
 # Library search directories
-LIBSDIR = $(strip $(foreach dep, $(DEPS), $(dep)lib)) $(ADDLIBDIR)
+LIBSDIR = $(strip $(foreach libdir,\
+			$(foreach dep, $(DEPS), $(dep)lib) $(ADDLIBDIR),\
+			$(LIBSDIRFLAG)$(libdir)/$(strip $(VARIANT))))
 # Library flags
 LIBFLAGS = $(strip $(foreach lib, $(LIBS), $(LIBFLAG)$(lib)))
 
@@ -163,19 +167,11 @@ ifdef PRJTYPE
 endif
 
 #---------------------------------------------------------------
-# Variant dependent values
-#---------------------------------------------------------------
-# Library directories
-libdir = $(strip $(foreach libsdr, $(LIBSDIR), $(LIBSDIRFLAG)$(libsdr)/$(strip $(1))))
-# Compiler flags
-compiler_flags = $(strip $(if $(filter $(1), Debug), -g -O0, -O2) -Wall -Wextra)
-
-#---------------------------------------------------------------
 # Command generator functions
 #---------------------------------------------------------------
 ccompile = $(CC) $$(CFLAGS) $$(CPPFLAGS) $$(INCDIR) -c $$< -o $$@
 cxxcompile = $(CXX) $$(CFLAGS) $$(CPPFLAGS) $$(INCDIR) -c $$< -o $$@
-link = $(LD) $(LDFLAGS) $(LIBDIR) -o $@ $^ $(LIBFLAGS)
+link = $(LD) $(LDFLAGS) $(LIBSDIR) -o $@ $^ $(LIBFLAGS)
 archive = $(AR) $(ARFLAGS) -o $@ $?
 
 #---------------------------------------------------------------
@@ -198,8 +194,6 @@ run: build
 
 # Set variables for current build execution
 variables:
-	$(eval CFLAGS = $(call compiler_flags, $(VARIANT)))
-	$(eval LIBDIR = $(call libdir, $(VARIANT)))
 
 # Print build debug info
 showvars: variables
