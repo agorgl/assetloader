@@ -113,14 +113,30 @@ ifeq ($(OS), Windows_NT)
 endif
 
 #---------------------------------------------------------------
+# Toolchain dependent values
+#---------------------------------------------------------------
+# Compiler
+CC = gcc
+CXX = g++
+CPPFLAGS = $(strip $(foreach define, $(DEFINES), -D$(define)))
+INCFLAG = -I
+LIBFLAG = -l
+LIBSDIRFLAG = -L
+# Archiver
+AR = ar
+ARFLAGS = rcs
+SLIBEXT = .a
+SLIBPREF = lib
+# Linker
+LD = gcc
+LDFLAGS = -static -static-libgcc
+
+#---------------------------------------------------------------
 # Generated values
 #---------------------------------------------------------------
 # Objects
 OBJ = $(foreach obj, $(SRC:=.o), $(BUILDDIR)/$(VARIANT)/$(obj))
 
-# Static library extension and prefix
-SLIBEXT = .a
-SLIBPREF = lib
 # Output
 ifeq ($(PRJTYPE), StaticLib)
 	TARGET = $(SLIBPREF)$(strip $(call lc,$(TARGETNAME)))$(SLIBEXT)
@@ -133,13 +149,13 @@ DEPSDIR = deps
 DEPS = $(strip $(sort $(dir $(wildcard $(DEPSDIR)/*/)))) $(MOREDEPS)
 DEPNAMES = $(strip $(foreach d, $(DEPS), $(lastword $(subst /, , $d))))
 # Include directories (implicit)
-INCDIR = $(strip -Iinclude $(foreach dep, $(DEPS), -I$(dep)include))
+INCDIR = $(strip $(INCFLAG)include $(foreach dep, $(DEPS), $(INCFLAG)$(dep)include))
 # Include directories (explicit)
-INCDIR += $(strip $(foreach addinc, $(ADDINCS), -I$(addinc)))
+INCDIR += $(strip $(foreach addinc, $(ADDINCS), $(INCFLAG)$(addinc)))
 # Library search directories
 LIBSDIR = $(strip $(foreach dep, $(DEPS), $(dep)lib)) $(ADDLIBDIR)
 # Library flags
-LIBFLAGS = $(strip $(foreach lib, $(LIBS), -l$(lib)))
+LIBFLAGS = $(strip $(foreach lib, $(LIBS), $(LIBFLAG)$(lib)))
 
 # Master output
 ifdef PRJTYPE
@@ -147,24 +163,10 @@ ifdef PRJTYPE
 endif
 
 #---------------------------------------------------------------
-# Toolchain dependent values
-#---------------------------------------------------------------
-# Compiler
-CC = gcc
-CXX = g++
-CPPFLAGS = $(strip $(foreach define, $(DEFINES), -D$(define)))
-# Archiver
-AR = ar
-ARFLAGS = rcs
-# Linker
-LD = gcc
-LDFLAGS = -static -static-libgcc
-
-#---------------------------------------------------------------
 # Variant dependent values
 #---------------------------------------------------------------
 # Library directories
-libdir = $(strip $(foreach libsdr, $(LIBSDIR), -L$(libsdr)/$(strip $(1))))
+libdir = $(strip $(foreach libsdr, $(LIBSDIR), $(LIBSDIRFLAG)$(libsdr)/$(strip $(1))))
 # Compiler flags
 compiler_flags = $(strip $(if $(filter $(1), Debug), -g -O0, -O2) -Wall -Wextra)
 
