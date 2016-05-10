@@ -1,0 +1,84 @@
+---
+# Suitable for C family
+Language: Cpp
+# Extra indent of access modifiers
+AccessModifierOffset: -1
+# Horizontally align arguments after an open bracket
+AlignAfterOpenBracket: true
+# Do not align assignments
+AlignConsecutiveAssignments: false
+# If expression operands split, align them
+AlignOperands: false
+# Self explanatory
+AlignTrailingComments: true
+# Do not smartly convert multiple lines to one
+AllowShortBlocksOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+# No auto breaks
+AlwaysBreakBeforeMultilineStrings: false
+AlwaysBreakTemplateDeclarations: false
+# Function arguments are either all in one line or all line by line
+BinPackArguments: true
+BinPackParameters: true
+# Braces break on functions and attach in control statements
+BreakBeforeBraces: Linux
+# No auto break in ternary operators
+BreakBeforeTernaryOperators: false
+# Smooth constructor initializer option
+BreakConstructorInitializersBeforeComma: true
+# No column limit
+ColumnLimit: 0
+# Self explanatory
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+# Self explanatory
+ConstructorInitializerIndentWidth: 4
+# Indent width for line continuations
+ContinuationIndentWidth: 4
+# Disable smart pointer alignment
+DerivePointerAlignment: false
+# Master flag
+DisableFormat: false
+# Indent case labels one level from the switch statement
+IndentCaseLabels: true
+# Number of columns to use for indentation
+IndentWidth: 4
+# Self explanatory
+KeepEmptyLinesAtTheStartOfBlocks: true
+# Maximum number of consecutive empty lines
+MaxEmptyLinesToKeep: 1
+# Indent always namespaces
+NamespaceIndentation: All
+# Penalties
+PenaltyBreakBeforeFirstCallParameter: 19
+PenaltyBreakComment: 300
+PenaltyBreakFirstLessLess: 120
+PenaltyBreakString: 1000
+PenaltyExcessCharacter: 1000000
+PenaltyReturnTypeOnItsOwnLine: 60
+# Align pointer
+PointerAlignment: Left
+# Self explanatory
+SpaceAfterCStyleCast: false
+# Self explanatory
+SpaceBeforeAssignmentOperators: true
+# Put a space before ( control statements
+SpaceBeforeParens: ControlStatements
+# No space inside empty pair of ()
+SpaceInEmptyParentheses: false
+# Insert a space before the trailing comments
+SpacesBeforeTrailingComments: 1
+# No spaces in template argument lists
+SpacesInAngles:  false
+# No spaces in C style casts
+SpacesInCStyleCastParentheses: false
+# No spaces after '(' and before ')'
+SpacesInParentheses: false
+# No spaces after '[' and before ']'
+SpacesInSquareBrackets: false
+# Never use indentation
+UseTab: Never
+...
+
