@@ -9,11 +9,9 @@ void mainloop(struct mainloop_data* loop_data)
     int loops;
     float interpolation;
 
-    while(!loop_data->should_terminate)
-    {
+    while (!loop_data->should_terminate) {
         loops = 0;
-        while (clock() > next_update && loops < loop_data->max_frameskip)
-        {
+        while (clock() > next_update && loops < loop_data->max_frameskip) {
             loop_data->update_callback(loop_data->userdata, skip_ticks);
             next_update += skip_ticks;
             ++loops;

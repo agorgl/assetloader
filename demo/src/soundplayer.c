@@ -9,14 +9,16 @@ struct sound_player {
     ALCenum last_error_code; /* Code from the last error that occured */
 };
 
-static void check_al_error() {
+static void check_al_error()
+{
     ALCenum error = alGetError();
     if (error != AL_NO_ERROR) {
         /* TODO */
     }
 }
 
-sound_player_t* sound_player_create() {
+sound_player_t* sound_player_create()
+{
     struct sound_player* sp = malloc(sizeof(struct sound_player));
     sp->device = alcOpenDevice(0);
     if (!sp->device)
@@ -28,15 +30,17 @@ sound_player_t* sound_player_create() {
     return sp;
 }
 
-void sound_player_destroy(sound_player_t* sp) {
+void sound_player_destroy(sound_player_t* sp)
+{
     alcMakeContextCurrent(0);
     alcDestroyContext(sp->context);
     alcCloseDevice(sp->device);
     free(sp);
 }
 
-void get_devices(sound_player_t* sp) {
-    (void) sp;
+void get_devices(sound_player_t* sp)
+{
+    (void)sp;
     /*
     // Names of the playback devices available
     std::vector<std::string> playbackDevices;
@@ -66,42 +70,51 @@ void get_devices(sound_player_t* sp) {
     */
 }
 
-void set_playback_device(const char* device) {
-    (void) device;
+void set_playback_device(const char* device)
+{
+    (void)device;
     /* TODO */
 }
 
-float get_master_volume(sound_player_t* sp) {
-    (void) sp;
+float get_master_volume(sound_player_t* sp)
+{
+    (void)sp;
     /* TODO */
     return 0.0f;
 }
 
-void set_master_volume(sound_player_t* sp, float vol) {
-    (void) sp; (void) vol;
+void set_master_volume(sound_player_t* sp, float vol)
+{
+    (void)sp;
+    (void)vol;
     /* TODO */
 }
 
-void adjust_volume(sound_player_t* sp, float percent) {
-    (void) sp; (void) percent;
+void adjust_volume(sound_player_t* sp, float percent)
+{
+    (void)sp;
+    (void)percent;
     /* TODO */
 }
 
-void mute(sound_player_t* sp, int mute) {
-    (void) sp; (void) mute;
+void mute(sound_player_t* sp, int mute)
+{
+    (void)sp;
+    (void)mute;
     /* TODO */
 }
 
-int is_mute(sound_player_t* sp) {
-    (void) sp;
+int is_mute(sound_player_t* sp)
+{
+    (void)sp;
     /* TODO */
     return 0;
 }
 
-static int al_fmt_from_info(short channels, short bits_per_sample) {
+static int al_fmt_from_info(short channels, short bits_per_sample)
+{
     int is_stereo = (channels > 1);
-    switch (bits_per_sample)
-    {
+    switch (bits_per_sample) {
         case 16:
             if (is_stereo)
                 return AL_FORMAT_STEREO16;
@@ -117,7 +130,8 @@ static int al_fmt_from_info(short channels, short bits_per_sample) {
     }
 }
 
-void play(sound_player_t* sp, struct sound* snd) {
+void play(sound_player_t* sp, struct sound* snd)
+{
     (void)sp;
     // Create audio source
     ALuint source;

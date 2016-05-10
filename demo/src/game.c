@@ -8,7 +8,7 @@
 
 static void on_key(struct window* wnd, int key, int scancode, int action, int mods)
 {
-    (void) key; (void) scancode; (void) mods;
+    (void)key; (void)scancode; (void)mods;
     struct game_context* ctx = get_userdata(wnd);
     if (action == 0)
         *(ctx->should_terminate) = 1;
@@ -43,9 +43,9 @@ void init(struct game_context* ctx)
     glGenBuffers(1, &ctx->vbo);
     glBindBuffer(GL_ARRAY_BUFFER, ctx->vbo);
     glBufferData(GL_ARRAY_BUFFER,
-        144 * sizeof(GLfloat),
-        CUBE_VERTEX_DATA,
-        GL_STATIC_DRAW);
+                 144 * sizeof(GLfloat),
+                 CUBE_VERTEX_DATA,
+                 GL_STATIC_DRAW);
     GLuint pos_attrib = 0;
     glEnableVertexAttribArray(pos_attrib);
     glVertexAttribPointer(pos_attrib, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
@@ -54,9 +54,9 @@ void init(struct game_context* ctx)
     glGenBuffers(1, &ctx->uvs);
     glBindBuffer(GL_ARRAY_BUFFER, ctx->uvs);
     glBufferData(GL_ARRAY_BUFFER,
-        96 * sizeof(GLfloat),
-        CUBE_UVS,
-        GL_STATIC_DRAW);
+                 96 * sizeof(GLfloat),
+                 CUBE_UVS,
+                 GL_STATIC_DRAW);
     GLuint uv_attrib = 1;
     glEnableVertexAttribArray(uv_attrib);
     glVertexAttribPointer(uv_attrib, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
@@ -65,9 +65,9 @@ void init(struct game_context* ctx)
     glGenBuffers(1, &ctx->ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-        36 * sizeof(GLuint),
-        CUBE_ELEM_DATA,
-        GL_STATIC_DRAW);
+                 36 * sizeof(GLuint),
+                 CUBE_ELEM_DATA,
+                 GL_STATIC_DRAW);
 
     /* Load shaders */
     ctx->vs = glCreateShader(GL_VERTEX_SHADER);
@@ -144,7 +144,7 @@ void render(void* userdata, float interpolation)
         vec3_new(0.6f, 1.0f, 2.0f),
         vec3_zero(),
         vec3_new(0.0f, 1.0f, 0.0f));
-    mat4 proj = mat4_perspective(radians(45.0f), 0.1f, 300.0f, 1.0f/(800.0f/600.0f));
+    mat4 proj = mat4_perspective(radians(45.0f), 0.1f, 300.0f, 1.0f / (800.0f / 600.0f));
     mat4 mvp = mat4_mul_mat4(mat4_mul_mat4(proj, view), model);
     GLuint mvp_loc = glGetUniformLocation(ctx->prog, "MVP");
     mvp = mat4_transpose(mvp);

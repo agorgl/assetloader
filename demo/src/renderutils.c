@@ -6,8 +6,7 @@
  * -------------------------------------------------- */
 void render_spquad()
 {
-    GLfloat quad_vert[] =
-    {
+    GLfloat quad_vert[] = {
        -1.0f,  1.0f, 0.0f,
        -1.0f, -1.0f, 0.0f,
         1.0f,  1.0f, 0.0f,

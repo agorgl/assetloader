@@ -35,8 +35,8 @@
 
 int main(int argc, char* argv[])
 {
-    (void) argc;
-    (void) argv;
+    (void)argc;
+    (void)argv;
 
     /* Play opening sound */
     sound_player_t* sp = sound_player_create();

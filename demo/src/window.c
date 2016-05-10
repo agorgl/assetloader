@@ -4,8 +4,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-struct window
-{
+struct window {
     GLFWwindow* wnd_handle;
     struct window_callbacks callbacks;
     void* userdata;
@@ -49,8 +48,7 @@ static void glfw_key_cb(GLFWwindow* wnd_handle, int key, int scancode, int actio
 {
     struct window* wnd = glfwGetWindowUserPointer(wnd_handle);
     int act = -1;
-    switch (action)
-    {
+    switch (action) {
         case GLFW_PRESS:
             act = 0;
             break;
@@ -96,15 +94,12 @@ struct window* create_window(const char* title, int width, int height, int mode)
 
     /* Get monitor value according to given window mode */
     GLFWmonitor* mon = 0;
-    switch (mode)
-    {
-        case 0:
-        {
+    switch (mode) {
+        case 0: {
             mon = 0;
             break;
         }
-        case 1:
-        {
+        case 1: {
             mon = glfwGetPrimaryMonitor();
 
             const GLFWvidmode* videoMode = glfwGetVideoMode(mon);
@@ -115,8 +110,7 @@ struct window* create_window(const char* title, int width, int height, int mode)
 
             break;
         }
-        case 2:
-        {
+        case 2: {
             mon = glfwGetPrimaryMonitor();
             break;
         }
@@ -124,7 +118,7 @@ struct window* create_window(const char* title, int width, int height, int mode)
 
     /* Create the window */
     GLFWwindow* window = glfwCreateWindow(width, height, title, mon, 0);
-    if(!window)
+    if (!window)
         return 0;
     wnd->wnd_handle = window;
 
@@ -147,7 +141,7 @@ struct window* create_window(const char* title, int width, int height, int mode)
     glfwSetCharModsCallback(wnd->wnd_handle, glfw_char_mods_cb);
 
     /* Load OpenGL extensions */
-    gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+    gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
     return wnd;
 }
@@ -168,7 +162,7 @@ void set_callbacks(struct window* wnd, struct window_callbacks* callbacks)
 
 void poll_events(struct window* wnd)
 {
-    (void) wnd;
+    (void)wnd;
     glfwPollEvents();
 }
 
