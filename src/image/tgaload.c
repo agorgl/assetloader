@@ -50,7 +50,8 @@ struct image* image_from_tga(const unsigned char* data, size_t sz) {
     (void) sz;
 
     // Parse header
-    struct tga_header header = {};
+    struct tga_header header;
+    memset(&header, 0, sizeof(struct tga_header));
     unsigned char* begin = (unsigned char*)data;
 
     parse_field(id_length, 0)

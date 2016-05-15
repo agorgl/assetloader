@@ -90,7 +90,8 @@ struct sound* sound_from_ogg(const unsigned char* data, size_t sz) {
     callbacks.close_func = ogg_close_cb;
 
     /* Begin decompression */
-    OggVorbis_File oggfile = {};
+    OggVorbis_File oggfile;
+    memset(&oggfile, 0, sizeof(OggVorbis_File));
     ov_open_callbacks((void*)(&cbdata), &oggfile, 0, 0, callbacks);
 
     /* Allocate sound structure */

@@ -28,6 +28,7 @@
 /*   ' ') '( (/                                                                                                      */
 /*     '   '  `                                                                                                      */
 /*********************************************************************************************************************/
+#include <string.h>
 #include "mainloop.h"
 #include "game.h"
 #include "soundplayer.h"
@@ -44,7 +45,8 @@ int main(int argc, char* argv[])
     play(sp, snd);
 
     /* Initialize */
-    struct game_context ctx = {};
+    struct game_context ctx;
+    memset(&ctx, 0, sizeof(struct game_context));
     init(&ctx);
 
     /* Setup mainloop parameters */

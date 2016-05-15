@@ -48,13 +48,15 @@ struct sound* sound_from_wav(const unsigned char* data, size_t sz) {
     unsigned char* begin = (unsigned char*)data;
 
     /* Parse wav desc section */
-    struct wav_desc wdesc = {};
+    struct wav_desc wdesc;
+    memset(&wdesc, 0, sizeof(struct wav_desc));
     parse_field(struct wav_desc, riff, wdesc, 0) /* Should be equal to "RIFF" */
     parse_field(struct wav_desc, size, wdesc, 4) /* Should be equal to the size of the entire file in bytes minus 8 bytes for the two fields already parsed */
     parse_field(struct wav_desc, wave, wdesc, 8) /* Should be equal to "WAVE" */
 
     /* Parse wav format section */
-    struct wav_format wfmt = {};
+    struct wav_format wfmt;
+    memset(&wfmt, 0, sizeof(struct wav_format));
     parse_field(struct wav_format, id, wfmt, 12)              /* Should be equal to "fmt " (note the space) */
     parse_field(struct wav_format, size, wfmt, 16)            /* Should be equal to 16 for PCM. This is the size of the rest of the subchunk which follows this number */
     parse_field(struct wav_format, format, wfmt, 20)          /* Should be equal to 1 for PCM. Other values indicate compression. */
@@ -76,7 +78,8 @@ struct sound* sound_from_wav(const unsigned char* data, size_t sz) {
     }
 
     /* Parse wav chunk section */
-    struct wav_chunk wchunk = {};
+    struct wav_chunk wchunk;
+    memset(&wchunk, 0, sizeof(struct wav_chunk));
     parse_field(struct wav_chunk, id, wchunk, 0); /* Should be equal to "data" */
     parse_field(struct wav_chunk, size, wchunk, 4); /* == NumSamples * NumChannels * BitsPerSample / 8 (number of bytes in data) */
     wchunk.data = begin + 8;
