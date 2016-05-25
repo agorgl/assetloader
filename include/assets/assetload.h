@@ -31,8 +31,16 @@
 #ifndef _ASSET_LOAD_H_
 #define _ASSET_LOAD_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "image/imageload.h"
 #include "sound/soundload.h"
 #include "error.h"
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // ! _ASSET_LOAD_H
