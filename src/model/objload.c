@@ -203,7 +203,7 @@ static struct mesh* mesh_from_parser_state(struct parser_state* ps)
                 int32_t pos_index = vi[0];
                 if (pos_index != 0) {
                     pos_index = pos_index > 0 ? pos_index - 1 : (int32_t)(ps->positions.size + pos_index);
-                    memcpy(v->position, vector_at(&ps->positions, + pos_index), 3 * sizeof(float));
+                    memcpy(v->position, vector_at(&ps->positions, pos_index), 3 * sizeof(float));
                 }
 
                 /* Store texture data */
