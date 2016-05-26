@@ -32,7 +32,7 @@ static void parse_face_triple(const char* token, size_t token_sz, int32_t* tripl
         while (*wend != '/' && wend < tok_end)
             ++wend;
         /* Parse integer */
-        if (wend - cur > 1)
+        if (wend - cur > 0)
             *(triple + i) = parse_int(cur, wend - cur);
         /* Advance current ptr */
         cur = wend + 1;
