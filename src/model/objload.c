@@ -202,21 +202,21 @@ static struct mesh* mesh_from_parser_state(struct parser_state* ps)
                 /* Store position data */
                 int32_t pos_index = vi[0];
                 if (pos_index != 0) {
-                    pos_index = pos_index > 0 ? pos_index + 1 : (int)(ps->positions.size + pos_index);
+                    pos_index = pos_index > 0 ? pos_index - 1 : (int32_t)(ps->positions.size + pos_index);
                     memcpy(v->position, vector_at(&ps->positions, + pos_index), 3 * sizeof(float));
                 }
 
                 /* Store texture data */
                 int32_t tex_index = vi[1];
                 if (tex_index != 0) {
-                    tex_index = tex_index > 0 ? tex_index + 1 : (int)(ps->texcoords.size + tex_index);
+                    tex_index = tex_index > 0 ? tex_index - 1 : (int32_t)(ps->texcoords.size + tex_index);
                     memcpy(v->uvs, vector_at(&ps->texcoords, tex_index), 2 * sizeof(float));
                 }
 
                 /* Store normal data */
                 int32_t nm_index = vi[2];
                 if (nm_index != 0) {
-                    nm_index = nm_index > 0 ? nm_index + 1 : (int)(ps->normals.size + nm_index);
+                    nm_index = nm_index > 0 ? nm_index - 1 : (int32_t)(ps->normals.size + nm_index);
                     memcpy(v->normal, vector_at(&ps->normals, nm_index), 3 * sizeof(float));
                 }
 
