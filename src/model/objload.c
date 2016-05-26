@@ -13,20 +13,20 @@ static float parse_float(const char* token, size_t token_sz)
 }
 
 /* Token is not null terminated with token_sz being the token length */
-static float parse_int(const char* token, size_t token_sz)
+static int32_t parse_int(const char* token, size_t token_sz)
 {
     (void) token_sz; /* TODO: Use functions with bound checking */
     return atoi(token);
 }
 
 /* Parses: i, i/j/k, i//k, i/j */
-static void parse_face_triple(const char* token, size_t token_sz, int* triple)
+static void parse_face_triple(const char* token, size_t token_sz, int32_t* triple)
 {
     const char* tok_end = token + token_sz;
     const char* cur = token;
     const char* wend = token;
 
-    for (int i = 0; i < 3; ++i) {
+    for (int32_t i = 0; i < 3; ++i) {
         wend = cur;
         /* Advance word end operator */
         while (*wend != '/' && wend < tok_end)
@@ -137,7 +137,7 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
          * Negative reference numbers for v can be used
          */
         ++cur;
-        int f[9];
+        int32_t f[9];
         memset(f, 0, sizeof(f));
         for (int i = 0; i < 3; ++i) {
             /* Skip whitespace to next word */
@@ -159,13 +159,13 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
 
 size_t indice_hash(void* key)
 {
-    int* k = (int*) key;
+    int32_t* k = (int32_t*) key;
     return (size_t) k[0] ^ k[1] ^ k[2];
 }
 
 int indice_eql(void* k1, void* k2)
 {
-    return memcmp(k1, k2, 3 * sizeof(int)) == 0; /* Compare obj vertex index triplets */
+    return memcmp(k1, k2, 3 * sizeof(int32_t)) == 0; /* Compare obj vertex index triplets */
 }
 
 static struct mesh* mesh_from_parser_state(struct parser_state* ps)
@@ -187,7 +187,7 @@ static struct mesh* mesh_from_parser_state(struct parser_state* ps)
         /* Iterate as a triangle face */
         for (size_t j = 0; j < 3; ++j) {
             /* Vertex indices */
-            int* vi = (int*)vector_at(&ps->faces, i) + 3 * j;
+            int32_t* vi = (int32_t*)vector_at(&ps->faces, i) + 3 * j;
 
             /* Check if current triple has already been stored */
             void* indice = hashmap_get(&stored_vertices, vi);
@@ -200,21 +200,21 @@ static struct mesh* mesh_from_parser_state(struct parser_state* ps)
                 struct vertex* v = mesh->vertices + mesh->num_verts - 1;
 
                 /* Store position data */
-                int pos_index = vi[0];
+                int32_t pos_index = vi[0];
                 if (pos_index != 0) {
                     pos_index = pos_index > 0 ? pos_index + 1 : (int)(ps->positions.size + pos_index);
                     memcpy(v->position, vector_at(&ps->positions, + pos_index), 3 * sizeof(float));
                 }
 
                 /* Store texture data */
-                int tex_index = vi[1];
+                int32_t tex_index = vi[1];
                 if (tex_index != 0) {
                     tex_index = tex_index > 0 ? tex_index + 1 : (int)(ps->texcoords.size + tex_index);
                     memcpy(v->uvs, vector_at(&ps->texcoords, tex_index), 2 * sizeof(float));
                 }
 
                 /* Store normal data */
-                int nm_index = vi[2];
+                int32_t nm_index = vi[2];
                 if (nm_index != 0) {
                     nm_index = nm_index > 0 ? nm_index + 1 : (int)(ps->normals.size + nm_index);
                     memcpy(v->normal, vector_at(&ps->normals, nm_index), 3 * sizeof(float));
@@ -245,7 +245,7 @@ struct model* model_from_obj(const unsigned char* data, size_t sz)
     vector_init(&ps.positions, 3 * sizeof(float));
     vector_init(&ps.normals, 3 * sizeof(float));
     vector_init(&ps.texcoords, 3 * sizeof(float));
-    vector_init(&ps.faces, 9 * sizeof(int));
+    vector_init(&ps.faces, 9 * sizeof(int32_t));
 
     /* Read line by line */
     while (cur <= data + sz) {
