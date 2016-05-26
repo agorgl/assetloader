@@ -28,20 +28,38 @@
 /*   ' ') '( (/                                                                                                      */
 /*     '   '  `                                                                                                      */
 /*********************************************************************************************************************/
-#ifndef _ASSET_LOAD_H_
-#define _ASSET_LOAD_H_
+#ifndef _MODEL_H_
+#define _MODEL_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <stdint.h>
 
-#include "image/imageload.h"
-#include "sound/soundload.h"
-#include "model/modelload.h"
-#include "error.h"
+/* Vertex */
+struct vertex {
+    float position[3];
+    float normal[3];
+    float tangent[3];
+    float binormal[3];
+    float color[4];
+    float uvs[2];
+};
 
-#ifdef __cplusplus
-}
-#endif
+/* Mesh */
+struct mesh {
+    int num_verts;
+    int num_indices;
+    struct vertex* vertices;
+    uint32_t* indices;
+};
 
-#endif // ! _ASSET_LOAD_H
+struct model {
+    int num_meshes;
+    struct mesh** meshes;
+};
+
+struct model* model_new();
+void model_delete(struct model*);
+
+struct mesh* mesh_new();
+void mesh_delete(struct mesh*);
+
+#endif /* ! _MODEL_H_ */

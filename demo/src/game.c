@@ -5,6 +5,7 @@
 #include "shader.h"
 #include "static_data.h"
 #include "linalgb.h"
+#include <stdio.h>
 #include <assets/assetload.h>
 
 static void on_key(struct window* wnd, int key, int scancode, int action, int mods)
@@ -15,6 +16,82 @@ static void on_key(struct window* wnd, int key, int scancode, int action, int mo
         *(ctx->should_terminate) = 1;
 }
 
+/*
+static void upload_cube_static_data(struct game_context* ctx)
+{
+    glGenVertexArrays(1, &ctx->vao);
+    glBindVertexArray(ctx->vao);
+
+    glGenBuffers(1, &ctx->vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, ctx->vbo);
+    glBufferData(GL_ARRAY_BUFFER,
+                 144 * sizeof(GLfloat),
+                 CUBE_VERTEX_DATA,
+                 GL_STATIC_DRAW);
+    GLuint pos_attrib = 0;
+    glEnableVertexAttribArray(pos_attrib);
+    glVertexAttribPointer(pos_attrib, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
+    glGenBuffers(1, &ctx->uvs);
+    glBindBuffer(GL_ARRAY_BUFFER, ctx->uvs);
+    glBufferData(GL_ARRAY_BUFFER,
+                 96 * sizeof(GLfloat),
+                 CUBE_UVS,
+                 GL_STATIC_DRAW);
+    GLuint uv_attrib = 1;
+    glEnableVertexAttribArray(uv_attrib);
+    glVertexAttribPointer(uv_attrib, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
+    glGenBuffers(1, &ctx->ebo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 36 * sizeof(GLuint),
+                 CUBE_ELEM_DATA,
+                 GL_STATIC_DRAW);
+    ctx->indice_count = 36;
+}
+*/
+
+static void upload_cube_file_data(struct game_context* ctx)
+{
+    /* Parse obj */
+    struct model* m = model_from_file("ext/cube.obj");
+    struct mesh* mesh = m->meshes[0];
+    printf("Num vertices: %d\n", m->meshes[0]->num_verts);
+    printf("Num indices: %d\n", m->meshes[0]->num_indices);
+
+    /* Create vao */
+    glGenVertexArrays(1, &ctx->vao);
+    glBindVertexArray(ctx->vao);
+
+    /* Create vertex data vbo */
+    glGenBuffers(1, &ctx->vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, ctx->vbo);
+    glBufferData(GL_ARRAY_BUFFER,
+                 mesh->num_verts * sizeof(struct vertex),
+                 mesh->vertices,
+                 GL_STATIC_DRAW);
+
+    GLuint pos_attrib = 0;
+    glEnableVertexAttribArray(pos_attrib);
+    glVertexAttribPointer(pos_attrib, 3, GL_FLOAT, GL_FALSE, sizeof(struct vertex), (GLvoid*)offsetof(struct vertex, position));
+    GLuint uv_attrib = 1;
+    glEnableVertexAttribArray(uv_attrib);
+    glVertexAttribPointer(uv_attrib, 2, GL_FLOAT, GL_FALSE, sizeof(struct vertex), (GLvoid*)offsetof(struct vertex, uvs));
+
+    /* Create indice ebo */
+    glGenBuffers(1, &ctx->ebo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 mesh->num_indices * sizeof(GLuint),
+                 mesh->indices,
+                 GL_STATIC_DRAW);
+    ctx->indice_count = mesh->num_indices;
+
+    /* Free model data */
+    model_delete(m);
+}
+
 void init(struct game_context* ctx)
 {
     /* Create window */
@@ -22,7 +99,7 @@ void init(struct game_context* ctx)
     int width = 800, height = 600, mode = 0;
     ctx->wnd = create_window(title, width, height, mode);
 
-    /* Assosiate context to be accessed from callback functions */
+    /* Associate context to be accessed from callback functions */
     set_userdata(ctx->wnd, ctx);
 
     /* Set event callbacks */
@@ -34,42 +111,8 @@ void init(struct game_context* ctx)
     /* Initialize game state data */
     ctx->rotation = 0.0f;
 
-    /*
-     * Setup GPU data
-     *-------------------------------*/
-    /* Create vao */
-    glGenVertexArrays(1, &ctx->vao);
-    glBindVertexArray(ctx->vao);
-
-    /* Create vertex data vbo */
-    glGenBuffers(1, &ctx->vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, ctx->vbo);
-    glBufferData(GL_ARRAY_BUFFER,
-                 144 * sizeof(GLfloat),
-                 CUBE_VERTEX_DATA,
-                 GL_STATIC_DRAW);
-    GLuint pos_attrib = 0;
-    glEnableVertexAttribArray(pos_attrib);
-    glVertexAttribPointer(pos_attrib, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-
-    /* Create uv data vbo */
-    glGenBuffers(1, &ctx->uvs);
-    glBindBuffer(GL_ARRAY_BUFFER, ctx->uvs);
-    glBufferData(GL_ARRAY_BUFFER,
-                 96 * sizeof(GLfloat),
-                 CUBE_UVS,
-                 GL_STATIC_DRAW);
-    GLuint uv_attrib = 1;
-    glEnableVertexAttribArray(uv_attrib);
-    glVertexAttribPointer(uv_attrib, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-
-    /* Create indice ebo */
-    glGenBuffers(1, &ctx->ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                 36 * sizeof(GLuint),
-                 CUBE_ELEM_DATA,
-                 GL_STATIC_DRAW);
+    //upload_cube_static_data(ctx);
+    upload_cube_file_data(ctx);
 
     /* Load shaders */
     ctx->vs = glCreateShader(GL_VERTEX_SHADER);
@@ -142,6 +185,7 @@ void render(void* userdata, float interpolation)
     /* Create MVP matrix */
     float rotation_interpolated = ctx->rotation + (ctx->rotation - ctx->rotation_prev) * interpolation;
     mat4 model = mat4_rotation_euler(0.0f, rotation_interpolated, 0.0f);
+    //mat4 model = mat4_mul_mat4(mat4_rotation_euler(0.0f, rotation_interpolated, 0.0f), mat4_scale(vec3_new(0.3f, 0.3f, 0.3f)));
     mat4 view = mat4_view_look_at(
         vec3_new(0.6f, 1.0f, 2.0f),
         vec3_zero(),
@@ -163,7 +207,7 @@ void render(void* userdata, float interpolation)
     glBindVertexArray(ctx->vao);
     glBindBuffer(GL_ARRAY_BUFFER, ctx->vbo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->ebo);
-    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, (void*)0);
+    glDrawElements(GL_TRIANGLES, ctx->indice_count, GL_UNSIGNED_INT, (void*)0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);

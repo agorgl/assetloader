@@ -50,7 +50,8 @@ int main(int argc, char* argv[])
     init(&ctx);
 
     /* Setup mainloop parameters */
-    struct mainloop_data mld = {};
+    struct mainloop_data mld;
+    memset(&mld, 0, sizeof(struct mainloop_data));
     mld.max_frameskip = 5;
     mld.updates_per_second = 60;
     mld.update_callback = update;

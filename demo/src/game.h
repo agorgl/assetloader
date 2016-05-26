@@ -38,7 +38,7 @@ struct game_context
     /* Master run flag, indicates when the game should exit */
     int* should_terminate;
     /* GPU data */
-    unsigned int vao, vbo, uvs, ebo;
+    unsigned int vao, vbo, uvs, ebo, indice_count;
     unsigned int vs, fs, prog;
     unsigned int diff_tex;
     /* Game state data */

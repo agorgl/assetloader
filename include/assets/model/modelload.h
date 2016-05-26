@@ -28,20 +28,16 @@
 /*   ' ') '( (/                                                                                                      */
 /*     '   '  `                                                                                                      */
 /*********************************************************************************************************************/
-#ifndef _ASSET_LOAD_H_
-#define _ASSET_LOAD_H_
+#ifndef _MODELLOAD_H_
+#define _MODELLOAD_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "model.h"
 
-#include "image/imageload.h"
-#include "sound/soundload.h"
-#include "model/modelload.h"
-#include "error.h"
+/* Public API functions */
+struct model* model_from_mem_buf(const unsigned char* data, size_t sz, const char* hint);
+struct model* model_from_file(const char* fpath);
 
-#ifdef __cplusplus
-}
-#endif
+/* Internal loaders */
+struct model* model_from_obj(const unsigned char* data, size_t sz);
 
-#endif // ! _ASSET_LOAD_H
+#endif /* ! _MODELLOAD_H_ */
