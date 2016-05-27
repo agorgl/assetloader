@@ -4,7 +4,7 @@
 #include <glad/glad.h>
 #include "shader.h"
 #include "static_data.h"
-#include "linalgb.h"
+#include <linalgb.h>
 #include <stdio.h>
 #include <assets/assetload.h>
 

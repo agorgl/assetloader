@@ -345,12 +345,10 @@ vec2 vec2_from_string(char* s)
 
 bool vec2_equ(vec2 v1, vec2 v2)
 {
-    if (!(v1.x == v2.x)) {
+    if (!(v1.x == v2.x))
         return false;
-    }
-    if (!(v1.y == v2.y)) {
+    if (!(v1.y == v2.y))
         return false;
-    }
     return true;
 }
 
@@ -615,8 +613,8 @@ float vec3_length(vec3 v)
 float vec3_dist_sqrd(vec3 v1, vec3 v2)
 {
     return (v1.x - v2.x) * (v1.x - v2.x) +
-        (v1.y - v2.y) * (v1.y - v2.y) +
-        (v1.z - v2.z) * (v1.z - v2.z);
+           (v1.y - v2.y) * (v1.y - v2.y) +
+           (v1.z - v2.z) * (v1.z - v2.z);
 }
 
 float vec3_dist(vec3 v1, vec3 v2)
@@ -632,11 +630,10 @@ float vec3_dist_manhattan(vec3 v1, vec3 v2)
 vec3 vec3_normalize(vec3 v)
 {
     float len = vec3_length(v);
-    if (len == 0.0) {
+    if (len == 0.0)
         return vec3_zero();
-    } else {
+    else
         return vec3_div(v, len);
-    }
 }
 
 vec3 vec3_reflect(vec3 v1, vec3 v2)
@@ -667,29 +664,23 @@ vec3 vec3_from_string(char* s)
 
 bool vec3_equ(vec3 v1, vec3 v2)
 {
-    if (v1.x != v2.x) {
+    if (v1.x != v2.x)
         return false;
-    }
-    if (v1.y != v2.y) {
+    if (v1.y != v2.y)
         return false;
-    }
-    if (v1.z != v2.z) {
+    if (v1.z != v2.z)
         return false;
-    }
     return true;
 }
 
 bool vec3_neq(vec3 v1, vec3 v2)
 {
-    if (v1.x != v2.x) {
+    if (v1.x != v2.x)
         return true;
-    }
-    if (v1.y != v2.y) {
+    if (v1.y != v2.y)
         return true;
-    }
-    if (v1.z != v2.z) {
+    if (v1.z != v2.z)
         return true;
-    }
     return false;
 }
 
@@ -931,9 +922,9 @@ float vec4_length(vec4 v)
 float vec4_dist_sqrd(vec4 v1, vec4 v2)
 {
     return (v1.x - v2.x) * (v1.x - v2.x) +
-        (v1.y - v2.y) * (v1.y - v2.y) +
-        (v1.y - v2.z) * (v1.y - v2.z) +
-        (v1.y - v2.w) * (v1.y - v2.w);
+           (v1.y - v2.y) * (v1.y - v2.y) +
+           (v1.y - v2.z) * (v1.y - v2.z) +
+           (v1.y - v2.w) * (v1.y - v2.w);
 }
 
 float vec4_dist(vec4 v1, vec4 v2)
@@ -949,11 +940,10 @@ float vec4_dist_manhattan(vec4 v1, vec4 v2)
 vec4 vec4_normalize(vec4 v)
 {
     float len = vec4_length(v);
-    if (len == 0.0) {
+    if (len == 0.0)
         return vec4_zero();
-    } else {
+    else
         return vec4_div(v, len);
-    }
 }
 
 vec4 vec4_reflect(vec4 v1, vec4 v2)
@@ -999,18 +989,14 @@ vec4 vec4_min(vec4 v1, vec4 v2)
 
 bool vec4_equ(vec4 v1, vec4 v2)
 {
-    if (!(v1.x == v2.x)) {
+    if (!(v1.x == v2.x))
         return false;
-    }
-    if (!(v1.y == v2.y)) {
+    if (!(v1.y == v2.y))
         return false;
-    }
-    if (!(v1.z == v2.z)) {
+    if (!(v1.z == v2.z))
         return false;
-    }
-    if (!(v1.w == v2.w)) {
+    if (!(v1.w == v2.w))
         return false;
-    }
     return true;
 }
 
@@ -1039,7 +1025,6 @@ vec4 vec4_saturate(vec4 v)
     v.y = saturate(v.y);
     v.z = saturate(v.z);
     v.w = saturate(v.w);
-
     return v;
 }
 
@@ -1678,7 +1663,7 @@ mat3 mat3_transpose(mat3 m)
 float mat3_det(mat3 m)
 {
     return (m.xx * m.yy * m.zz) + (m.xy * m.yz * m.zx) + (m.xz * m.yx * m.zy) -
-        (m.xz * m.yy * m.zx) - (m.xy * m.yx * m.zz) - (m.xx * m.yz * m.zy);
+           (m.xz * m.yy * m.zx) - (m.xy * m.yx * m.zz) - (m.xx * m.yz * m.zy);
 }
 
 mat3 mat3_inverse(mat3 m)
@@ -2467,9 +2452,8 @@ bool point_swept_inside_plane(vec3 point, vec3 v, plane p)
     float angle = vec3_dot(p.direction, v);
     float dist = vec3_dot(p.direction, vec3_sub(point, p.position));
 
-    if (-dist <= 0.0) {
+    if (-dist <= 0.0)
         return false;
-    }
 
     return !between_or(-dist / angle, 0, 1);
 }
@@ -2479,9 +2463,8 @@ bool point_swept_outside_plane(vec3 point, vec3 v, plane p)
     float angle = vec3_dot(p.direction, v);
     float dist = vec3_dot(p.direction, vec3_sub(point, p.position));
 
-    if (dist <= 0.0) {
+    if (dist <= 0.0)
         return false;
-    }
 
     return !between_or(-dist / angle, 0, 1);
 }
@@ -2491,9 +2474,8 @@ bool point_swept_intersects_plane(vec3 point, vec3 v, plane p)
     float angle = vec3_dot(p.direction, v);
     float dist = vec3_dot(p.direction, vec3_sub(point, p.position));
 
-    if (dist == 0.0) {
+    if (dist == 0.0)
         return true;
-    }
 
     return between_or(-dist / angle, 0, 1);
 }
@@ -2556,24 +2538,18 @@ box box_invert_height(box b)
 
 bool point_inside_box(vec3 point, box b)
 {
-    if (!point_inside_plane(point, b.top)) {
+    if (!point_inside_plane(point, b.top))
         return false;
-    }
-    if (!point_inside_plane(point, b.bottom)) {
+    if (!point_inside_plane(point, b.bottom))
         return false;
-    }
-    if (!point_inside_plane(point, b.left)) {
+    if (!point_inside_plane(point, b.left))
         return false;
-    }
-    if (!point_inside_plane(point, b.right)) {
+    if (!point_inside_plane(point, b.right))
         return false;
-    }
-    if (!point_inside_plane(point, b.front)) {
+    if (!point_inside_plane(point, b.front))
         return false;
-    }
-    if (!point_inside_plane(point, b.back)) {
+    if (!point_inside_plane(point, b.back))
         return false;
-    }
     return true;
 }
 
@@ -2874,7 +2850,6 @@ sphere sphere_of_frustum(frustum f)
     s.radius = max(s.radius, vec3_dist(s.center, f.fbr));
     s.radius = max(s.radius, vec3_dist(s.center, f.nbl));
     s.radius = max(s.radius, vec3_dist(s.center, f.fbl));
-
     return s;
 }
 
@@ -2895,32 +2870,25 @@ sphere sphere_merge(sphere bs1, sphere bs2)
 sphere sphere_merge_many(sphere* s, int count)
 {
     sphere ret = s[0];
-    for (int i = 1; i < count; i++) {
+    for (int i = 1; i < count; i++)
         ret = sphere_merge(ret, s[i]);
-    }
     return ret;
 }
 
 bool sphere_inside_box(sphere s, box b)
 {
-    if (!sphere_inside_plane(s, b.front)) {
+    if (!sphere_inside_plane(s, b.front))
         return false;
-    }
-    if (!sphere_inside_plane(s, b.back)) {
+    if (!sphere_inside_plane(s, b.back))
         return false;
-    }
-    if (!sphere_inside_plane(s, b.top)) {
+    if (!sphere_inside_plane(s, b.top))
         return false;
-    }
-    if (!sphere_inside_plane(s, b.bottom)) {
+    if (!sphere_inside_plane(s, b.bottom))
         return false;
-    }
-    if (!sphere_inside_plane(s, b.left)) {
+    if (!sphere_inside_plane(s, b.left))
         return false;
-    }
-    if (!sphere_inside_plane(s, b.right)) {
+    if (!sphere_inside_plane(s, b.right))
         return false;
-    }
     return true;
 }
 
@@ -2975,7 +2943,6 @@ sphere sphere_transform(sphere s, mat4 world)
 {
     vec3 center = mat4_mul_vec3(world, s.center);
     float radius = s.radius * max(max(world.xx, world.yy), world.zz);
-
     return sphere_new(center, radius);
 }
 
@@ -3048,9 +3015,8 @@ bool sphere_swept_inside_plane(sphere s, vec3 v, plane p)
     float angle = vec3_dot(p.direction, v);
     float dist = vec3_dot(p.direction, vec3_sub(s.center, p.position));
 
-    if (-dist <= s.radius) {
+    if (-dist <= s.radius)
         return false;
-    }
 
     float t0 = (s.radius - dist) / angle;
     float t1 = (-s.radius - dist) / angle;
@@ -3063,9 +3029,8 @@ bool sphere_swept_outside_plane(sphere s, vec3 v, plane p)
     float angle = vec3_dot(p.direction, v);
     float dist = vec3_dot(p.direction, vec3_sub(s.center, p.position));
 
-    if (dist <= s.radius) {
+    if (dist <= s.radius)
         return false;
-    }
 
     float t0 = (s.radius - dist) / angle;
     float t1 = (-s.radius - dist) / angle;
@@ -3078,9 +3043,8 @@ bool sphere_swept_intersects_plane(sphere s, vec3 v, plane p)
     float angle = vec3_dot(p.direction, v);
     float dist = vec3_dot(p.direction, vec3_sub(s.center, p.position));
 
-    if (fabs(dist) <= s.radius) {
+    if (fabs(dist) <= s.radius)
         return true;
-    }
 
     float t0 = (s.radius - dist) / angle;
     float t1 = (-s.radius - dist) / angle;
@@ -3121,9 +3085,8 @@ bool point_swept_outside_sphere(sphere s, vec3 v, vec3 point)
 {
     float sdist = vec3_dist_sqrd(point, s.center);
 
-    if (sdist <= s.radius * s.radius) {
+    if (sdist <= s.radius * s.radius)
         return false;
-    }
 
     vec3 o = vec3_sub(point, s.center);
     float A = vec3_dot(v, v);
@@ -3132,9 +3095,8 @@ bool point_swept_outside_sphere(sphere s, vec3 v, vec3 point)
 
     float t0, t1, t;
     (void)t;
-    if (!quadratic(A, B, C, &t0, &t1)) {
+    if (!quadratic(A, B, C, &t0, &t1))
         return true;
-    }
 
     return (!between_or(t0, 0, 1) && !between_or(t1, 0, 1));
 }
@@ -3155,9 +3117,8 @@ bool sphere_swept_outside_sphere(sphere s1, vec3 v, sphere s2)
     float sdist = vec3_dist_sqrd(s1.center, s2.center);
     float rtot = s1.radius + s2.radius;
 
-    if (sdist <= rtot * rtot) {
+    if (sdist <= rtot * rtot)
         return false;
-    }
 
     vec3 o = vec3_sub(s1.center, s2.center);
     float A = vec3_dot(v, v);
@@ -3166,9 +3127,8 @@ bool sphere_swept_outside_sphere(sphere s1, vec3 v, sphere s2)
 
     float t0, t1, t;
     (void)t;
-    if (!quadratic(A, B, C, &t0, &t1)) {
+    if (!quadratic(A, B, C, &t0, &t1))
         return true;
-    }
 
     return (!between_or(t0, 0, 1) && !between_or(t1, 0, 1));
 }
@@ -3216,9 +3176,8 @@ bool point_inside_triangle(vec3 p, vec3 v0, vec3 v1, vec3 v2)
 
 bool sphere_intersects_face(sphere s, vec3 v0, vec3 v1, vec3 v2, vec3 norm)
 {
-    if (!sphere_intersects_plane(s, plane_new(v0, norm))) {
+    if (!sphere_intersects_plane(s, plane_new(v0, norm)))
         return false;
-    }
     vec3 c = plane_closest(plane_new(v0, norm), s.center);
     return point_inside_triangle(c, v0, v1, v2);
 }
