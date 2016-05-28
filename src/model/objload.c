@@ -146,7 +146,12 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
             /* Check if eol reached */
             if (cur == line_end)
                 break;
-            parse_face_triple((const char*)cur, line_end - cur, f + i * 3);
+            /* Find end of current triple */
+            const unsigned char* tend = cur;
+            while (!isspace(*tend) && tend < line_end)
+                ++tend;
+            /* Parse the triple */
+            parse_face_triple((const char*)cur, tend - cur, f + i * 3);
             /* Skip parsed word */
             while (!isspace(*cur) && cur < line_end)
                 ++cur;
