@@ -49,11 +49,13 @@ struct mesh {
     int num_indices;
     struct vertex* vertices;
     uint32_t* indices;
+    int mat_index;
 };
 
 struct model {
     int num_meshes;
     struct mesh** meshes;
+    int num_materials;
 };
 
 struct model* model_new();

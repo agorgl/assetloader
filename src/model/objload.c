@@ -64,6 +64,8 @@ struct parser_state {
     struct vector normals;   /* Array of mesh normals */
     struct vector texcoords; /* Array of mesh texture coordinates */
     struct vector faces;     /* Array of face indice triplets */
+    struct hashmap found_materials; /* Hashmap of already found materials */
+    int cur_mat_idx; /* Current material index set to meshes when being flushed */
 };
 
 static size_t indice_hash(void* key)
@@ -137,6 +139,7 @@ static struct mesh* mesh_from_parser_state(struct parser_state* ps)
         }
     }
     hashmap_destroy(&stored_vertices);
+    mesh->mat_index = ps->cur_mat_idx;
     return mesh;
 }
 
@@ -146,9 +149,31 @@ static void flush_mesh(struct parser_state* ps, struct model* m)
     m->num_meshes++;
     m->meshes = realloc(m->meshes, m->num_meshes * sizeof(struct mesh*));
     m->meshes[m->num_meshes - 1] = mesh_from_parser_state(ps);
+
     /* Clear gathered faces */
     vector_destroy(&ps->faces);
     vector_init(&ps->faces, 9 * sizeof(int32_t));
+}
+
+static size_t found_materials_hash(void* key)
+{
+    const char* str = key;
+    unsigned long hash = 5381;
+    int c;
+    while ((c = *str++))
+        hash = (hash * 33 + c);
+    return hash;
+}
+
+static int found_materials_eql(void* k1, void* k2)
+{
+    return strcmp((const char*)k1, (const char*)k2) == 0;
+}
+
+static void found_materials_iter(void* key, void* value)
+{
+    (void) value;
+    free(key);
 }
 
 /* line is null terminated buffer and line_sz is the buffer length with the null terminator */
@@ -247,6 +272,36 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
     } else if (strncmp("o", (const char*) cur, next_word_sz) == 0) {
         if (ps->faces.size > 0)
             flush_mesh(ps, m);
+    } else if (strncmp("g", (const char*) cur, next_word_sz) == 0) {
+        if (ps->faces.size > 0)
+            flush_mesh(ps, m);
+    } else if (strncmp("usemtl", (const char*) cur, next_word_sz) == 0) {
+        /* Flush, as a new material is comming into use */
+        if (ps->faces.size > 0)
+            flush_mesh(ps, m);
+        /* Skip space after keyword */
+        cur += 6;
+        /* Skip whitespace to next word */
+        while (isspace(*cur) && cur < line_end)
+            ++cur;
+        /* Find the end of the material name */
+        const unsigned char* wend = cur;
+        while (!isspace(*wend) && wend < line_end)
+            ++wend;
+        /* Copy material name to new buffer */
+        char* material = calloc(wend - cur + 1, sizeof(char));
+        memcpy(material, cur, (wend - cur) * sizeof(char));
+        /* Check if material is already found */
+        void* fmat = hashmap_get(&ps->found_materials, material);
+        if (fmat) {
+            free(material);
+            ps->cur_mat_idx = *(int*)fmat;
+        }
+        else {
+            ++m->num_materials;
+            ps->cur_mat_idx = m->num_materials - 1;
+            hashmap_put(&ps->found_materials, material, (void*)(m->num_materials - 1));
+        }
     }
 }
 
@@ -260,11 +315,13 @@ struct model* model_from_obj(const unsigned char* data, size_t sz)
     /* Create initial parsing state object */
     struct parser_state ps;
     memset(&ps, 0, sizeof(struct parser_state));
+
     /* Initialize parser state vectors */
     vector_init(&ps.positions, 3 * sizeof(float));
     vector_init(&ps.normals, 3 * sizeof(float));
     vector_init(&ps.texcoords, 3 * sizeof(float));
     vector_init(&ps.faces, 9 * sizeof(int32_t));
+    hashmap_init(&ps.found_materials, found_materials_hash, found_materials_eql);
 
     /* Read line by line */
     while (cur <= data + sz) {
@@ -288,33 +345,9 @@ struct model* model_from_obj(const unsigned char* data, size_t sz)
     /* Flush final mesh */
     flush_mesh(&ps, m);
 
-    /*
-    for (int i = 0; i < m->meshes[0]->num_verts; ++i) {
-        float* vvv = m->meshes[0]->vertices[i].position;
-        printf("%.1f %.1f %.1f\n", vvv[0], vvv[1], vvv[2]);
-    }
-    for (int i = 0; i < m->meshes[0]->num_indices; ++i) {
-        uint32_t ind = m->meshes[0]->indices[i];
-        printf("%d\n", ind);
-    }
-
-    for (size_t i = 0; i < ps.positions.size; ++i) {
-        float* vvv = vector_at(&ps.positions, i);
-        printf("Position: %.1f %.1f %.1f\n", vvv[0], vvv[1], vvv[2]);
-    }
-    for (size_t i = 0; i < ps.normals.size; ++i) {
-        float* vn = vector_at(&ps.normals, i);
-        printf("Normal: %.1f %.1f %.1f\n", vn[0], vn[1], vn[2]);
-    }
-    for (size_t i = 0; i < ps.texcoords.size; ++i) {
-        float* vt = vector_at(&ps.texcoords, i);
-        printf("Texcoord: %.1f %.1f %.1f\n", vt[0], vt[1], vt[2]);
-    }
-    printf("Num vertices: %d\n", m->meshes[0]->num_verts);
-    printf("Num indices: %d\n", m->meshes[0]->num_indices);
-    */
-
     /* Deallocate parser state arrays */
+    hashmap_iter(&ps.found_materials, found_materials_iter);
+    hashmap_destroy(&ps.found_materials);
     vector_destroy(&ps.positions);
     vector_destroy(&ps.normals);
     vector_destroy(&ps.texcoords);

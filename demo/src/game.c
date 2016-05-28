@@ -22,6 +22,7 @@ static void upload_model_geom_data(struct game_context* ctx)
     /* Parse obj */
     struct model* m = model_from_file("ext/cube.obj");
     printf("Num meshes: %d\n", m->num_meshes);
+    printf("Num materials: %d\n", m->num_materials);
 
     /* Allocate handle memory */
     ctx->model.num_meshes = m->num_meshes;
@@ -32,6 +33,7 @@ static void upload_model_geom_data(struct game_context* ctx)
     for (unsigned int i = 0; i < ctx->model.num_meshes; ++i) {
         struct mesh* mesh = m->meshes[i];
         struct mesh_handle* mh = ctx->model.meshes + i;
+        printf("Using material: %d\n", mesh->mat_index);
 
         /* Create vao */
         glGenVertexArrays(1, &mh->vao);
