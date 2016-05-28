@@ -66,6 +66,91 @@ struct parser_state {
     struct vector faces;     /* Array of face indice triplets */
 };
 
+static size_t indice_hash(void* key)
+{
+    int32_t* k = (int32_t*) key;
+    return (size_t) k[0] ^ k[1] ^ k[2];
+}
+
+static int indice_eql(void* k1, void* k2)
+{
+    return memcmp(k1, k2, 3 * sizeof(int32_t)) == 0; /* Compare obj vertex index triplets */
+}
+
+static struct mesh* mesh_from_parser_state(struct parser_state* ps)
+{
+    /* Create mesh */
+    struct mesh* mesh = mesh_new();
+    mesh->num_verts = 0;
+    mesh->num_indices = 0;
+    /* Allocate top limit */
+    mesh->vertices = realloc(mesh->vertices, ps->faces.size * 3 * sizeof(struct vertex));
+    mesh->indices = realloc(mesh->indices, ps->faces.size * 3 * sizeof(uint32_t));
+
+    /* Used to find and reuse indices of already stored vertices */
+    struct hashmap stored_vertices;
+    hashmap_init(&stored_vertices, indice_hash, indice_eql);
+
+    /* Iterate through triples */
+    for (size_t i = 0; i < ps->faces.size; ++i) {
+        /* Iterate as a triangle face */
+        for (size_t j = 0; j < 3; ++j) {
+            /* Vertex indices */
+            int32_t* vi = (int32_t*)vector_at(&ps->faces, i) + 3 * j;
+
+            /* Check if current triple has already been stored */
+            void* indice = hashmap_get(&stored_vertices, vi);
+            ++mesh->num_indices;
+            if (indice) {
+                mesh->indices[mesh->num_indices - 1] = *((uint32_t*)indice);
+            } else {
+                ++mesh->num_verts;
+                /* Current working vertex */
+                struct vertex* v = mesh->vertices + mesh->num_verts - 1;
+
+                /* Store position data */
+                int32_t pos_index = vi[0];
+                if (pos_index != 0) {
+                    pos_index = pos_index > 0 ? pos_index - 1 : (int32_t)(ps->positions.size + pos_index);
+                    memcpy(v->position, vector_at(&ps->positions, pos_index), 3 * sizeof(float));
+                }
+
+                /* Store texture data */
+                int32_t tex_index = vi[1];
+                if (tex_index != 0) {
+                    tex_index = tex_index > 0 ? tex_index - 1 : (int32_t)(ps->texcoords.size + tex_index);
+                    memcpy(v->uvs, vector_at(&ps->texcoords, tex_index), 2 * sizeof(float));
+                }
+
+                /* Store normal data */
+                int32_t nm_index = vi[2];
+                if (nm_index != 0) {
+                    nm_index = nm_index > 0 ? nm_index - 1 : (int32_t)(ps->normals.size + nm_index);
+                    memcpy(v->normal, vector_at(&ps->normals, nm_index), 3 * sizeof(float));
+                }
+
+                /* Store new vertice index into indices array */
+                mesh->indices[mesh->num_indices - 1] = mesh->num_verts - 1;
+                /* Store face triple ptr to lookup table */
+                hashmap_put(&stored_vertices, vi, (void*)(mesh->num_verts - 1));
+            }
+        }
+    }
+    hashmap_destroy(&stored_vertices);
+    return mesh;
+}
+
+static void flush_mesh(struct parser_state* ps, struct model* m)
+{
+    /* Create new mesh entry from parser state */
+    m->num_meshes++;
+    m->meshes = realloc(m->meshes, m->num_meshes * sizeof(struct mesh*));
+    m->meshes[m->num_meshes - 1] = mesh_from_parser_state(ps);
+    /* Clear gathered faces */
+    vector_destroy(&ps->faces);
+    vector_init(&ps->faces, 9 * sizeof(int32_t));
+}
+
 /* line is null terminated buffer and line_sz is the buffer length with the null terminator */
 static void parse_line(struct parser_state* ps, struct model* m, const unsigned char* line, size_t line_sz)
 {
@@ -159,81 +244,10 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
 
         /* Store data */
         vector_append(&ps->faces, f);
+    } else if (strncmp("o", (const char*) cur, next_word_sz) == 0) {
+        if (ps->faces.size > 0)
+            flush_mesh(ps, m);
     }
-}
-
-size_t indice_hash(void* key)
-{
-    int32_t* k = (int32_t*) key;
-    return (size_t) k[0] ^ k[1] ^ k[2];
-}
-
-int indice_eql(void* k1, void* k2)
-{
-    return memcmp(k1, k2, 3 * sizeof(int32_t)) == 0; /* Compare obj vertex index triplets */
-}
-
-static struct mesh* mesh_from_parser_state(struct parser_state* ps)
-{
-    /* Create mesh */
-    struct mesh* mesh = mesh_new();
-    mesh->num_verts = 0;
-    mesh->num_indices = 0;
-    /* Allocate top limit */
-    mesh->vertices = realloc(mesh->vertices, ps->faces.size * 3 * sizeof(struct vertex));
-    mesh->indices = realloc(mesh->indices, ps->faces.size * 3 * sizeof(uint32_t));
-
-    /* Used to find and reuse indices of already stored vertices */
-    struct hashmap stored_vertices;
-    hashmap_init(&stored_vertices, indice_hash, indice_eql);
-
-    /* Iterate through triples */
-    for (size_t i = 0; i < ps->faces.size; ++i) {
-        /* Iterate as a triangle face */
-        for (size_t j = 0; j < 3; ++j) {
-            /* Vertex indices */
-            int32_t* vi = (int32_t*)vector_at(&ps->faces, i) + 3 * j;
-
-            /* Check if current triple has already been stored */
-            void* indice = hashmap_get(&stored_vertices, vi);
-            ++mesh->num_indices;
-            if (indice) {
-                mesh->indices[mesh->num_indices - 1] = *((uint32_t*)indice);
-            } else {
-                ++mesh->num_verts;
-                /* Current working vertex */
-                struct vertex* v = mesh->vertices + mesh->num_verts - 1;
-
-                /* Store position data */
-                int32_t pos_index = vi[0];
-                if (pos_index != 0) {
-                    pos_index = pos_index > 0 ? pos_index - 1 : (int32_t)(ps->positions.size + pos_index);
-                    memcpy(v->position, vector_at(&ps->positions, pos_index), 3 * sizeof(float));
-                }
-
-                /* Store texture data */
-                int32_t tex_index = vi[1];
-                if (tex_index != 0) {
-                    tex_index = tex_index > 0 ? tex_index - 1 : (int32_t)(ps->texcoords.size + tex_index);
-                    memcpy(v->uvs, vector_at(&ps->texcoords, tex_index), 2 * sizeof(float));
-                }
-
-                /* Store normal data */
-                int32_t nm_index = vi[2];
-                if (nm_index != 0) {
-                    nm_index = nm_index > 0 ? nm_index - 1 : (int32_t)(ps->normals.size + nm_index);
-                    memcpy(v->normal, vector_at(&ps->normals, nm_index), 3 * sizeof(float));
-                }
-
-                /* Store new vertice index into indices array */
-                mesh->indices[mesh->num_indices - 1] = mesh->num_verts - 1;
-                /* Store face triple ptr to lookup table */
-                hashmap_put(&stored_vertices, vi, (void*)(mesh->num_verts - 1));
-            }
-        }
-    }
-    hashmap_destroy(&stored_vertices);
-    return mesh;
 }
 
 struct model* model_from_obj(const unsigned char* data, size_t sz)
@@ -271,10 +285,8 @@ struct model* model_from_obj(const unsigned char* data, size_t sz)
         cur = eol + 1;
     }
 
-    /* Create new mesh entry from parser state */
-    m->num_meshes++;
-    m->meshes = realloc(m->meshes, m->num_meshes * sizeof(struct mesh*));
-    m->meshes[0] = mesh_from_parser_state(&ps);
+    /* Flush final mesh */
+    flush_mesh(&ps, m);
 
     /*
     for (int i = 0; i < m->meshes[0]->num_verts; ++i) {
