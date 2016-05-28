@@ -1,4 +1,5 @@
 #include "game.h"
+#include <stdlib.h>
 #include <string.h>
 #include "window.h"
 #include <glad/glad.h>
@@ -16,77 +17,56 @@ static void on_key(struct window* wnd, int key, int scancode, int action, int mo
         *(ctx->should_terminate) = 1;
 }
 
-/*
-static void upload_cube_static_data(struct game_context* ctx)
-{
-    glGenVertexArrays(1, &ctx->vao);
-    glBindVertexArray(ctx->vao);
-
-    glGenBuffers(1, &ctx->vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, ctx->vbo);
-    glBufferData(GL_ARRAY_BUFFER,
-                 144 * sizeof(GLfloat),
-                 CUBE_VERTEX_DATA,
-                 GL_STATIC_DRAW);
-    GLuint pos_attrib = 0;
-    glEnableVertexAttribArray(pos_attrib);
-    glVertexAttribPointer(pos_attrib, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-
-    glGenBuffers(1, &ctx->uvs);
-    glBindBuffer(GL_ARRAY_BUFFER, ctx->uvs);
-    glBufferData(GL_ARRAY_BUFFER,
-                 96 * sizeof(GLfloat),
-                 CUBE_UVS,
-                 GL_STATIC_DRAW);
-    GLuint uv_attrib = 1;
-    glEnableVertexAttribArray(uv_attrib);
-    glVertexAttribPointer(uv_attrib, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-
-    glGenBuffers(1, &ctx->ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                 36 * sizeof(GLuint),
-                 CUBE_ELEM_DATA,
-                 GL_STATIC_DRAW);
-    ctx->indice_count = 36;
-}
-*/
-
-static void upload_cube_file_data(struct game_context* ctx)
+static void upload_model_geom_data(struct game_context* ctx)
 {
     /* Parse obj */
     struct model* m = model_from_file("ext/cube.obj");
-    struct mesh* mesh = m->meshes[0];
-    printf("Num vertices: %d\n", m->meshes[0]->num_verts);
-    printf("Num indices: %d\n", m->meshes[0]->num_indices);
+    printf("Num meshes: %d\n", m->num_meshes);
 
-    /* Create vao */
-    glGenVertexArrays(1, &ctx->vao);
-    glBindVertexArray(ctx->vao);
+    /* Allocate handle memory */
+    ctx->model.num_meshes = m->num_meshes;
+    ctx->model.meshes = malloc(m->num_meshes * sizeof(struct mesh_handle));
 
-    /* Create vertex data vbo */
-    glGenBuffers(1, &ctx->vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, ctx->vbo);
-    glBufferData(GL_ARRAY_BUFFER,
-                 mesh->num_verts * sizeof(struct vertex),
-                 mesh->vertices,
-                 GL_STATIC_DRAW);
+    unsigned int total_verts = 0;
+    unsigned int total_indices = 0;
+    for (unsigned int i = 0; i < ctx->model.num_meshes; ++i) {
+        struct mesh* mesh = m->meshes[i];
+        struct mesh_handle* mh = ctx->model.meshes + i;
 
-    GLuint pos_attrib = 0;
-    glEnableVertexAttribArray(pos_attrib);
-    glVertexAttribPointer(pos_attrib, 3, GL_FLOAT, GL_FALSE, sizeof(struct vertex), (GLvoid*)offsetof(struct vertex, position));
-    GLuint uv_attrib = 1;
-    glEnableVertexAttribArray(uv_attrib);
-    glVertexAttribPointer(uv_attrib, 2, GL_FLOAT, GL_FALSE, sizeof(struct vertex), (GLvoid*)offsetof(struct vertex, uvs));
+        /* Create vao */
+        glGenVertexArrays(1, &mh->vao);
+        glBindVertexArray(mh->vao);
 
-    /* Create indice ebo */
-    glGenBuffers(1, &ctx->ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                 mesh->num_indices * sizeof(GLuint),
-                 mesh->indices,
-                 GL_STATIC_DRAW);
-    ctx->indice_count = mesh->num_indices;
+        /* Create vertex data vbo */
+        glGenBuffers(1, &mh->vbo);
+        glBindBuffer(GL_ARRAY_BUFFER, mh->vbo);
+        glBufferData(GL_ARRAY_BUFFER,
+                mesh->num_verts * sizeof(struct vertex),
+                mesh->vertices,
+                GL_STATIC_DRAW);
+
+        GLuint pos_attrib = 0;
+        glEnableVertexAttribArray(pos_attrib);
+        glVertexAttribPointer(pos_attrib, 3, GL_FLOAT, GL_FALSE, sizeof(struct vertex), (GLvoid*)offsetof(struct vertex, position));
+        GLuint uv_attrib = 1;
+        glEnableVertexAttribArray(uv_attrib);
+        glVertexAttribPointer(uv_attrib, 2, GL_FLOAT, GL_FALSE, sizeof(struct vertex), (GLvoid*)offsetof(struct vertex, uvs));
+
+        /* Create indice ebo */
+        glGenBuffers(1, &mh->ebo);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mh->ebo);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                mesh->num_indices * sizeof(GLuint),
+                mesh->indices,
+                GL_STATIC_DRAW);
+        mh->indice_count = mesh->num_indices;
+        total_verts += mesh->num_verts;
+        total_indices += mesh->num_indices;
+    }
+
+    /* Print some info */
+    printf("Num vertices: %d\n", total_verts);
+    printf("Num indices: %d\n", total_indices);
 
     /* Free model data */
     model_delete(m);
@@ -111,8 +91,8 @@ void init(struct game_context* ctx)
     /* Initialize game state data */
     ctx->rotation = 0.0f;
 
-    //upload_cube_static_data(ctx);
-    upload_cube_file_data(ctx);
+    /* Load geometry data from file into the GPU */
+    upload_model_geom_data(ctx);
 
     /* Load shaders */
     ctx->vs = glCreateShader(GL_VERTEX_SHADER);
@@ -185,7 +165,10 @@ void render(void* userdata, float interpolation)
     /* Create MVP matrix */
     float rotation_interpolated = ctx->rotation + (ctx->rotation - ctx->rotation_prev) * interpolation;
     mat4 model = mat4_rotation_euler(0.0f, rotation_interpolated, 0.0f);
-    //mat4 model = mat4_mul_mat4(mat4_rotation_euler(0.0f, rotation_interpolated, 0.0f), mat4_scale(vec3_new(0.3f, 0.3f, 0.3f)));
+    /*
+    float scale = 0.1;
+    model = mat4_mul_mat4(model, mat4_scale(vec3_new(scale, scale, scale)));
+     */
     mat4 view = mat4_view_look_at(
         vec3_new(0.6f, 1.0f, 2.0f),
         vec3_zero(),
@@ -204,13 +187,18 @@ void render(void* userdata, float interpolation)
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, ctx->diff_tex);
 
-    glBindVertexArray(ctx->vao);
-    glBindBuffer(GL_ARRAY_BUFFER, ctx->vbo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->ebo);
-    glDrawElements(GL_TRIANGLES, ctx->indice_count, GL_UNSIGNED_INT, (void*)0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+    /* Render mesh by mesh */
+    for (unsigned int i = 0; i < ctx->model.num_meshes; ++i) {
+        struct mesh_handle* mh = ctx->model.meshes + i;
+        glBindVertexArray(mh->vao);
+        glBindBuffer(GL_ARRAY_BUFFER, mh->vbo);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mh->ebo);
+        glDrawElements(GL_TRIANGLES, mh->indice_count, GL_UNSIGNED_INT, (void*)0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+    }
+
     glUseProgram(0);
 
     /* Show rendered contents from the backbuffer */
@@ -224,13 +212,16 @@ void shutdown(struct game_context* ctx)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
+    for (unsigned int i = 0; i < ctx->model.num_meshes; ++i) {
+        struct mesh_handle* mh = ctx->model.meshes + i;
+        glDeleteBuffers(1, &mh->ebo);
+        glDeleteBuffers(1, &mh->uvs);
+        glDeleteBuffers(1, &mh->vbo);
+        glDeleteVertexArrays(1, &mh->vao);
+    }
+    free(ctx->model.meshes);
+
     glDeleteTextures(1, &ctx->diff_tex);
-
-    glDeleteBuffers(1, &ctx->ebo);
-    glDeleteBuffers(1, &ctx->uvs);
-    glDeleteBuffers(1, &ctx->vbo);
-    glDeleteVertexArrays(1, &ctx->vao);
-
     glDeleteShader(ctx->fs);
     glDeleteShader(ctx->vs);
     glDeleteProgram(ctx->prog);

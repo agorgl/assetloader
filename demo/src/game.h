@@ -31,6 +31,21 @@
 #ifndef _GAME_H_
 #define _GAME_H_
 
+struct mesh_handle
+{
+    unsigned int vao;
+    unsigned int vbo;
+    unsigned int uvs;
+    unsigned int ebo;
+    unsigned int indice_count;
+};
+
+struct model_handle
+{
+    struct mesh_handle* meshes;
+    unsigned int num_meshes;
+};
+
 struct game_context
 {
     /* Window assiciated with the game */
@@ -38,7 +53,7 @@ struct game_context
     /* Master run flag, indicates when the game should exit */
     int* should_terminate;
     /* GPU data */
-    unsigned int vao, vbo, uvs, ebo, indice_count;
+    struct model_handle model;
     unsigned int vs, fs, prog;
     unsigned int diff_tex;
     /* Game state data */
