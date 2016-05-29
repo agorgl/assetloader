@@ -32,6 +32,7 @@
 #define _MODELLOAD_H_
 
 #include "model.h"
+#include <stddef.h>
 
 /* Public API functions */
 struct model* model_from_mem_buf(const unsigned char* data, size_t sz, const char* hint);

@@ -24,7 +24,7 @@ Address: %#x\n\
 struct ld_mem_info {
     void* addr;
     size_t size;
-    char filename[_MAX_PATH];
+    char filename[260];
     unsigned int line;
 };
 

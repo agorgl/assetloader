@@ -1,7 +1,7 @@
 #include "soundplayer.h"
 #include <stdlib.h>
-#include <Al/al.h>
-#include <Al/alc.h>
+#include <AL/al.h>
+#include <AL/alc.h>
 
 struct sound_player {
     ALCdevice* device;       /* Used playback device */
