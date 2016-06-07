@@ -67,8 +67,9 @@ struct image* image_from_tga(const unsigned char* data, size_t sz) {
     parse_field(bits_per_pixel, 16)
     parse_field(image_descriptor, 17)
 
-    /* */
-    if (header.data_type_code != TGA_DATA_TYPE_RGB)
+    /* Guard for unsupported forms */
+    if (header.data_type_code != TGA_DATA_TYPE_RGB
+     && header.data_type_code != TGA_DATA_TYPE_RLE_RGB)
         return 0;
 
     /* Gather image info */
@@ -77,20 +78,51 @@ struct image* image_from_tga(const unsigned char* data, size_t sz) {
     uint32_t pixel_sz = header.bits_per_pixel / 8;
 
     /* Allocate and fill the image object */
-    struct image* im = image_blank(width, height, 3);
+    struct image* im = image_blank(width, height, header.bits_per_pixel / 8);
 
     /* Pointer to the data */
     unsigned char* image_data = begin + 18 + header.id_length;
 
-    /* Copy data */
-    memcpy(im->data, image_data, width * height * pixel_sz);
-    image_data = im->data;
+    if (header.data_type_code == TGA_DATA_TYPE_RGB) {
+        /* Copy data */
+        memcpy(im->data, image_data, width * height * pixel_sz);
+    } else if (header.data_type_code == TGA_DATA_TYPE_RLE_RGB) {
+        /* Number of bytes read from source */
+        size_t cur_byte = 0;
+        /* Number of bytes written to dest */
+        size_t i = 0;
+        while (i < width * height * pixel_sz) {
+            /* Get header */
+            unsigned char id = image_data[cur_byte++];
+            if (id & (1 << 7)) { /* Bit 7 set, its a run length packet */
+                /* The lower 7 bits are the repetition count minus 1 */
+                unsigned char payload = (id ^ (1 << 7)) + 1;
+                /* Copy repeated data */
+                while (payload > 0) {
+                    im->data[i] = image_data[cur_byte];
+                    im->data[i + 1] = image_data[cur_byte + 1];
+                    im->data[i + 2] = image_data[cur_byte + 2];
+                    if (im->channels == 4)
+                        im->data[i + 3] = image_data[cur_byte + 3];
+                    i += im->channels;
+                    --payload;
+                }
+                cur_byte += im->channels;
+            } else { /* Bit 7 not set, its a raw packet */
+                /* The lower 7 bits are the number of pixels minus 1 */
+                unsigned char payload = id + 1;
+                memcpy(im->data + i, image_data + cur_byte, payload * im->channels);
+                i += payload * im->channels;
+                cur_byte += payload * im->channels;
+            }
+        }
+    }
 
     /* Convert BGR to RGB */
-    for (size_t i = 0; i < width * height * pixel_sz; i += 3) {
-        unsigned char tmp = image_data[i];
-        image_data[i] = image_data[i + 2];
-        image_data[i + 2] = tmp;
+    for (size_t i = 0; i < width * height * pixel_sz; i += im->channels) {
+        unsigned char tmp = im->data[i];
+        im->data[i] = im->data[i + 2];
+        im->data[i + 2] = tmp;
     }
 
     /* Return loaded image */
