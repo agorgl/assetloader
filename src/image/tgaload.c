@@ -1,6 +1,7 @@
 #include "assets/image/imageload.h"
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 
 enum tga_data_type
 {
@@ -45,6 +46,20 @@ struct tga_header
         begin + offset,                       \
         member_size(struct tga_header, field) \
     );
+
+static void image_flip(struct image* im)
+{
+    size_t stride = im->width * im->channels;
+    unsigned char* row_buf = malloc(stride);
+
+    for (int i = 0; i < im->height / 2; ++i) {
+        memcpy(row_buf, im->data + i * stride, stride);
+        memcpy(im->data + i * stride, im->data + (im->height - i - 1) * stride, stride);
+        memcpy(im->data + (im->height - i - 1) * stride, row_buf, stride);
+    }
+
+    free(row_buf);
+}
 
 struct image* image_from_tga(const unsigned char* data, size_t sz) {
     (void) sz;
@@ -123,6 +138,13 @@ struct image* image_from_tga(const unsigned char* data, size_t sz) {
         unsigned char tmp = im->data[i];
         im->data[i] = im->data[i + 2];
         im->data[i + 2] = tmp;
+    }
+
+    /* Get screen origin bit (0 = lower left, 1 = upper left) */
+    unsigned char screen_origin = header.image_descriptor & (1 << 5);
+    /* Flip image on y axis */
+    if (!screen_origin) {
+        image_flip(im);
     }
 
     /* Return loaded image */
