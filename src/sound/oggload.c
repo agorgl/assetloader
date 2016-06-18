@@ -102,7 +102,7 @@ struct sound* sound_from_ogg(const unsigned char* data, size_t sz) {
     snd->channels = (short) vi->channels;
     snd->samplerate = vi->rate;
     snd->bits_per_sample = 16;
-    snd->data_sz = ov_pcm_total(&oggfile, -1) * vi->channels * 2;
+    snd->data_sz = (size_t) ov_pcm_total(&oggfile, -1) * vi->channels * 2;
     /* Allocate destination buffer */
     snd->data = malloc(snd->data_sz);
 
