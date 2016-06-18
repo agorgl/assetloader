@@ -1,9 +1,19 @@
 #include "assets/model/model.h"
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 #include <vector.h>
 #include <hashmap.h>
+
+/* Custom version of standard isspace, to avoid MSVC checks */
+static int is_space(const char c)
+{
+    return c == ' '
+        || c == '\t'
+        || c == '\n'
+        || c == '\v'
+        || c == '\f'
+        || c == '\r';
+}
 
 /* Token is not null terminated with token_sz being the token length */
 static float parse_float(const char* token, size_t token_sz)
@@ -46,14 +56,14 @@ static void parse_space_sep_entry(const char* token, size_t token_sz, float* arr
 
     for (size_t i = 0; i < count; ++i) {
         /* Skip whitespace to next word */
-        while (isspace(*cur) && cur < line_end)
+        while (is_space(*cur) && cur < line_end)
             ++cur;
         /* Check if eol reached */
         if (cur == line_end)
             break;
         arr[i] = parse_float((const char*)cur, line_end - cur);
         /* Skip parsed word */
-        while (!isspace(*cur) && cur < line_end)
+        while (!is_space(*cur) && cur < line_end)
             ++cur;
     }
 }
@@ -185,7 +195,7 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
     const unsigned char* cur = line;
 
     /* Skip leading whitespace */
-    while (isspace(*cur) && cur < line_end)
+    while (is_space(*cur) && cur < line_end)
         ++cur;
 
     /* Check if comment or empty line and skip them */
@@ -194,7 +204,7 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
 
     /* Find terminator of first word (first whitespace) */
     const unsigned char* wend = cur;
-    while(!isspace(*wend) && wend < line_end)
+    while(!is_space(*wend) && wend < line_end)
         ++wend;
     size_t next_word_sz = wend - cur;
 
@@ -251,19 +261,19 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
         memset(f, 0, sizeof(f));
         for (int i = 0; i < 3; ++i) {
             /* Skip whitespace to next word */
-            while (isspace(*cur) && cur < line_end)
+            while (is_space(*cur) && cur < line_end)
                 ++cur;
             /* Check if eol reached */
             if (cur == line_end)
                 break;
             /* Find end of current triple */
             const unsigned char* tend = cur;
-            while (!isspace(*tend) && tend < line_end)
+            while (!is_space(*tend) && tend < line_end)
                 ++tend;
             /* Parse the triple */
             parse_face_triple((const char*)cur, tend - cur, f + i * 3);
             /* Skip parsed word */
-            while (!isspace(*cur) && cur < line_end)
+            while (!is_space(*cur) && cur < line_end)
                 ++cur;
         }
 
@@ -282,15 +292,15 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
         /* Skip space after keyword */
         cur += 6;
         /* Skip whitespace to next word */
-        while (isspace(*cur) && cur < line_end)
+        while (is_space(*cur) && cur < line_end)
             ++cur;
         /* Find the end of the material name */
-        const unsigned char* wend = cur;
-        while (!isspace(*wend) && wend < line_end)
-            ++wend;
+        const unsigned char* we = cur;
+        while (!is_space(*we) && we < line_end)
+            ++we;
         /* Copy material name to new buffer */
-        char* material = calloc(wend - cur + 1, sizeof(char));
-        memcpy(material, cur, (wend - cur) * sizeof(char));
+        char* material = calloc(we - cur + 1, sizeof(char));
+        memcpy(material, cur, (we - cur) * sizeof(char));
         /* Check if material is already found */
         void* fmat = hashmap_get(&ps->found_materials, material);
         if (fmat) {
