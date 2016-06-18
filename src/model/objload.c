@@ -19,7 +19,7 @@ static int is_space(const char c)
 static float parse_float(const char* token, size_t token_sz)
 {
     (void) token_sz; /* TODO: Use functions with bound checking */
-    return atof(token);
+    return (float) atof(token);
 }
 
 /* Token is not null terminated with token_sz being the token length */
@@ -170,7 +170,7 @@ static size_t found_materials_hash(void* key)
     const char* str = key;
     unsigned long hash = 5381;
     int c;
-    while ((c = *str++))
+    while ((c = *str++) != 0)
         hash = (hash * 33 + c);
     return hash;
 }
