@@ -1,5 +1,4 @@
 #include "assets/error.h"
-#define _CRT_SECURE_NO_WARNINGS
 #include <string.h>
 
 static char* load_err_buf[256];
