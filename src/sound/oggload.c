@@ -99,7 +99,7 @@ struct sound* sound_from_ogg(const unsigned char* data, size_t sz) {
 
     /* Gather audio info */
     vorbis_info* vi = ov_info(&oggfile, -1);
-    snd->channels = vi->channels;
+    snd->channels = (short) vi->channels;
     snd->samplerate = vi->rate;
     snd->bits_per_sample = 16;
     snd->data_sz = ov_pcm_total(&oggfile, -1) * vi->channels * 2;

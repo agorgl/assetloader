@@ -34,9 +34,9 @@
 #include <stddef.h>
 
 struct sound {
-    int channels;
+    short channels;
+    short bits_per_sample;
     int samplerate;
-    int bits_per_sample;
     size_t data_sz;
     unsigned char* data;
 };
