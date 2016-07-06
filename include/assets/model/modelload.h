@@ -40,5 +40,6 @@ struct model* model_from_file(const char* fpath);
 
 /* Internal loaders */
 struct model* model_from_obj(const unsigned char* data, size_t sz);
+struct model* model_from_fbx(const unsigned char* data, size_t sz);
 
 #endif /* ! _MODELLOAD_H_ */

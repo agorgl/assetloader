@@ -8,6 +8,8 @@ struct model* model_from_mem_buf(const unsigned char* data, size_t sz, const cha
 {
     if (strcmp(hint, "obj") == 0)
         return model_from_obj(data, sz);
+    else if (strcmp(hint, "fbx") == 0)
+        return model_from_fbx(data, sz);
     /* No image parser found */
     return 0;
 }
