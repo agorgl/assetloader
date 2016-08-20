@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <stdio.h>
+#include <zlib.h>
 
 /*------------------------------------------*
  * Node Record Format                       |
@@ -134,7 +135,7 @@ static enum fbx_pt fbx_code_to_pt(char c)
     }
 }
 
-static size_t fbx_pt_size(enum fbx_pt pt, uint32_t arr_len)
+static size_t fbx_pt_unit_size(enum fbx_pt pt)
 {
     switch(pt) {
         case fbx_pt_short:      return sizeof(int16_t);
@@ -143,14 +144,30 @@ static size_t fbx_pt_size(enum fbx_pt pt, uint32_t arr_len)
         case fbx_pt_float:      return sizeof(float);
         case fbx_pt_double:     return sizeof(double);
         case fbx_pt_long:       return sizeof(int64_t);
-        case fbx_pt_float_arr:  return sizeof(float) * arr_len;
-        case fbx_pt_double_arr: return sizeof(double) * arr_len;
-        case fbx_pt_long_arr:   return sizeof(int64_t) * arr_len;
-        case fbx_pt_int_arr:    return sizeof(int32_t) * arr_len;
-        case fbx_pt_bool_arr:   return sizeof(uint8_t) * arr_len;
-        case fbx_pt_string:     return sizeof(char) * arr_len;
-        case fbx_pt_raw:        return arr_len;
+        case fbx_pt_float_arr:  return sizeof(float);
+        case fbx_pt_double_arr: return sizeof(double);
+        case fbx_pt_long_arr:   return sizeof(int64_t);
+        case fbx_pt_int_arr:    return sizeof(int32_t);
+        case fbx_pt_bool_arr:   return sizeof(uint8_t);
+        case fbx_pt_string:     return sizeof(char);
+        case fbx_pt_raw:        return 1;
         default: return 0;
+    }
+}
+
+static size_t fbx_pt_size(enum fbx_pt pt, uint32_t arr_len)
+{
+    switch(pt) {
+        case fbx_pt_float_arr:
+        case fbx_pt_double_arr:
+        case fbx_pt_long_arr:
+        case fbx_pt_int_arr:
+        case fbx_pt_bool_arr:
+        case fbx_pt_string:
+        case fbx_pt_raw:
+            return fbx_pt_unit_size(pt) * arr_len;
+        default:
+            return fbx_pt_unit_size(pt);
     }
 }
 
@@ -232,6 +249,58 @@ static void fbx_record_print(struct fbx_record* rec, int depth)
     }
 }
 
+static struct fbx_record* fbx_find_subrecord_with_name(struct fbx_record* rec, const char* name)
+{
+    struct fbx_record* r = rec->subrecords;
+    while (r) {
+        if (strcmp(r->name, name) == 0) {
+            return r;
+        }
+        r = r->next;
+    }
+    return 0;
+}
+
+static struct fbx_record* fbx_find_sibling_with_name(struct fbx_record* rec, const char* name)
+{
+    struct fbx_record* r = rec->next;
+    while (r) {
+        if (strcmp(r->name, name) == 0) {
+            return r;
+        }
+        r = r->next;
+    }
+    return 0;
+}
+
+/*-----------------------------------------------------------------
+ * Compression
+ *-----------------------------------------------------------------*/
+static int fbx_array_decompress(const void* src, int srclen, void* dst, int dstlen)
+{
+    int err = -1, ret = -1;
+    z_stream strm  = {};
+    strm.total_in  = strm.avail_in  = srclen;
+    strm.total_out = strm.avail_out = dstlen;
+    strm.next_in   = (Bytef*) src;
+    strm.next_out  = (Bytef*) dst;
+
+    strm.zalloc = Z_NULL;
+    strm.zfree  = Z_NULL;
+    strm.opaque = Z_NULL;
+
+    err = inflateInit(&strm);
+    if (err == Z_OK) {
+        err = inflate(&strm, Z_FINISH);
+        assert(err != Z_STREAM_ERROR);
+        if (err == Z_STREAM_END)
+            ret = strm.total_out;
+    }
+
+    inflateEnd(&strm);
+    return ret; /* -1 or len of input */
+}
+
 /*-----------------------------------------------------------------
  * Parsing
  *-----------------------------------------------------------------*/
@@ -310,11 +379,15 @@ static struct fbx_property fbx_read_property(struct parser_state* ps)
             uint32_t clen = *((uint32_t*)ps->cur);
             iterfw(sizeof(uint32_t));
             if (!enc) {
-                prop.data.p = 0; // TODO
+                prop.data.p = ps->cur;
                 prop.length = fbx_pt_size(pt, arr_len);
             } else {
-                prop.data.p = 0; // TODO
-                prop.length = clen;
+                prop.length = fbx_pt_size(pt, arr_len);;
+                prop.data.p = malloc(prop.length); // TODO: Free below
+                fbx_array_decompress(ps->cur, clen, prop.data.p, prop.length);
+                /* Early return (different iterfw size) */
+                iterfw(clen);
+                return prop;
             }
             break;
         }
@@ -429,7 +502,74 @@ static struct fbx_record* fbx_read_root_record(struct parser_state* ps)
     return r;
 }
 
-// Path to geometries: Objects/???
+/* Copy double to float array */
+static void fbx_copy_dtfa(float* dst, double* src, size_t len)
+{
+    for (size_t i = 0; i < len; ++i) {
+        dst[i] = src[i];
+    }
+}
+
+static struct mesh* fbx_read_mesh(struct fbx_record* geom)
+{
+    /* Check if geometry node contains any vertices */
+    struct fbx_record* verts = fbx_find_subrecord_with_name(geom, "Vertices");
+    if (!verts)
+        return 0;
+
+    /* Populate mesh vertices */
+    struct mesh* mesh = mesh_new();
+    struct fbx_property* vert_prop = verts->properties;
+    size_t vert_unit_sz = fbx_pt_unit_size(vert_prop->type);
+    mesh->num_verts = vert_prop->length / vert_unit_sz;
+    mesh->vertices = realloc(mesh->vertices, mesh->num_verts * sizeof(struct vertex));
+    for (int i = 0; i < mesh->num_verts; ++i) {
+        float* dst = mesh->vertices[i].position;
+        void* src = vert_prop->data.dp + i * 3;
+        /* Source array might be composed of doubles,
+         * so a simple memcpy is not enough */
+        if (vert_unit_sz != sizeof(float))
+            fbx_copy_dtfa(dst, src, 3);
+        else
+            memcpy(dst, src, 3);
+    }
+
+    /* Populate mesh indices */
+    struct fbx_record* indcs = fbx_find_subrecord_with_name(geom, "PolygonVertexIndex");
+    struct fbx_property* ind_prop = indcs->properties;
+    mesh->num_indices = ind_prop->length / fbx_pt_unit_size(ind_prop->type);
+    mesh->indices = realloc(mesh->indices, mesh->num_indices * sizeof(uint32_t));
+    for (int i = 0; i < mesh->num_indices; ++i) {
+        /* NOTE!
+         * Negative array values in the indices array exist
+         * to indicate the last index of a polygon.
+         * To find the actual indice value we must negate it
+         * and substract 1 from that value */
+        int32_t ind = ind_prop->data.ip[i];
+        if (ind < 0)
+            ind = -1*ind-1;
+        mesh->indices[i] = ind;
+    }
+
+    return mesh;
+}
+
+static struct model* fbx_read_model(struct fbx_record* obj)
+{
+    struct model* model = model_new();
+    struct fbx_record* geom = fbx_find_subrecord_with_name(obj, "Geometry");
+    while (geom) {
+        struct mesh* nm = fbx_read_mesh(geom);
+        if (nm) {
+            model->num_meshes++;
+            model->meshes = realloc(model->meshes, model->num_meshes * sizeof(struct mesh*));
+            model->meshes[model->num_meshes - 1] = nm;
+        }
+        /* Process next mesh */
+        geom = fbx_find_sibling_with_name(geom, "Geometry");
+    }
+    return model;
+}
 
 struct model* model_from_fbx(const unsigned char* data, size_t sz)
 {
@@ -451,10 +591,15 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
     }
     printf("Version: %d\n", fbx.version);
 
+    /* Parse fbx file */
     struct fbx_record* r = fbx_read_root_record(&ps);
     fbx.root = r;
-    //fbx_record_print(r, 0);
-    fbx_record_destroy(r);
 
-    return 0;
+    /* Gather model data from parsed tree  */
+    struct fbx_record* objs = fbx_find_subrecord_with_name(fbx.root, "Objects");
+    struct model* m = fbx_read_model(objs);
+
+    /* Free tree */
+    fbx_record_destroy(r);
+    return m;
 }
