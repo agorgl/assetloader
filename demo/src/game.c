@@ -11,7 +11,7 @@
 static void on_key(struct window* wnd, int key, int scancode, int action, int mods)
 {
     (void)key; (void)scancode; (void)mods;
-    struct game_context* ctx = get_userdata(wnd);
+    struct game_context* ctx = window_get_userdata(wnd);
     if (action == 0)
         *(ctx->should_terminate) = 1;
 }
@@ -125,16 +125,16 @@ void game_init(struct game_context* ctx)
     /* Create window */
     const char* title = "demo";
     int width = 800, height = 600, mode = 0;
-    ctx->wnd = create_window(title, width, height, mode);
+    ctx->wnd = window_create(title, width, height, mode);
 
     /* Associate context to be accessed from callback functions */
-    set_userdata(ctx->wnd, ctx);
+    window_set_userdata(ctx->wnd, ctx);
 
     /* Set event callbacks */
     struct window_callbacks wnd_callbacks;
     memset(&wnd_callbacks, 0, sizeof(struct window_callbacks));
     wnd_callbacks.key_cb = on_key;
-    set_callbacks(ctx->wnd, &wnd_callbacks);
+    window_set_callbacks(ctx->wnd, &wnd_callbacks);
 
     /* Initialize game state data */
     ctx->rotation = 0.0f;
@@ -164,7 +164,7 @@ void game_update(void* userdata, float dt)
 {
     struct game_context* ctx = userdata;
     /* Process input events */
-    poll_events(ctx->wnd);
+    window_poll_events(ctx->wnd);
     /* Update game state */
     ctx->rotation_prev = ctx->rotation;
     ctx->rotation += dt * 0.000001f;
@@ -231,7 +231,7 @@ void game_render(void* userdata, float interpolation)
     glUseProgram(0);
 
     /* Show rendered contents from the backbuffer */
-    swap_buffers(ctx->wnd);
+    window_swap_buffers(ctx->wnd);
 }
 
 void game_shutdown(struct game_context* ctx)
@@ -262,5 +262,5 @@ void game_shutdown(struct game_context* ctx)
     glDeleteProgram(ctx->prog);
 
     /* Close window */
-    destroy_window(ctx->wnd);
+    window_destroy(ctx->wnd);
 }
