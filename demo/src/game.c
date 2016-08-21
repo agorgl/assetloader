@@ -95,17 +95,28 @@ static unsigned int upload_texture(const char* filename)
 
 static void setup_data(struct game_context* ctx)
 {
-    vector_init(&ctx->gobjects, sizeof(struct game_object));
     struct game_object go;
+    float scale = 1.0f;
+    vector_init(&ctx->gobjects, sizeof(struct game_object));
     /* Cube */
     upload_model_geom_data("ext/cube.obj", &go.model);
     go.diff_tex = upload_texture("ext/floor.tga");
-    go.transform = mat4_translation(vec3_new(-0.7f, 0.0f, 0.0f));
+    go.transform = mat4_translation(vec3_new(0.0f, 0.1f, 0.0f));
     vector_append(&ctx->gobjects, &go);
     /* Cube2 */
+    /*
     upload_model_geom_data("ext/cube.fbx", &go.model);
     go.diff_tex = upload_texture("ext/Bark2.tif");
     go.transform = mat4_translation(vec3_new(0.8f, 0.0f, 0.0f));
+    vector_append(&ctx->gobjects, &go);
+    */
+    /* Podium */
+    upload_model_geom_data("ext/models/podium/podium.obj", &go.model);
+    go.diff_tex = upload_texture("ext/models/podium/podium.png");
+    scale = 0.08;
+    go.transform = mat4_mul_mat4(
+        mat4_translation(vec3_new(0.0f, -0.5f, 0.0f)),
+        mat4_scale(vec3_new(scale, scale, scale)));
     vector_append(&ctx->gobjects, &go);
 }
 
@@ -172,9 +183,9 @@ void game_render(void* userdata, float interpolation)
 
     /* Create view and projection matrices */
     mat4 view = mat4_view_look_at(
-        vec3_new(0.6f, 1.0f, 2.0f),
-        vec3_zero(),
-        vec3_new(0.0f, 1.0f, 0.0f));
+        vec3_new(0.6f, 1.0f, 2.5f),  /* Position */
+        vec3_zero(),                 /* Target */
+        vec3_new(0.0f, 1.0f, 0.0f)); /* Up */
     mat4 proj = mat4_perspective(radians(45.0f), 0.1f, 300.0f, 1.0f / (800.0f / 600.0f));
 
     /* Render */
