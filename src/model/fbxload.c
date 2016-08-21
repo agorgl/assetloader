@@ -527,6 +527,17 @@ static int vertex_eql(void* k1, void* k2)
     return memcmp(k1, k2, sizeof(struct vertex)) == 0; /* Compare obj vertex index triplets */
 }
 
+static struct fbx_property* fbx_find_layer_property(struct fbx_record* geom, const char* layer, const char* subrec)
+{
+    struct fbx_record* r1 = fbx_find_subrecord_with_name(geom, layer);
+    if (!r1)
+        return 0;
+    struct fbx_record* r2 = fbx_find_subrecord_with_name(r1, subrec);
+    if (!r2)
+        return 0;
+    return r2->properties;
+}
+
 static struct mesh* fbx_read_mesh(struct fbx_record* geom)
 {
     /* Check if geometry node contains any vertices */
@@ -536,30 +547,12 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom)
     struct fbx_property* verts = verts_nod->properties;
 
     /* Find data nodes */
-    struct fbx_property* indices = fbx_find_subrecord_with_name(
-        geom,
-        "PolygonVertexIndex"
-    )->properties;
-    struct fbx_property* norms = fbx_find_subrecord_with_name(
-        fbx_find_subrecord_with_name(geom, "LayerElementNormal"),
-        "Normals"
-    )->properties;
-    struct fbx_property* tangents = fbx_find_subrecord_with_name(
-        fbx_find_subrecord_with_name(geom, "LayerElementTangent"),
-        "Tangents"
-    )->properties;
-    struct fbx_property* binormals = fbx_find_subrecord_with_name(
-        fbx_find_subrecord_with_name(geom, "LayerElementBinormal"),
-        "Binormals"
-    )->properties;
-    struct fbx_property* uvs = fbx_find_subrecord_with_name(
-        fbx_find_subrecord_with_name(geom, "LayerElementUV"),
-        "UV"
-    )->properties;
-    struct fbx_property* uv_idxs = fbx_find_subrecord_with_name(
-        fbx_find_subrecord_with_name(geom, "LayerElementUV"),
-        "UVIndex"
-    )->properties;
+    struct fbx_property* indices = fbx_find_subrecord_with_name(geom, "PolygonVertexIndex")->properties;
+    struct fbx_property* norms = fbx_find_layer_property(geom, "LayerElementNormal", "Normals");
+    struct fbx_property* tangents = fbx_find_layer_property(geom, "LayerElementTangent", "Tangents");
+    struct fbx_property* binormals = fbx_find_layer_property(geom, "LayerElementBinormal", "Binormals");
+    struct fbx_property* uvs = fbx_find_layer_property(geom, "LayerElementUV", "UV");
+    struct fbx_property* uv_idxs = fbx_find_layer_property(geom, "LayerElementUV", "UVIndex");
 
     /* Create mesh */
     struct mesh* mesh = mesh_new();
@@ -586,22 +579,31 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom)
         int32_t pos_ind = indices->data.ip[i];
         if (pos_ind < 0)
             pos_ind = -1 * pos_ind - 1;
-        uint32_t uv_ind = uv_idxs->data.ip[i];
+        uint32_t uv_ind = 0;
+        if (uvs)
+            uv_ind = uv_idxs->data.ip[i];
         /* Fill temporary vertex */
         struct vertex tv;
+        memset(&tv, 0, sizeof(struct vertex));
         if (vert_unit_sz != sizeof(float)) {
             fbx_copy_dtfa(tv.position, verts->data.dp + pos_ind * 3, 3);
             fbx_copy_dtfa(tv.normal, norms->data.dp + i * 3, 3);
-            fbx_copy_dtfa(tv.tangent, tangents->data.dp + i * 3, 3);
-            fbx_copy_dtfa(tv.binormal, binormals->data.dp + i * 3, 3);
-            fbx_copy_dtfa(tv.uvs, uvs->data.dp + uv_ind * 2, 2);
+            if (tangents)
+                fbx_copy_dtfa(tv.tangent, tangents->data.dp + i * 3, 3);
+            if (binormals)
+                fbx_copy_dtfa(tv.binormal, binormals->data.dp + i * 3, 3);
+            if (uvs)
+                fbx_copy_dtfa(tv.uvs, uvs->data.dp + uv_ind * 2, 2);
         }
         else {
             memcpy(tv.position, verts->data.fp + pos_ind * 3, 3 * sizeof(float));
             memcpy(tv.normal, norms->data.fp + i * 3, 3 * sizeof(float));
-            memcpy(tv.tangent, tangents->data.fp + i * 3, 3 * sizeof(float));
-            memcpy(tv.binormal, binormals->data.fp + i * 3, 3 * sizeof(float));
-            memcpy(tv.uvs, uvs->data.fp + uv_ind * 2, 2 * sizeof(float));
+            if (tangents)
+                memcpy(tv.tangent, tangents->data.fp + i * 3, 3 * sizeof(float));
+            if (binormals)
+                memcpy(tv.binormal, binormals->data.fp + i * 3, 3 * sizeof(float));
+            if (uvs)
+                memcpy(tv.uvs, uvs->data.fp + uv_ind * 2, 2 * sizeof(float));
         }
         /* Check if current vertex is already stored */
         void* stored_indice = hashmap_get(&stored_vertices, &tv);
