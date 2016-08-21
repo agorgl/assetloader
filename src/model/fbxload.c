@@ -621,6 +621,7 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom)
         }
     }
 
+    hashmap_destroy(&stored_vertices);
     return mesh;
 }
 
