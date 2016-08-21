@@ -121,6 +121,14 @@ static void setup_data(struct game_context* ctx)
     go.diff_tex = upload_texture("ext/Bark2.tif");
     go.transform = mat4_translation(vec3_new(0.0f, 0.1f, 0.0f));
     vector_append(&ctx->gobjects, &go);
+    /* Barrel */
+    upload_model_geom_data("ext/models/barrel/barrel.fbx", &go.model);
+    go.diff_tex = upload_texture("ext/models/barrel/barrel.tif");
+    scale = 0.2;
+    go.transform = mat4_mul_mat4(
+        mat4_translation(vec3_new(0.0f, -0.4f, 0.0f)),
+        mat4_scale(vec3_new(scale, scale, scale)));
+    vector_append(&ctx->gobjects, &go);
 }
 
 void game_init(struct game_context* ctx)
