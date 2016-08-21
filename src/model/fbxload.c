@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <zlib.h>
+#include <hashmap.h>
 
 /*------------------------------------------*
  * Node Record Format                       |
@@ -510,45 +511,112 @@ static void fbx_copy_dtfa(float* dst, double* src, size_t len)
     }
 }
 
+static size_t vertex_hash(void* key)
+{
+    struct vertex* v = (struct vertex*) key;
+    return (size_t)(v->position[0]
+                  * v->position[1]
+                  * v->position[2]
+                  * v->normal[0]
+                  * v->normal[1]
+                  * v->normal[2]);
+}
+
+static int vertex_eql(void* k1, void* k2)
+{
+    return memcmp(k1, k2, sizeof(struct vertex)) == 0; /* Compare obj vertex index triplets */
+}
+
 static struct mesh* fbx_read_mesh(struct fbx_record* geom)
 {
     /* Check if geometry node contains any vertices */
-    struct fbx_record* verts = fbx_find_subrecord_with_name(geom, "Vertices");
-    if (!verts)
+    struct fbx_record* verts_nod = fbx_find_subrecord_with_name(geom, "Vertices");
+    if (!verts_nod)
         return 0;
+    struct fbx_property* verts = verts_nod->properties;
 
-    /* Populate mesh vertices */
+    /* Find data nodes */
+    struct fbx_property* indices = fbx_find_subrecord_with_name(
+        geom,
+        "PolygonVertexIndex"
+    )->properties;
+    struct fbx_property* norms = fbx_find_subrecord_with_name(
+        fbx_find_subrecord_with_name(geom, "LayerElementNormal"),
+        "Normals"
+    )->properties;
+    struct fbx_property* tangents = fbx_find_subrecord_with_name(
+        fbx_find_subrecord_with_name(geom, "LayerElementTangent"),
+        "Tangents"
+    )->properties;
+    struct fbx_property* binormals = fbx_find_subrecord_with_name(
+        fbx_find_subrecord_with_name(geom, "LayerElementBinormal"),
+        "Binormals"
+    )->properties;
+    struct fbx_property* uvs = fbx_find_subrecord_with_name(
+        fbx_find_subrecord_with_name(geom, "LayerElementUV"),
+        "UV"
+    )->properties;
+    struct fbx_property* uv_idxs = fbx_find_subrecord_with_name(
+        fbx_find_subrecord_with_name(geom, "LayerElementUV"),
+        "UVIndex"
+    )->properties;
+
+    /* Create mesh */
     struct mesh* mesh = mesh_new();
-    struct fbx_property* vert_prop = verts->properties;
-    size_t vert_unit_sz = fbx_pt_unit_size(vert_prop->type);
-    mesh->num_verts = vert_prop->length / vert_unit_sz;
-    mesh->vertices = realloc(mesh->vertices, mesh->num_verts * sizeof(struct vertex));
-    for (int i = 0; i < mesh->num_verts; ++i) {
-        float* dst = mesh->vertices[i].position;
-        void* src = vert_prop->data.dp + i * 3;
-        /* Source array might be composed of doubles,
-         * so a simple memcpy is not enough */
-        if (vert_unit_sz != sizeof(float))
-            fbx_copy_dtfa(dst, src, 3);
-        else
-            memcpy(dst, src, 3);
-    }
+    size_t vert_unit_sz = fbx_pt_unit_size(verts->type);
+    mesh->num_verts = 0;
+    mesh->num_indices = indices->length / fbx_pt_unit_size(indices->type);
 
-    /* Populate mesh indices */
-    struct fbx_record* indcs = fbx_find_subrecord_with_name(geom, "PolygonVertexIndex");
-    struct fbx_property* ind_prop = indcs->properties;
-    mesh->num_indices = ind_prop->length / fbx_pt_unit_size(ind_prop->type);
+    /* Allocate top limit */
+    mesh->vertices = realloc(mesh->vertices, mesh->num_indices * sizeof(struct vertex));
     mesh->indices = realloc(mesh->indices, mesh->num_indices * sizeof(uint32_t));
+    memset(mesh->vertices, 0, mesh->num_indices * sizeof(struct vertex));
+
+    /* Used to find and reuse indices of already stored vertices */
+    struct hashmap stored_vertices;
+    hashmap_init(&stored_vertices, vertex_hash, vertex_eql);
+
+    /* Populate mesh */
     for (int i = 0; i < mesh->num_indices; ++i) {
         /* NOTE!
-         * Negative array values in the indices array exist
+         * Negative array values in the positions' indices array exist
          * to indicate the last index of a polygon.
          * To find the actual indice value we must negate it
          * and substract 1 from that value */
-        int32_t ind = ind_prop->data.ip[i];
-        if (ind < 0)
-            ind = -1*ind-1;
-        mesh->indices[i] = ind;
+        int32_t pos_ind = indices->data.ip[i];
+        if (pos_ind < 0)
+            pos_ind = -1 * pos_ind - 1;
+        uint32_t uv_ind = uv_idxs->data.ip[i];
+        /* Fill temporary vertex */
+        struct vertex tv;
+        if (vert_unit_sz != sizeof(float)) {
+            fbx_copy_dtfa(tv.position, verts->data.dp + pos_ind * 3, 3);
+            fbx_copy_dtfa(tv.normal, norms->data.dp + i * 3, 3);
+            fbx_copy_dtfa(tv.tangent, tangents->data.dp + i * 3, 3);
+            fbx_copy_dtfa(tv.binormal, binormals->data.dp + i * 3, 3);
+            fbx_copy_dtfa(tv.uvs, uvs->data.dp + uv_ind * 2, 2);
+        }
+        else {
+            memcpy(tv.position, verts->data.fp + pos_ind * 3, 3 * sizeof(float));
+            memcpy(tv.normal, norms->data.fp + i * 3, 3 * sizeof(float));
+            memcpy(tv.tangent, tangents->data.fp + i * 3, 3 * sizeof(float));
+            memcpy(tv.binormal, binormals->data.fp + i * 3, 3 * sizeof(float));
+            memcpy(tv.uvs, uvs->data.fp + uv_ind * 2, 2 * sizeof(float));
+        }
+        /* Check if current vertex is already stored */
+        void* stored_indice = hashmap_get(&stored_vertices, &tv);
+        if (stored_indice) {
+            mesh->indices[i] = *(uint32_t*)stored_indice;
+        } else {
+            ++mesh->num_verts;
+            /* Store new vertice */
+            uint32_t nidx = mesh->num_verts - 1;
+            memcpy(mesh->vertices + nidx, &tv, sizeof(struct vertex));
+            /* Set indice */
+            mesh->indices[i] = nidx;
+            /* Store vertex ptr to lookup table */
+            hashmap_put(&stored_vertices, mesh->vertices + nidx, (void*)(uintptr_t)nidx);
+        }
     }
 
     return mesh;
@@ -594,6 +662,16 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
     /* Parse fbx file */
     struct fbx_record* r = fbx_read_root_record(&ps);
     fbx.root = r;
+
+    /* Print debug info */
+    /*
+    fbx_record_print(
+        fbx_find_subrecord_with_name(
+            fbx_find_subrecord_with_name(fbx.root, "Objects"),
+            "Geometry"),
+        3
+    );
+    */
 
     /* Gather model data from parsed tree  */
     struct fbx_record* objs = fbx_find_subrecord_with_name(fbx.root, "Objects");
