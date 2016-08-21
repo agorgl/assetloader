@@ -77,7 +77,7 @@ static void upload_model_geom_data(struct game_context* ctx)
 void game_init(struct game_context* ctx)
 {
     /* Create window */
-    const char* title = "Crazy cows flying all over the space";
+    const char* title = "AssetLoader";
     int width = 800, height = 600, mode = 0;
     ctx->wnd = create_window(title, width, height, mode);
 
