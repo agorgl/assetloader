@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "window.h"
+#include "input.h"
 #include <glad/glad.h>
 #include "shader.h"
 #include "static_data.h"
@@ -10,9 +11,9 @@
 
 static void on_key(struct window* wnd, int key, int scancode, int action, int mods)
 {
-    (void)key; (void)scancode; (void)mods;
+    (void)scancode; (void)mods;
     struct game_context* ctx = window_get_userdata(wnd);
-    if (action == 0)
+    if (action == KEY_ACTION_RELEASE && key == KEY_ESCAPE)
         *(ctx->should_terminate) = 1;
 }
 
