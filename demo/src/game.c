@@ -74,7 +74,7 @@ static void upload_model_geom_data(struct game_context* ctx)
     model_delete(m);
 }
 
-void init(struct game_context* ctx)
+void game_init(struct game_context* ctx)
 {
     /* Create window */
     const char* title = "Crazy cows flying all over the space";
@@ -144,7 +144,7 @@ void init(struct game_context* ctx)
     image_delete(im);
 }
 
-void update(void* userdata, float dt)
+void game_update(void* userdata, float dt)
 {
     struct game_context* ctx = userdata;
     /* Process input events */
@@ -154,7 +154,7 @@ void update(void* userdata, float dt)
     ctx->rotation += dt * 0.001f;
 }
 
-void render(void* userdata, float interpolation)
+void game_render(void* userdata, float interpolation)
 {
     struct game_context* ctx = userdata;
 
@@ -207,7 +207,7 @@ void render(void* userdata, float interpolation)
     swap_buffers(ctx->wnd);
 }
 
-void shutdown(struct game_context* ctx)
+void game_shutdown(struct game_context* ctx)
 {
     /* Free GPU resources */
     glBindBuffer(GL_ARRAY_BUFFER, 0);
