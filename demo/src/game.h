@@ -68,6 +68,7 @@ struct game_context
     /* Game state data */
     float rotation;
     float rotation_prev;
+    size_t cur_obj;
 };
 
 /* Initializes the game instance */

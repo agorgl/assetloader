@@ -15,6 +15,10 @@ static void on_key(struct window* wnd, int key, int scancode, int action, int mo
     struct game_context* ctx = window_get_userdata(wnd);
     if (action == KEY_ACTION_RELEASE && key == KEY_ESCAPE)
         *(ctx->should_terminate) = 1;
+    else if (action == KEY_ACTION_RELEASE && key == KEY_SPACE) {
+        /* Cycle through shown objects skipping podium that is first */
+        ctx->cur_obj = ctx->cur_obj < ctx->gobjects.size - 1 ? ctx->cur_obj + 1 : 1;
+    }
 }
 
 static void upload_model_geom_data(const char* filename, struct model_handle* model)
@@ -99,18 +103,6 @@ static void setup_data(struct game_context* ctx)
     struct game_object go;
     float scale = 1.0f;
     vector_init(&ctx->gobjects, sizeof(struct game_object));
-    /* Cube */
-    upload_model_geom_data("ext/cube.obj", &go.model);
-    go.diff_tex = upload_texture("ext/floor.tga");
-    go.transform = mat4_translation(vec3_new(0.0f, 0.1f, 0.0f));
-    vector_append(&ctx->gobjects, &go);
-    /* Cube2 */
-    /*
-    upload_model_geom_data("ext/cube.fbx", &go.model);
-    go.diff_tex = upload_texture("ext/Bark2.tif");
-    go.transform = mat4_translation(vec3_new(0.8f, 0.0f, 0.0f));
-    vector_append(&ctx->gobjects, &go);
-    */
     /* Podium */
     upload_model_geom_data("ext/models/podium/podium.obj", &go.model);
     go.diff_tex = upload_texture("ext/models/podium/podium.png");
@@ -118,6 +110,16 @@ static void setup_data(struct game_context* ctx)
     go.transform = mat4_mul_mat4(
         mat4_translation(vec3_new(0.0f, -0.5f, 0.0f)),
         mat4_scale(vec3_new(scale, scale, scale)));
+    vector_append(&ctx->gobjects, &go);
+    /* Cube */
+    upload_model_geom_data("ext/cube.obj", &go.model);
+    go.diff_tex = upload_texture("ext/floor.tga");
+    go.transform = mat4_translation(vec3_new(0.0f, 0.1f, 0.0f));
+    vector_append(&ctx->gobjects, &go);
+    /* Cube2 */
+    upload_model_geom_data("ext/cube.fbx", &go.model);
+    go.diff_tex = upload_texture("ext/Bark2.tif");
+    go.transform = mat4_translation(vec3_new(0.0f, 0.1f, 0.0f));
     vector_append(&ctx->gobjects, &go);
 }
 
@@ -139,6 +141,7 @@ void game_init(struct game_context* ctx)
 
     /* Initialize game state data */
     ctx->rotation = 0.0f;
+    ctx->cur_obj = 1;
 
     /* Load data from files into the GPU */
     setup_data(ctx);
@@ -194,10 +197,15 @@ void game_render(void* userdata, float interpolation)
     GLuint img_loc = glGetUniformLocation(ctx->prog, "diffTex");
     glUniform1i(img_loc, 0);
 
+    /* Construct list of shown objects */
+    struct game_object* gobjl[] = {
+        vector_at(&ctx->gobjects, 0),
+        vector_at(&ctx->gobjects, ctx->cur_obj)
+    };
     /* Loop through objects */
-    for (unsigned int i = 0; i < ctx->gobjects.size; ++i) {
+    for (unsigned int i = 0; i < 2; ++i) {
         /* Setup game object to be rendered */
-        struct game_object* gobj = vector_at(&ctx->gobjects, i);
+        struct game_object* gobj = gobjl[i];
         struct model_handle* mdlh = &gobj->model;
         /* Transform */
         mat4 model = gobj->transform;
