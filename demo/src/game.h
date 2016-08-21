@@ -31,6 +31,9 @@
 #ifndef _GAME_H_
 #define _GAME_H_
 
+#include <vector.h>
+#include <linalgb.h>
+
 struct mesh_handle
 {
     unsigned int vao;
@@ -46,6 +49,13 @@ struct model_handle
     unsigned int num_meshes;
 };
 
+struct game_object
+{
+    struct model_handle model;
+    mat4 transform;
+    unsigned int diff_tex;
+};
+
 struct game_context
 {
     /* Window assiciated with the game */
@@ -53,9 +63,8 @@ struct game_context
     /* Master run flag, indicates when the game should exit */
     int* should_terminate;
     /* GPU data */
-    struct model_handle model;
     unsigned int vs, fs, prog;
-    unsigned int diff_tex;
+    struct vector gobjects;
     /* Game state data */
     float rotation;
     float rotation_prev;
