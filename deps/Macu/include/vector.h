@@ -47,7 +47,12 @@ struct vector {
 void vector_init(struct vector* v, size_t item_sz);
 void vector_destroy(struct vector* v);
 void vector_append(struct vector* v, void* thing);
+void vector_set(struct vector* v, size_t index, void* value);
+void vector_insert(struct vector* v, size_t index, void* thing);
+void vector_remove_range(struct vector* v, size_t start, size_t end);
+void vector_remove(struct vector* v, size_t index);
 void* vector_at(struct vector* v, size_t index);
+void vector_clear(struct vector* v);
 
 #ifdef __cplusplus
 }

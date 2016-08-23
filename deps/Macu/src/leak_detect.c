@@ -28,8 +28,8 @@
 -----------------------------\n\
 File: %s\n\
 Line: %u\n\
-Size: %u bytes\n\
-Address: %#x\n\
+Size: %zu bytes\n\
+Address: %#zx\n\
 -----------------------------\n"
 
 /* Allocation entry */
@@ -156,7 +156,7 @@ static void allocations_print_iter(void* key, void* value)
            ai->filename,
            ai->line,
            ai->size,
-           (unsigned int)key);
+           (unsigned long)key);
 }
 
 void ld_print_leaks()
