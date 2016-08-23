@@ -685,7 +685,7 @@ ALboolean vector_resize(char *ptr, size_t base_size, size_t obj_size, ALsizei ob
     return AL_TRUE;
 }
 
-ALboolean vector_insert(char *ptr, size_t base_size, size_t obj_size, void *ins_pos, const void *datstart, const void *datend)
+ALboolean vector_iinsert(char *ptr, size_t base_size, size_t obj_size, void *ins_pos, const void *datstart, const void *datend)
 {
     vector_ *vecptr = (vector_*)ptr;
     if(datstart != datend)
