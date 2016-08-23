@@ -144,7 +144,7 @@ static struct mesh* mesh_from_parser_state(struct parser_state* ps)
                 /* Store new vertice index into indices array */
                 mesh->indices[mesh->num_indices - 1] = mesh->num_verts - 1;
                 /* Store face triple ptr to lookup table */
-                hashmap_put(&stored_vertices, vi, (void*)(mesh->num_verts - 1));
+                hashmap_put(&stored_vertices, vi, (void*)(uintptr_t)(mesh->num_verts - 1));
             }
         }
     }
@@ -310,7 +310,7 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
         else {
             ++m->num_materials;
             ps->cur_mat_idx = m->num_materials - 1;
-            hashmap_put(&ps->found_materials, material, (void*)(m->num_materials - 1));
+            hashmap_put(&ps->found_materials, material, (void*)(uintptr_t)(m->num_materials - 1));
         }
     }
 }
