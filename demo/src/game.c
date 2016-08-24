@@ -187,6 +187,9 @@ void game_init(struct game_context* ctx)
     glAttachShader(ctx->prog, fs);
     glLinkProgram(ctx->prog);
     gl_check_last_link_error(ctx->prog);
+
+    /* Initialize text rendering */
+    ctx->text_rndr = text_render_init();
 }
 
 void game_update(void* userdata, float dt)
@@ -264,12 +267,19 @@ void game_render(void* userdata, float interpolation)
 
     glUseProgram(0);
 
+    /* Render sample text */
+    char* text = "A Quick Brown Fox Jumps Over The Lazy Dog 0123456789";
+    text_render_print(ctx->text_rndr, text, vec2_new(10, 10), vec4_light_grey());
+
     /* Show rendered contents from the backbuffer */
     window_swap_buffers(ctx->wnd);
 }
 
 void game_shutdown(struct game_context* ctx)
 {
+    /* Free text resources */
+    text_render_shutdown(ctx->text_rndr);
+
     /* Free GPU resources */
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);

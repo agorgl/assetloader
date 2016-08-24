@@ -28,59 +28,17 @@
 /*   ' ') '( (/                                                                                                      */
 /*     '   '  `                                                                                                      */
 /*********************************************************************************************************************/
-#ifndef _GAME_H_
-#define _GAME_H_
+#ifndef _TEXT_RENDER_H_
+#define _TEXT_RENDER_H_
 
-#include <vector.h>
 #include <linalgb.h>
-#include "text_render.h"
+#include <assets/texture_atlas.h>
 
-struct mesh_handle
-{
-    unsigned int vao;
-    unsigned int vbo;
-    unsigned int uvs;
-    unsigned int ebo;
-    unsigned int indice_count;
-};
+struct text_renderer;
+typedef struct text_renderer text_renderer_t;
 
-struct model_handle
-{
-    struct mesh_handle* meshes;
-    unsigned int num_meshes;
-};
+text_renderer_t* text_render_init();
+void text_render_print(text_renderer_t* tr, const char* text, vec2 pos, vec4 color);
+void text_render_shutdown(text_renderer_t* tr);
 
-struct game_object
-{
-    struct model_handle model;
-    mat4 transform;
-    unsigned int diff_tex;
-};
-
-struct game_context
-{
-    /* Window assiciated with the game */
-    struct window* wnd;
-    /* Master run flag, indicates when the game should exit */
-    int* should_terminate;
-    /* GPU data */
-    unsigned int vs, fs, prog;
-    struct vector gobjects;
-    /* Game state data */
-    float rotation;
-    float rotation_prev;
-    size_t cur_obj;
-    /* Text rendering */
-    text_renderer_t* text_rndr;
-};
-
-/* Initializes the game instance */
-void game_init(struct game_context* ctx);
-/* Update callback used by the main loop */
-void game_update(void* userdata, float dt);
-/* Render callback used by the main loop */
-void game_render(void* userdata, float interpolation);
-/* De-initializes the game instance */
-void game_shutdown(struct game_context* ctx);
-
-#endif // ! _GAME_H_
+#endif /* ! _TEXT_RENDER_H_ */
