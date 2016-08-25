@@ -503,11 +503,16 @@ static struct fbx_record* fbx_read_root_record(struct parser_state* ps)
     return r;
 }
 
-/* Copy double to float array */
-static void fbx_copy_dtfa(float* dst, double* src, size_t len)
+/* Copy float array */
+static void fbx_cpy_fa(float* dst, void* src, size_t len, size_t unit_sz)
 {
-    for (size_t i = 0; i < len; ++i) {
-        dst[i] = src[i];
+    if (unit_sz != sizeof(float)) {
+        for (size_t i = 0; i < len; ++i) {
+            dst[i] = *(double*)((unsigned char*)src + i * unit_sz);
+        }
+    } else {
+        /* Optimized branch */
+        memcpy(dst, src, len * sizeof(float));
     }
 }
 
@@ -556,7 +561,7 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom)
 
     /* Create mesh */
     struct mesh* mesh = mesh_new();
-    size_t vert_unit_sz = fbx_pt_unit_size(verts->type);
+    size_t vu_sz = fbx_pt_unit_size(verts->type);
     mesh->num_verts = 0;
     mesh->num_indices = 0;
     int stored_indices = indices->length / fbx_pt_unit_size(indices->type);
@@ -584,29 +589,19 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom)
         uint32_t uv_ind = 0;
         if (uvs)
             uv_ind = uv_idxs->data.ip[i];
+
         /* Fill temporary vertex */
         struct vertex tv;
         memset(&tv, 0, sizeof(struct vertex));
-        if (vert_unit_sz != sizeof(float)) {
-            fbx_copy_dtfa(tv.position, verts->data.dp + pos_ind * 3, 3);
-            fbx_copy_dtfa(tv.normal, norms->data.dp + i * 3, 3);
-            if (tangents)
-                fbx_copy_dtfa(tv.tangent, tangents->data.dp + i * 3, 3);
-            if (binormals)
-                fbx_copy_dtfa(tv.binormal, binormals->data.dp + i * 3, 3);
-            if (uvs)
-                fbx_copy_dtfa(tv.uvs, uvs->data.dp + uv_ind * 2, 2);
-        }
-        else {
-            memcpy(tv.position, verts->data.fp + pos_ind * 3, 3 * sizeof(float));
-            memcpy(tv.normal, norms->data.fp + i * 3, 3 * sizeof(float));
-            if (tangents)
-                memcpy(tv.tangent, tangents->data.fp + i * 3, 3 * sizeof(float));
-            if (binormals)
-                memcpy(tv.binormal, binormals->data.fp + i * 3, 3 * sizeof(float));
-            if (uvs)
-                memcpy(tv.uvs, uvs->data.fp + uv_ind * 2, 2 * sizeof(float));
-        }
+        fbx_cpy_fa(tv.position, verts->data.dp + pos_ind * 3, 3, vu_sz);
+        fbx_cpy_fa(tv.normal, norms->data.dp + i * 3, 3, vu_sz);
+        if (tangents)
+            fbx_cpy_fa(tv.tangent, tangents->data.dp + i * 3, 3, vu_sz);
+        if (binormals)
+            fbx_cpy_fa(tv.binormal, binormals->data.dp + i * 3, 3, vu_sz);
+        if (uvs)
+            fbx_cpy_fa(tv.uvs, uvs->data.dp + uv_ind * 2, 2, vu_sz);
+
         /* Check if current vertex is already stored */
         void* stored_indice = hashmap_get(&stored_vertices, &tv);
         if (stored_indice) {
