@@ -1,6 +1,7 @@
 #include "game.h"
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "window.h"
 #include "input.h"
 #include <glad/glad.h>
@@ -214,10 +215,12 @@ void game_render(void* userdata, float interpolation)
     glUseProgram(ctx->prog);
 
     /* Create view and projection matrices */
+    float cam_pos_x = 2.0 * cos(rotation_interpolated);
+    float cam_pos_y = 2.0 * sin(rotation_interpolated);
     mat4 view = mat4_view_look_at(
-        vec3_new(0.6f, 1.0f, 2.5f),  /* Position */
-        vec3_zero(),                 /* Target */
-        vec3_new(0.0f, 1.0f, 0.0f)); /* Up */
+        vec3_new(cam_pos_x, 1.0f, cam_pos_y),  /* Position */
+        vec3_zero(),                           /* Target */
+        vec3_new(0.0f, 1.0f, 0.0f));           /* Up */
     mat4 proj = mat4_perspective(radians(45.0f), 0.1f, 300.0f, 1.0f / (800.0f / 600.0f));
 
     /* Render */
@@ -235,16 +238,8 @@ void game_render(void* userdata, float interpolation)
         /* Setup game object to be rendered */
         struct game_object* gobj = gobjl[i];
         struct model_handle* mdlh = &gobj->model;
-        /* Transform */
-        mat4 model = gobj->transform;
-        mat4 rot = mat4_rotation_euler(0.0f, rotation_interpolated, 0.0f);
-        model = mat4_mul_mat4(model, rot);
-        /*
-        float scale = 0.1;
-        model = mat4_mul_mat4(model, mat4_scale(vec3_new(scale, scale, scale)));
-         */
         /* Upload MVP matrix */
-        mat4 mvp = mat4_mul_mat4(mat4_mul_mat4(proj, view), model);
+        mat4 mvp = mat4_mul_mat4(mat4_mul_mat4(proj, view), gobj->transform);
         GLuint mvp_loc = glGetUniformLocation(ctx->prog, "MVP");
         mvp = mat4_transpose(mvp);
         glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, (GLfloat*)&mvp);
