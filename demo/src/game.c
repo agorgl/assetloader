@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <assets/assetload.h>
 
-static void gl_debug_proc(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* user_param)
+static APIENTRY void gl_debug_proc(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* user_param)
 {
     (void) source;
     (void) id;
