@@ -210,7 +210,7 @@ void game_update(void* userdata, float dt)
     window_poll_events(ctx->wnd);
     /* Update game state */
     ctx->rotation_prev = ctx->rotation;
-    ctx->rotation += dt * 0.000001f;
+    ctx->rotation += dt * 0.001f;
 }
 
 void game_render(void* userdata, float interpolation)
