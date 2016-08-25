@@ -257,9 +257,10 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
          * Negative reference numbers for v can be used
          */
         ++cur;
-        int32_t f[9];
+        int32_t f[12];
         memset(f, 0, sizeof(f));
-        for (int i = 0; i < 3; ++i) {
+        int i = 0;
+        while (cur != line_end) {
             /* Skip whitespace to next word */
             while (is_space(*cur) && cur < line_end)
                 ++cur;
@@ -275,6 +276,15 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
             /* Skip parsed word */
             while (!is_space(*cur) && cur < line_end)
                 ++cur;
+            /* Quad or more need additional face per triple */
+            if (i >= 3) {
+                int32_t g[9];
+                memcpy(g + 0, f + i * 3, 3 * sizeof(float));
+                memcpy(g + 3, f + 0, 3 * sizeof(float));
+                memcpy(g + 6, f + (i - 1) * 3, 3 * sizeof(float));
+                vector_append(&ps->faces, g);
+            }
+            ++i;
         }
 
         /* Store data */
