@@ -126,6 +126,16 @@ static void setup_data(struct game_context* ctx)
         mat4_translation(vec3_new(0.0f, -0.5f, 0.0f)),
         mat4_scale(vec3_new(scale, scale, scale)));
     vector_append(&ctx->gobjects, &go);
+    /* Sword */
+    upload_model_geom_data("ext/models/artorias_sword/Artorias_Sword.fbx", &go.model);
+    go.diff_tex = upload_texture("ext/models/artorias_sword/Sword_albedo.jpg");
+    scale = 0.06;
+    go.transform = mat4_mul_mat4(
+        mat4_translation(vec3_new(0.0f, -0.5f, 0.0f)),
+        mat4_scale(vec3_new(scale, scale, scale)));
+    go.transform = mat4_mul_mat4(go.transform, mat4_rotation_x(-radians(90)));
+    go.transform = mat4_mul_mat4(go.transform, mat4_rotation_z(radians(45)));
+    vector_append(&ctx->gobjects, &go);
     /* Cube */
     upload_model_geom_data("ext/cube.obj", &go.model);
     go.diff_tex = upload_texture("ext/floor.tga");
