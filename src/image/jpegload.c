@@ -28,17 +28,17 @@ struct image* image_from_jpeg(const unsigned char* data, size_t sz) {
     /* Gather image data info */
     int width = cinfo.output_width;
     int height = cinfo.output_height;
-    /* int pixel_size = cinfo.output_components; */
+    int pixel_size = cinfo.output_components;
 
     /* Allocate and fill the image object */
-    struct image* im = image_blank(width, height, 3);
+    struct image* im = image_blank(width, height, pixel_size);
 
     /* Read by lines */
     unsigned char* bufp = im->data;
-    int nsamples;
+    int stride = cinfo.image_width * cinfo.num_components;
     while (cinfo.output_scanline < cinfo.output_height) {
-        nsamples = jpeg_read_scanlines(&cinfo, (JSAMPARRAY)&bufp, 1);
-        bufp += nsamples* cinfo.image_width * cinfo.num_components;
+        unsigned char* row = bufp + (cinfo.output_height - cinfo.output_scanline - 1) * stride;
+        jpeg_read_scanlines(&cinfo, (JSAMPARRAY)&row, 1);
     }
 
     /* Finish decompression procedure */
