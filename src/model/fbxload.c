@@ -558,19 +558,21 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom)
     struct mesh* mesh = mesh_new();
     size_t vert_unit_sz = fbx_pt_unit_size(verts->type);
     mesh->num_verts = 0;
-    mesh->num_indices = indices->length / fbx_pt_unit_size(indices->type);
+    mesh->num_indices = 0;
+    int stored_indices = indices->length / fbx_pt_unit_size(indices->type);
 
     /* Allocate top limit */
-    mesh->vertices = realloc(mesh->vertices, mesh->num_indices * sizeof(struct vertex));
-    mesh->indices = realloc(mesh->indices, mesh->num_indices * sizeof(uint32_t));
-    memset(mesh->vertices, 0, mesh->num_indices * sizeof(struct vertex));
+    mesh->vertices = realloc(mesh->vertices, stored_indices * sizeof(struct vertex));
+    mesh->indices = realloc(mesh->indices, stored_indices * 2 * sizeof(uint32_t));
+    memset(mesh->vertices, 0, stored_indices * sizeof(struct vertex));
 
     /* Used to find and reuse indices of already stored vertices */
     struct hashmap stored_vertices;
     hashmap_init(&stored_vertices, vertex_hash, vertex_eql);
 
     /* Populate mesh */
-    for (int i = 0; i < mesh->num_indices; ++i) {
+    int fc = 0; /* Counter of vertices in running face */
+    for (int i = 0; i < stored_indices; ++i) {
         /* NOTE!
          * Negative array values in the positions' indices array exist
          * to indicate the last index of a polygon.
@@ -608,17 +610,35 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom)
         /* Check if current vertex is already stored */
         void* stored_indice = hashmap_get(&stored_vertices, &tv);
         if (stored_indice) {
-            mesh->indices[i] = *(uint32_t*)stored_indice;
+            mesh->indices[mesh->num_indices] = *(uint32_t*)stored_indice;
         } else {
             ++mesh->num_verts;
             /* Store new vertice */
             uint32_t nidx = mesh->num_verts - 1;
             memcpy(mesh->vertices + nidx, &tv, sizeof(struct vertex));
             /* Set indice */
-            mesh->indices[i] = nidx;
+            mesh->indices[mesh->num_indices] = nidx;
             /* Store vertex ptr to lookup table */
             hashmap_put(&stored_vertices, mesh->vertices + nidx, (void*)(uintptr_t)nidx);
         }
+
+        /*
+         * When fc >= 3 we have a polygon that is no more a triangle.
+         * For every additional point in the polygon we add two more indices
+         * thus adding an additional triangle face. The bellow pattern
+         * splits polygons to triangle fans
+         */
+        if (fc >= 3) {
+            int ci = mesh->indices[mesh->num_indices];
+            mesh->indices[mesh->num_indices + 0] = ci;
+            mesh->indices[mesh->num_indices + 1] = mesh->indices[mesh->num_indices - 1];
+            mesh->indices[mesh->num_indices + 2] = mesh->indices[mesh->num_indices - fc];
+            mesh->num_indices += 2;
+        }
+
+        /* Reset the fc when we reach the end of a face else increase it */
+        fc = indices->data.ip[i] < 0 ? 0 : fc + 1;
+        ++mesh->num_indices;
     }
 
     hashmap_destroy(&stored_vertices);
