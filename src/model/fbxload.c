@@ -657,6 +657,19 @@ static struct model* fbx_read_model(struct fbx_record* obj)
     return model;
 }
 
+static void fbx_debug_print(struct fbx_record* root)
+{
+    struct fbx_record* geom = fbx_find_subrecord_with_name(
+        fbx_find_subrecord_with_name(root, "Objects"),
+        "Geometry");
+
+    while (geom) {
+        fbx_record_print(geom , 3);
+        /* Process next mesh */
+        geom = fbx_find_sibling_with_name(geom, "Geometry");
+    }
+}
+
 struct model* model_from_fbx(const unsigned char* data, size_t sz)
 {
     /* Initialize parser state */
@@ -682,14 +695,7 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
     fbx.root = r;
 
     /* Print debug info */
-    /*
-    fbx_record_print(
-        fbx_find_subrecord_with_name(
-            fbx_find_subrecord_with_name(fbx.root, "Objects"),
-            "Geometry"),
-        3
-    );
-    */
+    /* fbx_debug_print(fbx.root); */
 
     /* Gather model data from parsed tree  */
     struct fbx_record* objs = fbx_find_subrecord_with_name(fbx.root, "Objects");
