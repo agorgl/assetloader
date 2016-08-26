@@ -3,13 +3,14 @@
 #include <stdlib.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include "input.h"
 
 struct window
 {
     GLFWwindow* wnd_handle;
     struct window_callbacks callbacks;
     void* userdata;
+    /* Misc state */
+    float cursor_pos[2], cursor_prev_pos[2];
 };
 
 static void glfw_err_cb(int code, const char* desc)
@@ -165,10 +166,17 @@ void window_set_callbacks(struct window* wnd, struct window_callbacks* callbacks
     wnd->callbacks = *callbacks;
 }
 
-void window_poll_events(struct window* wnd)
+void window_update(struct window* wnd)
 {
-    (void)wnd;
+    /* Poll events and fire callbacks */
     glfwPollEvents();
+    /* Update cached state */
+    wnd->cursor_prev_pos[0] = wnd->cursor_pos[0];
+    wnd->cursor_prev_pos[1] = wnd->cursor_pos[1];
+    double xpos, ypos;
+    glfwGetCursorPos(wnd->wnd_handle, &xpos, &ypos);
+    wnd->cursor_pos[0] = xpos;
+    wnd->cursor_pos[1] = ypos;
 }
 
 void window_swap_buffers(struct window* wnd)
@@ -184,4 +192,51 @@ void window_set_userdata(struct window* wnd, void* userdata)
 void* window_get_userdata(struct window* wnd)
 {
     return wnd->userdata;
+}
+
+enum key_action window_key_state(struct window* wnd, enum key k)
+{
+    int glfw_state = glfwGetKey(wnd->wnd_handle, k);
+    switch (glfw_state) {
+        case GLFW_PRESS:
+            return KEY_ACTION_PRESS;
+        case GLFW_RELEASE:
+            return KEY_ACTION_RELEASE;
+        case GLFW_REPEAT:
+            return KEY_ACTION_REPEAT;
+        default:
+            return KEY_ACTION_RELEASE;
+    }
+}
+
+enum key_action window_mouse_button_state(struct window* wnd, enum mouse_button mb)
+{
+    int glfw_state = glfwGetMouseButton(wnd->wnd_handle, mb);
+    switch (glfw_state) {
+        case GLFW_PRESS:
+            return KEY_ACTION_PRESS;
+        case GLFW_RELEASE:
+            return KEY_ACTION_RELEASE;
+        default:
+            return KEY_ACTION_RELEASE;
+    }
+}
+
+void window_get_cursor_diff(struct window* wnd, float* x, float* y)
+{
+    if (x)
+        *x = wnd->cursor_pos[0] - wnd->cursor_prev_pos[0];
+    if (y)
+        *y = wnd->cursor_pos[1] - wnd->cursor_prev_pos[1];
+}
+
+void window_grub_cursor(struct window* wnd, int mode)
+{
+    int glfw_mode = mode > 0 ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL;
+    glfwSetInputMode(wnd->wnd_handle, GLFW_CURSOR, glfw_mode);
+}
+
+int window_is_cursor_grubbed(struct window* wnd)
+{
+    return glfwGetInputMode(wnd->wnd_handle, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
 }

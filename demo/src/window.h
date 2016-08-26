@@ -31,6 +31,8 @@
 #ifndef _WINDOW_H_
 #define _WINDOW_H_
 
+#include "input.h"
+
 /* Window datatype */
 struct window;
 
@@ -64,8 +66,8 @@ void window_destroy(struct window*);
 /* Registers given callback functions */
 void window_set_callbacks(struct window*, struct window_callbacks*);
 
-/* Polls for stored events and calls the registered callbacks */
-void window_poll_events(struct window*);
+/* Polls for stored events, calls the registered callbacks and updates cached state */
+void window_update(struct window*);
 
 /* Swaps backbuffer with front buffer */
 void window_swap_buffers(struct window* wnd);
@@ -75,5 +77,20 @@ void window_set_userdata(struct window* wnd, void* userdata);
 
 /* Retrieves userdata pointer assisiated with given window */
 void* window_get_userdata(struct window* wnd);
+
+/* Returns the current state of the given key */
+enum key_action window_key_state(struct window* wnd, enum key k);
+
+/* Returns the current state of the given mouse button */
+enum key_action window_mouse_button_state(struct window* wnd, enum mouse_button mb);
+
+/* Returns cursor movement difference between last two frames */
+void window_get_cursor_diff(struct window* wnd, float* x, float* y);
+
+/* Sets cursor grub (1: grub, 0: release) */
+void window_grub_cursor(struct window* wnd, int mode);
+
+/* Returns 1 when the cursor is being grubbed */
+int window_is_cursor_grubbed(struct window* wnd);
 
 #endif /* ! _WINDOW_H_ */

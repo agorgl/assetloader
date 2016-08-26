@@ -28,63 +28,35 @@
 /*   ' ') '( (/                                                                                                      */
 /*     '   '  `                                                                                                      */
 /*********************************************************************************************************************/
-#ifndef _GAME_H_
-#define _GAME_H_
+#ifndef _CAMERA_H_
+#define _CAMERA_H_
 
-#include <vector.h>
 #include <linalgb.h>
-#include "text_render.h"
-#include "camera.h"
 
-struct mesh_handle
-{
-    unsigned int vao;
-    unsigned int vbo;
-    unsigned int uvs;
-    unsigned int ebo;
-    unsigned int indice_count;
+struct camera {
+    vec3 pos;
+    vec3 front;
+    vec3 up;
+    float yaw;
+    float pitch;
+    float move_speed;
+    float sensitivity;
+    float pitch_lim;
+    mat4 view_mat;
+    mat4 prev_view_mat;
 };
 
-struct model_handle
-{
-    struct mesh_handle* meshes;
-    unsigned int num_meshes;
+enum camera_move_dir {
+    cmd_forward  = 1 << 0,
+    cmd_left     = 1 << 1,
+    cmd_backward = 1 << 2,
+    cmd_right    = 1 << 3
 };
 
-struct game_object
-{
-    struct model_handle model;
-    mat4 transform;
-    unsigned int diff_tex;
-};
+void camera_defaults(struct camera* cam);
+void camera_move(struct camera* cam, int move_directions);
+void camera_look(struct camera* cam, float offx, float offy);
+void camera_update(struct camera* cam);
+mat4 camera_interpolated_view(struct camera* cam, float interpolaton);
 
-struct game_context
-{
-    /* Window assiciated with the game */
-    struct window* wnd;
-    /* Master run flag, indicates when the game should exit */
-    int* should_terminate;
-    /* GPU data */
-    unsigned int vs, fs, prog;
-    struct vector gobjects;
-    /* Camera state */
-    struct camera cam;
-    /* Game state data */
-    float rotation;
-    float rotation_prev;
-    int is_rotating;
-    size_t cur_obj;
-    /* Text rendering */
-    text_renderer_t* text_rndr;
-};
-
-/* Initializes the game instance */
-void game_init(struct game_context* ctx);
-/* Update callback used by the main loop */
-void game_update(void* userdata, float dt);
-/* Render callback used by the main loop */
-void game_render(void* userdata, float interpolation);
-/* De-initializes the game instance */
-void game_shutdown(struct game_context* ctx);
-
-#endif // ! _GAME_H_
+#endif /* ! _CAMERA_H_ */

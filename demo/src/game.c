@@ -34,6 +34,20 @@ static void on_key(struct window* wnd, int key, int scancode, int action, int mo
         /* Cycle through shown objects skipping podium that is first */
         ctx->cur_obj = ctx->cur_obj < ctx->gobjects.size - 1 ? ctx->cur_obj + 1 : 1;
     }
+    else if (action == KEY_ACTION_RELEASE && key == KEY_RIGHT_CONTROL) {
+        window_grub_cursor(wnd, 0);
+        ctx->is_rotating = 1;
+    }
+}
+
+static void on_mouse_button(struct window* wnd, int button, int action, int mods)
+{
+    (void) mods;
+    struct game_context* ctx = window_get_userdata(wnd);
+    if (action == KEY_ACTION_RELEASE && button == MOUSE_LEFT) {
+        window_grub_cursor(wnd, 1);
+        ctx->is_rotating = 0;
+    }
 }
 
 static void upload_model_geom_data(const char* filename, struct model_handle* model)
@@ -170,6 +184,7 @@ void game_init(struct game_context* ctx)
     struct window_callbacks wnd_callbacks;
     memset(&wnd_callbacks, 0, sizeof(struct window_callbacks));
     wnd_callbacks.key_cb = on_key;
+    wnd_callbacks.mouse_button_cb = on_mouse_button;
     window_set_callbacks(ctx->wnd, &wnd_callbacks);
 
     /* Setup OpenGL debug handler */
@@ -177,6 +192,7 @@ void game_init(struct game_context* ctx)
 
     /* Initialize game state data */
     ctx->rotation = 0.0f;
+    ctx->is_rotating = 1;
     ctx->cur_obj = 1;
 
     /* Load data from files into the GPU */
@@ -199,6 +215,11 @@ void game_init(struct game_context* ctx)
     glLinkProgram(ctx->prog);
     gl_check_last_link_error(ctx->prog);
 
+    /* Setup camera */
+    camera_defaults(&ctx->cam);
+    ctx->cam.pos = vec3_new(0.0, 1.0, 2.0);
+    ctx->cam.front = vec3_normalize(vec3_mul(ctx->cam.pos, -1));
+
     /* Initialize text rendering */
     ctx->text_rndr = text_render_init();
 }
@@ -207,10 +228,28 @@ void game_update(void* userdata, float dt)
 {
     struct game_context* ctx = userdata;
     /* Process input events */
-    window_poll_events(ctx->wnd);
+    window_update(ctx->wnd);
     /* Update game state */
     ctx->rotation_prev = ctx->rotation;
     ctx->rotation += dt * 0.001f;
+    /* Update camera position */
+    int cam_mov_flags = 0x0;
+    if (window_key_state(ctx->wnd, KEY_W) == KEY_ACTION_PRESS)
+        cam_mov_flags |= cmd_forward;
+    if (window_key_state(ctx->wnd, KEY_A) == KEY_ACTION_PRESS)
+        cam_mov_flags |= cmd_left;
+    if (window_key_state(ctx->wnd, KEY_S) == KEY_ACTION_PRESS)
+        cam_mov_flags |= cmd_backward;
+    if (window_key_state(ctx->wnd, KEY_D) == KEY_ACTION_PRESS)
+        cam_mov_flags |= cmd_right;
+    camera_move(&ctx->cam, cam_mov_flags);
+    /* Update camera look */
+    float cur_diff_x = 0, cur_diff_y = 0;
+    window_get_cursor_diff(ctx->wnd, &cur_diff_x, &cur_diff_y);
+    if (window_is_cursor_grubbed(ctx->wnd))
+        camera_look(&ctx->cam, cur_diff_x, cur_diff_y);
+    /* Update camera matrix */
+    camera_update(&ctx->cam);
 }
 
 void game_render(void* userdata, float interpolation)
@@ -225,12 +264,18 @@ void game_render(void* userdata, float interpolation)
     glUseProgram(ctx->prog);
 
     /* Create view and projection matrices */
-    float cam_pos_x = 2.0 * cos(rotation_interpolated);
-    float cam_pos_y = 2.0 * sin(rotation_interpolated);
-    mat4 view = mat4_view_look_at(
-        vec3_new(cam_pos_x, 1.0f, cam_pos_y),  /* Position */
-        vec3_zero(),                           /* Target */
-        vec3_new(0.0f, 1.0f, 0.0f));           /* Up */
+    mat4 view;
+    if (ctx->is_rotating) {
+        float cam_pos_x = 2.0 * cos(rotation_interpolated);
+        float cam_pos_y = 2.0 * sin(rotation_interpolated);
+        view = mat4_view_look_at(
+            vec3_new(cam_pos_x, 1.0f, cam_pos_y),  /* Position */
+            vec3_zero(),                           /* Target */
+            vec3_new(0.0f, 1.0f, 0.0f));           /* Up */
+    } else {
+        //nview = camera_interpolated_view(&ctx->cam, interpolation);
+        view = ctx->cam.view_mat;
+    }
     mat4 proj = mat4_perspective(radians(45.0f), 0.1f, 300.0f, 1.0f / (800.0f / 600.0f));
 
     /* Render */
