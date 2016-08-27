@@ -51,10 +51,12 @@ void camera_look(struct camera* cam, float offx, float offy)
     if (cam->pitch < -cam->pitch_lim)
         cam->pitch = -cam->pitch_lim;
 
-    cam->front.x = cos(radians(cam->yaw)) * cos(radians(cam->pitch));
-    cam->front.y = sin(radians(cam->pitch));
-    cam->front.z = sin(radians(cam->yaw) * cos(radians(cam->pitch)));
-    cam->front = vec3_normalize(cam->front);
+    vec3 direction = vec3_new(
+        cos(radians(cam->pitch)) * cos(radians(cam->yaw)),
+        sin(radians(cam->pitch)),
+        cos(radians(cam->pitch)) * sin(radians(cam->yaw))
+    );
+    cam->front = vec3_normalize(direction);
 }
 
 void camera_update(struct camera* cam)
