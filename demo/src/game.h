@@ -65,7 +65,7 @@ struct game_context
     /* Master run flag, indicates when the game should exit */
     int* should_terminate;
     /* GPU data */
-    unsigned int vs, fs, prog;
+    unsigned int prog;
     struct vector gobjects;
     /* Camera state */
     struct camera cam;

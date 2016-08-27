@@ -273,10 +273,10 @@ void game_init(struct game_context* ctx)
     setup_data(ctx);
 
     /* Load shaders */
-    ctx->vs = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(ctx->vs, 1, &VS_SRC, 0);
-    glCompileShader(ctx->vs);
-    gl_check_last_compile_error(ctx->vs);
+    GLuint vs = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vs, 1, &VS_SRC, 0);
+    glCompileShader(vs);
+    gl_check_last_compile_error(vs);
     GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fs, 1, &FS_SRC, 0);
     glCompileShader(fs);
@@ -284,10 +284,12 @@ void game_init(struct game_context* ctx)
 
     /* Create program */
     ctx->prog = glCreateProgram();
-    glAttachShader(ctx->prog, ctx->vs);
+    glAttachShader(ctx->prog, vs);
     glAttachShader(ctx->prog, fs);
     glLinkProgram(ctx->prog);
     gl_check_last_link_error(ctx->prog);
+    glDeleteShader(fs);
+    glDeleteShader(vs);
 
     /* Setup camera */
     camera_defaults(&ctx->cam);
@@ -437,17 +439,19 @@ void game_render(void* userdata, float interpolation)
 
 void game_shutdown(struct game_context* ctx)
 {
+    /* Unbind GPU handles */
+    glUseProgram(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
     /* Free text resources */
     text_render_shutdown(ctx->text_rndr);
 
     /* Free normal visualization resources */
     glDeleteProgram(ctx->vis_nrm_prog);
 
-    /* Free GPU resources */
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
+    /* Free model and texture resources */
     for (unsigned int i = 0; i < ctx->gobjects.size; ++i) {
         struct game_object* gobj = vector_at(&ctx->gobjects, i);
         /* Free geometry */
@@ -468,8 +472,7 @@ void game_shutdown(struct game_context* ctx)
     }
     vector_destroy(&ctx->gobjects);
 
-    glDeleteShader(ctx->fs);
-    glDeleteShader(ctx->vs);
+    /* Delete main shader */
     glDeleteProgram(ctx->prog);
 
     /* Close window */
