@@ -60,9 +60,7 @@ struct image* image_from_png(const unsigned char* data, size_t sz) {
     free(row_ptrs);
 
     /* Free allocated structures */
-    png_destroy_read_struct(0, 0, &end_info);
-    png_destroy_read_struct(0, &info, 0);
-    png_destroy_read_struct(&png, 0, 0);
+    png_destroy_read_struct(&png, &info, &end_info);
 
     /* Return read image */
     return im;
