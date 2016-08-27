@@ -55,7 +55,7 @@ struct game_object
 {
     struct model_handle model;
     mat4 transform;
-    unsigned int diff_tex;
+    struct vector diff_textures;
 };
 
 struct game_context

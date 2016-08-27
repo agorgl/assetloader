@@ -131,18 +131,29 @@ static void setup_data(struct game_context* ctx)
 {
     struct game_object go;
     float scale = 1.0f;
+    GLuint tex_id[16] = {};
     vector_init(&ctx->gobjects, sizeof(struct game_object));
+
     /* Podium */
     upload_model_geom_data("ext/models/podium/podium.obj", &go.model);
-    go.diff_tex = upload_texture("ext/models/podium/podium.png");
+    /*-*/
+    vector_init(&go.diff_textures, sizeof(GLuint));
+    tex_id[0] = upload_texture("ext/models/podium/podium.png");
+    vector_append(&go.diff_textures, tex_id + 0);
+    /*-*/
     scale = 0.08;
     go.transform = mat4_mul_mat4(
         mat4_translation(vec3_new(0.0f, -0.5f, 0.0f)),
         mat4_scale(vec3_new(scale, scale, scale)));
     vector_append(&ctx->gobjects, &go);
+
     /* Sword */
     upload_model_geom_data("ext/models/artorias_sword/Artorias_Sword.fbx", &go.model);
-    go.diff_tex = upload_texture("ext/models/artorias_sword/Sword_albedo.jpg");
+    /*-*/
+    vector_init(&go.diff_textures, sizeof(GLuint));
+    tex_id[0] = upload_texture("ext/models/artorias_sword/Sword_albedo.jpg");
+    vector_append(&go.diff_textures, tex_id + 0);
+    /*-*/
     scale = 0.06;
     go.transform = mat4_mul_mat4(
         mat4_translation(vec3_new(0.0f, -0.5f, 0.0f)),
@@ -150,19 +161,49 @@ static void setup_data(struct game_context* ctx)
     go.transform = mat4_mul_mat4(go.transform, mat4_rotation_x(-radians(90)));
     go.transform = mat4_mul_mat4(go.transform, mat4_rotation_z(radians(45)));
     vector_append(&ctx->gobjects, &go);
+
+    /* Alduin */
+    upload_model_geom_data("ext/models/alduin/alduin.obj", &go.model);
+    /*-*/
+    vector_init(&go.diff_textures, sizeof(GLuint));
+    tex_id[0] = upload_texture("ext/models/alduin/tex/alduin.jpg");
+    tex_id[1] = upload_texture("ext/models/alduin/tex/alduineyes.jpg");
+    vector_append(&go.diff_textures, tex_id + 0);
+    vector_append(&go.diff_textures, tex_id + 1);
+    /*-*/
+    scale = 0.0025;
+    go.transform = mat4_mul_mat4(
+        mat4_translation(vec3_new(0.4f, -0.4f, 0.0f)),
+        mat4_scale(vec3_new(scale, scale, scale)));
+    vector_append(&ctx->gobjects, &go);
+
     /* Cube */
     upload_model_geom_data("ext/cube.obj", &go.model);
-    go.diff_tex = upload_texture("ext/floor.tga");
+    /*-*/
+    vector_init(&go.diff_textures, sizeof(GLuint));
+    tex_id[0] = upload_texture("ext/floor.tga");
+    vector_append(&go.diff_textures, tex_id + 0);
+    /*-*/
     go.transform = mat4_translation(vec3_new(0.0f, 0.1f, 0.0f));
     vector_append(&ctx->gobjects, &go);
+
     /* Cube2 */
     upload_model_geom_data("ext/cube.fbx", &go.model);
-    go.diff_tex = upload_texture("ext/Bark2.tif");
+    /*-*/
+    vector_init(&go.diff_textures, sizeof(GLuint));
+    tex_id[0] = upload_texture("ext/Bark2.tif");
+    vector_append(&go.diff_textures, tex_id + 0);
+    /*-*/
     go.transform = mat4_translation(vec3_new(0.0f, 0.1f, 0.0f));
     vector_append(&ctx->gobjects, &go);
+
     /* Barrel */
     upload_model_geom_data("ext/models/barrel/barrel.fbx", &go.model);
-    go.diff_tex = upload_texture("ext/models/barrel/barrel.tif");
+    /*-*/
+    vector_init(&go.diff_textures, sizeof(GLuint));
+    tex_id[0] = upload_texture("ext/models/barrel/barrel.tif");
+    vector_append(&go.diff_textures, tex_id + 0);
+    /*-*/
     scale = 0.2;
     go.transform = mat4_mul_mat4(
         mat4_translation(vec3_new(0.0f, -0.4f, 0.0f)),
@@ -298,13 +339,15 @@ void game_render(void* userdata, float interpolation)
         GLuint mvp_loc = glGetUniformLocation(ctx->prog, "MVP");
         mvp = mat4_transpose(mvp);
         glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, (GLfloat*)&mvp);
-        /* Set diffuse texture */
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, gobj->diff_tex);
 
         /* Render mesh by mesh */
         for (unsigned int i = 0; i < mdlh->num_meshes; ++i) {
             struct mesh_handle* mh = mdlh->meshes + i;
+            /* Set diffuse texture */
+            glActiveTexture(GL_TEXTURE0);
+            GLuint diff_tex = *(GLuint*)vector_at(&gobj->diff_textures, i);
+            glBindTexture(GL_TEXTURE_2D, diff_tex);
+            /* Render */
             glBindVertexArray(mh->vao);
             glBindBuffer(GL_ARRAY_BUFFER, mh->vbo);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mh->ebo);
@@ -346,8 +389,12 @@ void game_shutdown(struct game_context* ctx)
             glDeleteVertexArrays(1, &mh->vao);
         }
         free(gobj->model.meshes);
-        /* Free texture */
-        glDeleteTextures(1, &gobj->diff_tex);
+        /* Free textures */
+        for (unsigned int j = 0; j < gobj->diff_textures.size; ++j) {
+            GLuint diff_tex = *(GLuint*)vector_at(&gobj->diff_textures, j);
+            glDeleteTextures(1, &diff_tex);
+        }
+        vector_destroy(&gobj->diff_textures);
     }
     vector_destroy(&ctx->gobjects);
 
