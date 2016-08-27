@@ -265,7 +265,7 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
             while (is_space(*cur) && cur < line_end)
                 ++cur;
             /* Check if eol reached */
-            if (cur == line_end)
+            if (cur == line_end - 1)
                 break;
             /* Find end of current triple */
             const unsigned char* tend = cur;
