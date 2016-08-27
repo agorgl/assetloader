@@ -284,7 +284,8 @@ static struct fbx_record* fbx_find_sibling_with_name(struct fbx_record* rec, con
 static int fbx_array_decompress(const void* src, int srclen, void* dst, int dstlen)
 {
     int err = -1, ret = -1;
-    z_stream strm  = {};
+    z_stream strm;
+    memset(&strm, 0, sizeof(strm));
     strm.total_in  = strm.avail_in  = srclen;
     strm.total_out = strm.avail_out = dstlen;
     strm.next_in   = (Bytef*) src;

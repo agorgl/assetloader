@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <assets/assetload.h>
 
-static APIENTRY void gl_debug_proc(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* user_param)
+static void APIENTRY gl_debug_proc(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* user_param)
 {
     (void) source;
     (void) id;
@@ -136,7 +136,8 @@ static void setup_data(struct game_context* ctx)
 {
     struct game_object go;
     float scale = 1.0f;
-    GLuint tex_id[16] = {};
+    GLuint tex_id[16];
+    memset(tex_id, 0, sizeof(tex_id));
     vector_init(&ctx->gobjects, sizeof(struct game_object));
 
     /* Podium */
