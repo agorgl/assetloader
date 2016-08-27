@@ -96,6 +96,10 @@ struct fbx_property {
         unsigned char* raw;
     } data;
     uint32_t length;
+    /* Indicates that current property was an encoded array,
+     * and that additional heap memory was allocated for its
+     * decoded data that must be freed later */
+    int enc_arr;
 };
 
 /* FBX Record */
@@ -382,10 +386,12 @@ static struct fbx_property fbx_read_property(struct parser_state* ps)
             if (!enc) {
                 prop.data.p = ps->cur;
                 prop.length = fbx_pt_size(pt, arr_len);
+                prop.enc_arr = 0;
             } else {
                 prop.length = fbx_pt_size(pt, arr_len);;
-                prop.data.p = malloc(prop.length); // TODO: Free below
+                prop.data.p = malloc(prop.length);
                 fbx_array_decompress(ps->cur, clen, prop.data.p, prop.length);
+                prop.enc_arr = 1;
                 /* Early return (different iterfw size) */
                 iterfw(clen);
                 return prop;
@@ -414,6 +420,17 @@ static void fbx_record_init(struct fbx_record* fbxr)
     memset(fbxr, 0, sizeof(struct fbx_record));
 }
 
+static void fbx_property_destroy(struct fbx_property* p)
+{
+    if ((p->type == fbx_pt_float_arr
+         || p->type == fbx_pt_double_arr
+         || p->type == fbx_pt_long_arr
+         || p->type == fbx_pt_int_arr
+         || p->type == fbx_pt_bool_arr) && p->enc_arr) {
+        free(p->data.p);
+    }
+}
+
 static void fbx_record_destroy(struct fbx_record* fbxr)
 {
     struct fbx_record* n = fbxr->subrecords;
@@ -422,6 +439,8 @@ static void fbx_record_destroy(struct fbx_record* fbxr)
         fbx_record_destroy(n);
         n = next;
     }
+    for (uint32_t i = 0; i < fbxr->num_props; ++i)
+        fbx_property_destroy(fbxr->properties + i);
     free(fbxr->properties);
     free(fbxr->name);
     free(fbxr);
