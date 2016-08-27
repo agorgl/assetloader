@@ -38,6 +38,8 @@ static void on_key(struct window* wnd, int key, int scancode, int action, int mo
         window_grub_cursor(wnd, 0);
         ctx->is_rotating = 1;
     }
+    else if (action ==  KEY_ACTION_RELEASE && key == KEY_N)
+        ctx->visualizing_normals = !ctx->visualizing_normals;
 }
 
 static void on_mouse_button(struct window* wnd, int button, int action, int mods)
@@ -86,6 +88,9 @@ static void upload_model_geom_data(const char* filename, struct model_handle* mo
         GLuint uv_attrib = 1;
         glEnableVertexAttribArray(uv_attrib);
         glVertexAttribPointer(uv_attrib, 2, GL_FLOAT, GL_FALSE, sizeof(struct vertex), (GLvoid*)offsetof(struct vertex, uvs));
+        GLuint nm_attrib = 2;
+        glEnableVertexAttribArray(nm_attrib);
+        glVertexAttribPointer(nm_attrib, 3, GL_FLOAT, GL_FALSE, sizeof(struct vertex), (GLvoid*)offsetof(struct vertex, normal));
 
         /* Create indice ebo */
         glGenBuffers(1, &mh->ebo);
@@ -211,6 +216,34 @@ static void setup_data(struct game_context* ctx)
     vector_append(&ctx->gobjects, &go);
 }
 
+static void game_visualize_normals_setup(struct game_context* ctx)
+{
+    ctx->visualizing_normals = 0;
+    /* Load shaders */
+    GLuint vs = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vs, 1, &NV_VS_SRC, 0);
+    glCompileShader(vs);
+    gl_check_last_compile_error(vs);
+    GLuint gs = glCreateShader(GL_GEOMETRY_SHADER);
+    glShaderSource(gs, 1, &NV_GS_SRC, 0);
+    glCompileShader(gs);
+    gl_check_last_compile_error(gs);
+    GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fs, 1, &NV_FS_SRC, 0);
+    glCompileShader(fs);
+    gl_check_last_compile_error(fs);
+    /* Create program */
+    ctx->vis_nrm_prog = glCreateProgram();
+    glAttachShader(ctx->vis_nrm_prog, vs);
+    glAttachShader(ctx->vis_nrm_prog, gs);
+    glAttachShader(ctx->vis_nrm_prog, fs);
+    glLinkProgram(ctx->vis_nrm_prog);
+    gl_check_last_link_error(ctx->vis_nrm_prog);
+    glDeleteShader(vs);
+    glDeleteShader(gs);
+    glDeleteShader(fs);
+}
+
 void game_init(struct game_context* ctx)
 {
     /* Create window */
@@ -261,6 +294,9 @@ void game_init(struct game_context* ctx)
     ctx->cam.pos = vec3_new(0.0, 1.0, 2.0);
     ctx->cam.front = vec3_normalize(vec3_mul(ctx->cam.pos, -1));
 
+    /* Normal visualization */
+    game_visualize_normals_setup(ctx);
+
     /* Initialize text rendering */
     ctx->text_rndr = text_render_init();
 }
@@ -291,6 +327,33 @@ void game_update(void* userdata, float dt)
         camera_look(&ctx->cam, cur_diff_x, cur_diff_y);
     /* Update camera matrix */
     camera_update(&ctx->cam);
+}
+
+static void game_visualize_normals_render(struct game_context* ctx, mat4* view, mat4* proj)
+{
+    /* Setup game object to be rendered */
+    struct game_object* gobj = vector_at(&ctx->gobjects, ctx->cur_obj);
+    struct model_handle* mdlh = &gobj->model;
+
+    /* Upload MVP matrix */
+    glUseProgram(ctx->vis_nrm_prog);
+    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "projection"), 1, GL_TRUE, (GLfloat*)proj);
+    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "view"), 1, GL_TRUE, (GLfloat*)view);
+    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "model"), 1, GL_TRUE, (GLfloat*)&gobj->transform);
+
+    /* Render mesh by mesh */
+    for (unsigned int i = 0; i < mdlh->num_meshes; ++i) {
+        struct mesh_handle* mh = mdlh->meshes + i;
+        glBindVertexArray(mh->vao);
+        glBindBuffer(GL_ARRAY_BUFFER, mh->vbo);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mh->ebo);
+        glDrawElements(GL_TRIANGLES, mh->indice_count, GL_UNSIGNED_INT, (void*)0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+    }
+
+    glUseProgram(0);
 }
 
 void game_render(void* userdata, float interpolation)
@@ -360,6 +423,10 @@ void game_render(void* userdata, float interpolation)
 
     glUseProgram(0);
 
+    /* Visualize normals */
+    if (ctx->visualizing_normals)
+        game_visualize_normals_render(ctx, &view, &proj);
+
     /* Render sample text */
     char* text = "A Quick Brown Fox Jumps Over The Lazy Dog 0123456789";
     text_render_print(ctx->text_rndr, text, vec2_new(10, 10), vec4_light_grey());
@@ -372,6 +439,9 @@ void game_shutdown(struct game_context* ctx)
 {
     /* Free text resources */
     text_render_shutdown(ctx->text_rndr);
+
+    /* Free normal visualization resources */
+    glDeleteProgram(ctx->vis_nrm_prog);
 
     /* Free GPU resources */
     glBindBuffer(GL_ARRAY_BUFFER, 0);

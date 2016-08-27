@@ -37,4 +37,9 @@ extern const float CUBE_VERTEX_DATA[144];
 extern const float CUBE_UVS[96];
 extern const unsigned int CUBE_ELEM_DATA[36];
 
+/* Normal visualization */
+extern const char* NV_VS_SRC;
+extern const char* NV_GS_SRC;
+extern const char* NV_FS_SRC;
+
 #endif /* ! _STATIC_DATA_H */

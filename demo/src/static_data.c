@@ -155,3 +155,60 @@ const float CUBE_UVS[96] = {
     0.0, 1.0,
     0.0, 0.0,
 };
+
+const char* NV_VS_SRC =
+"#version 330 core                      \n\
+layout (location = 0) in vec3 position; \n\
+layout (location = 2) in vec3 normal;   \n\
+                                        \n\
+uniform mat4 projection;                \n\
+uniform mat4 view;                      \n\
+uniform mat4 model;                     \n\
+                                        \n\
+out VS_OUT {                            \n\
+    vec3 normal;                        \n\
+} vs_out;                               \n\
+                                        \n\
+void main()                             \n\
+{                                       \n\
+    gl_Position = projection * view * model * vec4(position, 1.0f);                 \n\
+    mat3 normalMatrix = mat3(transpose(inverse(view * model)));                     \n\
+    vs_out.normal = normalize(vec3(projection * vec4(normalMatrix * normal, 1.0))); \n\
+}";
+
+const char* NV_GS_SRC =
+"#version 330 core                                     \n\
+layout (triangles) in;                                 \n\
+layout (line_strip, max_vertices = 6) out;             \n\
+                                                       \n\
+in VS_OUT {                                            \n\
+    vec3 normal;                                       \n\
+} gs_in[];                                             \n\
+                                                       \n\
+const float MAGNITUDE = 0.1f;                          \n\
+                                                       \n\
+void GenerateLine(int index)                           \n\
+{                                                      \n\
+    gl_Position = gl_in[index].gl_Position;            \n\
+    EmitVertex();                                      \n\
+    gl_Position = gl_in[index].gl_Position             \n\
+        + vec4(gs_in[index].normal, 0.0f) * MAGNITUDE; \n\
+    EmitVertex();                                      \n\
+    EndPrimitive();                                    \n\
+}                                                      \n\
+                                                       \n\
+void main()                                            \n\
+{                                                      \n\
+    GenerateLine(0); // First vertex normal            \n\
+    GenerateLine(1); // Second vertex normal           \n\
+    GenerateLine(2); // Third vertex normal            \n\
+}";
+
+const char* NV_FS_SRC =
+"#version 330 core                        \n\
+out vec4 out_color;                       \n\
+                                          \n\
+void main()                               \n\
+{                                         \n\
+    out_color = vec4(1.0, 1.0, 0.0, 1.0); \n\
+}";
