@@ -153,5 +153,6 @@ struct fbx_record* fbx_find_subrecord_with_name(struct fbx_record* rec, const ch
 struct fbx_record* fbx_find_sibling_with_name(struct fbx_record* rec, const char* name);
 size_t fbx_pt_unit_size(enum fbx_pt pt);
 void fbx_record_print(struct fbx_record* rec, int depth);
+void fbx_record_pretty_print(struct fbx_record* rec, int depth);
 
 #endif /* ! _FBXFILE_H_ */

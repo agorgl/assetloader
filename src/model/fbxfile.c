@@ -142,6 +142,27 @@ void fbx_record_print(struct fbx_record* rec, int depth)
     }
 }
 
+void fbx_record_pretty_print(struct fbx_record* rec, int depth)
+{
+    /* Print record name */
+    printf("%*s%s: {\n", depth * 4, " ", rec->name);
+    /* Print record properties */
+    for (unsigned int i = 0; i < rec->num_props; ++i) {
+        struct fbx_property prop = rec->properties[i];
+        printf("%*s(%c) %u bytes: ",
+                (depth + 1) * 4, " ", prop.code, prop.length);
+        fbx_property_print(prop);
+        printf(",\n");
+    }
+    /* Recurse */
+    struct fbx_record* r = rec->subrecords;
+    while (r) {
+        fbx_record_pretty_print(r, depth + 1);
+        r = r->next;
+    }
+    printf("%*s}\n", depth * 4, " ");
+}
+
 struct fbx_record* fbx_find_subrecord_with_name(struct fbx_record* rec, const char* name)
 {
     struct fbx_record* r = rec->subrecords;
