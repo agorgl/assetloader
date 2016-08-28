@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <zlib.h>
 #include <hashmap.h>
+#include <linalgb.h>
 
 /*------------------------------------------*
  * Node Record Format                       |
@@ -523,6 +524,9 @@ static struct fbx_record* fbx_read_root_record(struct parser_state* ps)
     return r;
 }
 
+/*-----------------------------------------------------------------
+ * Model construction
+ *-----------------------------------------------------------------*/
 /* Copy float array */
 static void fbx_cpy_fa(float* dst, void* src, size_t len, size_t unit_sz)
 {
@@ -660,7 +664,102 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom)
     return mesh;
 }
 
-static struct model* fbx_read_model(struct fbx_record* obj)
+/* Fetches connection id for the given key */
+static int64_t fbx_get_connection_id(struct fbx_record* connections, int64_t key)
+{
+    int64_t id = -1;
+    struct fbx_record* c = connections->subrecords;
+    while (c) {
+        if (c->properties[1].data.l == key) {
+            id = c->properties[2].data.l;
+            break;
+        }
+        c = c->next;
+    }
+    return id;
+}
+
+/* Reads vec3 from Properties70 subrecord */
+static void fbx_read_transform_vec(struct fbx_record* r, float* v)
+{
+    for (int i = 0; i < 3; ++i)
+        v[i] = r->properties[4 + i].data.d;
+}
+
+/* Returns a positive value if transform data where found and the given matrix was filled */
+static int fbx_read_transform(struct fbx_record* mdl, mat4* transform)
+{
+    struct fbx_record* transform_rec = fbx_find_subrecord_with_name(mdl, "Properties70");
+    struct fbx_record* p = transform_rec->subrecords;
+
+    int has_transform = 0;
+    float s[3] = {1.0f, 1.0f, 1.0f}, r[3] = {0.0f, 0.0f, 0.0f}, t[3] = {0.0f, 0.0f, 0.0f};
+
+    while (p) {
+        size_t pname_len = p->properties[0].length;
+        const char* pname = p->properties[0].data.str;
+
+        if (strncmp("Lcl Scaling", pname, pname_len) == 0) {
+            fbx_read_transform_vec(p, s);
+            has_transform = 1;
+        }
+        else if (strncmp("Lcl Rotation", pname, pname_len) == 0) {
+            fbx_read_transform_vec(p, r);
+            has_transform = 1;
+        }
+        else if (strncmp("Lcl Translation", pname, pname_len) == 0) {
+            fbx_read_transform_vec(p, t);
+            has_transform = 1;
+        }
+
+        p = p->next;
+    }
+
+    if (has_transform) {
+        /*
+        printf("Found transform! \n\\t Scaling: %f %f %f\n\\t Rotation: %f %f %f\n\\t Translation: %f %f %f\n",
+            s[0], s[1], s[2], r[0], r[1], r[2], t[0], t[1], t[2]);
+        */
+        *transform = mat4_inverse(
+            mat4_mul_mat4(
+                mat4_mul_mat4(
+                    mat4_rotation_euler(radians(r[0]), radians(r[1]), radians(r[2])),
+                    mat4_scale(vec3_new(s[0], s[1], s[2]))
+                ),
+                mat4_translation(vec3_new(t[0], t[1], t[2]))
+            )
+        );
+    }
+    return has_transform;
+}
+
+/* Searches for a Model node with the given id */
+static struct fbx_record* fbx_find_model_node(struct fbx_record* objs, int64_t id)
+{
+    const char* mdl_node_name = "Model";
+    struct fbx_record* mdl = fbx_find_subrecord_with_name(objs, mdl_node_name);
+    while (mdl) {
+        if (mdl->properties[0].data.l == id)
+            return mdl;
+        /* Process next model node */
+        mdl = fbx_find_sibling_with_name(mdl, mdl_node_name);
+    }
+    return mdl;
+}
+
+static void fbx_transform_vertices(struct mesh* m, mat4 transform)
+{
+    for (int i = 0; i < m->num_verts; ++i) {
+        /* Transform positions */
+        float* pos = m->vertices[i].position;
+        vec3 npos = mat4_mul_vec3(transform, vec3_new(pos[0], pos[1], pos[2]));
+        pos[0] = npos.x;
+        pos[1] = npos.y;
+        pos[2] = npos.z;
+    }
+}
+
+static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_record* conns)
 {
     struct model* model = model_new();
     struct fbx_record* geom = fbx_find_subrecord_with_name(obj, "Geometry");
@@ -670,6 +769,15 @@ static struct model* fbx_read_model(struct fbx_record* obj)
             model->num_meshes++;
             model->meshes = realloc(model->meshes, model->num_meshes * sizeof(struct mesh*));
             model->meshes[model->num_meshes - 1] = nm;
+            /* Check if a transform matrix is available */
+            int64_t model_node_id = fbx_get_connection_id(conns, geom->properties[0].data.l);
+            struct fbx_record* mdl_node = fbx_find_model_node(obj, model_node_id);
+            if (mdl_node) {
+                mat4 transform;
+                if (fbx_read_transform(mdl_node, &transform)) {
+                    fbx_transform_vertices(nm, transform);
+                }
+            }
         }
         /* Process next mesh */
         geom = fbx_find_sibling_with_name(geom, "Geometry");
@@ -719,7 +827,8 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
 
     /* Gather model data from parsed tree  */
     struct fbx_record* objs = fbx_find_subrecord_with_name(fbx.root, "Objects");
-    struct model* m = fbx_read_model(objs);
+    struct fbx_record* conns = fbx_find_subrecord_with_name(fbx.root, "Connections");
+    struct model* m = fbx_read_model(objs, conns);
 
     /* Free tree */
     fbx_record_destroy(r);
