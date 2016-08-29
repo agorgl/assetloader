@@ -181,6 +181,21 @@ static void setup_data(struct game_context* ctx)
         mat4_scale(vec3_new(scale, scale, scale)));
     vector_append(&ctx->gobjects, &go);
 
+    /* MrFixit */
+    upload_model_geom_data("ext/models/mrfixit/mrfixit.iqm", &go.model);
+    /*-*/
+    vector_init(&go.diff_textures, sizeof(GLuint));
+    tex_id[0] = upload_texture("ext/models/mrfixit/Body.tga");
+    tex_id[1] = upload_texture("ext/models/mrfixit/Head.tga");
+    vector_append(&go.diff_textures, tex_id + 0);
+    vector_append(&go.diff_textures, tex_id + 1);
+    /*-*/
+    scale = 0.2;
+    go.transform = mat4_translation(vec3_new(0.0f, -0.4f, 0.0f));
+    go.transform = mat4_mul_mat4(go.transform, mat4_scale(vec3_new(scale, scale, scale)));
+    go.transform = mat4_mul_mat4(go.transform, mat4_rotation_x(radians(-90)));
+    vector_append(&ctx->gobjects, &go);
+
     /* Cube */
     upload_model_geom_data("ext/cube.obj", &go.model);
     /*-*/
