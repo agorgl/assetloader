@@ -31,6 +31,7 @@
 #ifndef _IQMFILE_H_
 #define _IQMFILE_H_
 
+#include <stddef.h>
 #include <stdint.h>
 
 #define IQM_MAGIC "INTERQUAKEMODEL"
@@ -180,5 +181,8 @@ struct iqm_extension {
     uint32_t num_data, ofs_data;
     uint32_t ofs_extensions; /* Pointer to next extension */
 };
+
+int iqm_read_header(struct iqm_file* iqm);
+size_t iqm_va_fmt_size(int va_fmt);
 
 #endif /* ! _IQMFILE_H_ */
