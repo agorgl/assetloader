@@ -49,6 +49,7 @@ struct model_handle
 {
     struct mesh_handle* meshes;
     unsigned int num_meshes;
+    struct skeleton* skel;
 };
 
 struct game_object
@@ -77,6 +78,9 @@ struct game_context
     /* Normals visualization */
     int visualizing_normals;
     unsigned int vis_nrm_prog;
+    /* Skeleton visualization */
+    int visualizing_skeleton;
+    unsigned int vis_skel_prog;
     /* Text rendering */
     text_renderer_t* text_rndr;
 };

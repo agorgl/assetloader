@@ -42,4 +42,9 @@ extern const char* NV_VS_SRC;
 extern const char* NV_GS_SRC;
 extern const char* NV_FS_SRC;
 
+/* Skeleton visualization */
+extern const char* SV_VS_SRC;
+extern const char* SV_GS_SRC;
+extern const char* SV_FS_SRC;
+
 #endif /* ! _STATIC_DATA_H */

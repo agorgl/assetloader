@@ -4,6 +4,33 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <hashmap.h>
+#include <linalgb.h>
+
+static struct skeleton* iqm_read_skeleton(struct iqm_file* iqm)
+{
+    struct iqm_header* h = &iqm->header;
+    unsigned char* base = iqm->base;
+
+    struct skeleton* skel = skeleton_new();
+    skel->num_joints = h->num_joints;
+    skel->joints = realloc(skel->joints, skel->num_joints * sizeof(struct joint));
+    memset(skel->joints, 0, skel->num_joints * sizeof(struct joint));
+
+    printf("Num joints: %u\n", h->num_joints);
+    for (uint32_t i = 0; i < h->num_joints; ++i) {
+        struct iqm_joint* joint = (struct iqm_joint*)(base + h->ofs_joints + i * sizeof(struct iqm_joint));
+
+        /* Set joint parent */
+        struct joint* j = skel->joints + i;
+        j->parent = joint->parent == -1 ? 0 : skel->joints + joint->parent;
+
+        /* Copy joint data */
+        memcpy(j->position, joint->translate, 3 * sizeof(float));
+        memcpy(j->rotation, joint->rotate, 4 * sizeof(float));
+    }
+
+    return skel;
+}
 
 static struct mesh* iqm_read_mesh(struct iqm_file* iqm, uint32_t mesh_idx, uint32_t prev_verts_num)
 {
@@ -115,7 +142,12 @@ struct model* model_from_iqm(const unsigned char* data, size_t sz)
 
     /* Read meshdata */
     if (iqm.header.num_meshes > 0) {
-        return iqm_read_model(&iqm);
+        struct model* m = iqm_read_model(&iqm);
+        /* Read skeleton */
+        if (iqm.header.num_joints > 0) {
+            m->skeleton = iqm_read_skeleton(&iqm);
+        }
+        return m;
     }
 
     return 0;

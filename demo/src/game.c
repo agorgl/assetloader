@@ -40,6 +40,8 @@ static void on_key(struct window* wnd, int key, int scancode, int action, int mo
     }
     else if (action ==  KEY_ACTION_RELEASE && key == KEY_N)
         ctx->visualizing_normals = !ctx->visualizing_normals;
+    else if (action ==  KEY_ACTION_RELEASE && key == KEY_B)
+        ctx->visualizing_skeleton = !ctx->visualizing_skeleton;
 }
 
 static void on_mouse_button(struct window* wnd, int button, int action, int mods)
@@ -108,6 +110,10 @@ static void upload_model_geom_data(const char* filename, struct model_handle* mo
     /* Print some info */
     printf("Num vertices: %d\n", total_verts);
     printf("Num indices: %d\n", total_indices);
+
+    /* Move skeleton */
+    model->skel = m->skeleton;
+    m->skeleton = 0;
 
     /* Free model data */
     model_delete(m);
@@ -259,6 +265,34 @@ static void game_visualize_normals_setup(struct game_context* ctx)
     glDeleteShader(fs);
 }
 
+static void game_visualize_skeleton_setup(struct game_context* ctx)
+{
+    ctx->visualizing_skeleton = 0;
+    /* Load shaders */
+    GLuint vs = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vs, 1, &SV_VS_SRC, 0);
+    glCompileShader(vs);
+    gl_check_last_compile_error(vs);
+    GLuint gs = glCreateShader(GL_GEOMETRY_SHADER);
+    glShaderSource(gs, 1, &SV_GS_SRC, 0);
+    glCompileShader(gs);
+    gl_check_last_compile_error(gs);
+    GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fs, 1, &SV_FS_SRC, 0);
+    glCompileShader(fs);
+    gl_check_last_compile_error(fs);
+    /* Create program */
+    ctx->vis_skel_prog = glCreateProgram();
+    glAttachShader(ctx->vis_skel_prog, vs);
+    glAttachShader(ctx->vis_skel_prog, gs);
+    glAttachShader(ctx->vis_skel_prog, fs);
+    glLinkProgram(ctx->vis_skel_prog);
+    gl_check_last_link_error(ctx->vis_skel_prog);
+    glDeleteShader(vs);
+    glDeleteShader(gs);
+    glDeleteShader(fs);
+}
+
 void game_init(struct game_context* ctx)
 {
     /* Create window */
@@ -313,6 +347,9 @@ void game_init(struct game_context* ctx)
 
     /* Normal visualization */
     game_visualize_normals_setup(ctx);
+
+    /* Skeleton visualization */
+    game_visualize_skeleton_setup(ctx);
 
     /* Initialize text rendering */
     ctx->text_rndr = text_render_init();
@@ -371,6 +408,69 @@ static void game_visualize_normals_render(struct game_context* ctx, mat4* view, 
     }
 
     glUseProgram(0);
+}
+
+static void game_points_from_skeleton(struct skeleton* skel, float** points, size_t* num_points)
+{
+    /* Construct points from skeleton */
+    *num_points = skel->num_joints * 2;
+    *points = malloc(*num_points * 3 * sizeof(float));
+    memset(*points, 0, *num_points * 3 * sizeof(float));
+    for (size_t i = 0; i < skel->num_joints; ++i) {
+        /* Tranformed current point */
+        struct joint* j = skel->joints + i;
+        float trans[16];
+        skeleton_joint_transform(j, trans);
+        vec3 tpt = mat4_mul_vec3(*(mat4*)trans, vec3_new(0, 0, 0));
+        /* Transformed parent point */
+        vec3 tppt;
+        if (j->parent) {
+            struct joint* pj = j->parent;
+            float ptrans[16];
+            skeleton_joint_transform(pj, ptrans);
+            tppt = mat4_mul_vec3(*(mat4*)ptrans, vec3_new(0, 0, 0));
+        } else {
+            tppt = tpt;
+        }
+        /* Store local space transformed positions */
+        memcpy(*points + i * 6 + 0, &tpt, 3 * sizeof(float));
+        memcpy(*points + i * 6 + 3, &tppt, 3 * sizeof(float));
+    }
+}
+
+static void game_visualize_skeleton_render(struct game_context* ctx, mat4* view, mat4* proj, mat4* model, struct skeleton* skel)
+{
+    float* pts = 0;
+    size_t num_pts;
+    game_points_from_skeleton(skel, &pts, &num_pts);
+    glDisable(GL_DEPTH_TEST);
+
+    GLuint vbo;
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, num_pts * 3 * sizeof(float), pts, GL_STATIC_DRAW);
+    free(pts);
+
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    GLint pos_attrib = glGetAttribLocation(ctx->vis_skel_prog, "pos");
+    glEnableVertexAttribArray(pos_attrib);
+    glVertexAttribPointer(pos_attrib, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+    glUseProgram(ctx->vis_skel_prog);
+    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "projection"), 1, GL_TRUE, (GLfloat*)proj);
+    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "view"), 1, GL_TRUE, (GLfloat*)view);
+    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "model"), 1, GL_TRUE, (GLfloat*)model);
+
+    glDrawArrays(GL_LINES, 0, num_pts * 2);
+    glUseProgram(0);
+
+    glBindVertexArray(0);
+    glDeleteVertexArrays(1, &vao);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glDeleteBuffers(1, &vbo);
 }
 
 void game_render(void* userdata, float interpolation)
@@ -444,6 +544,10 @@ void game_render(void* userdata, float interpolation)
     if (ctx->visualizing_normals)
         game_visualize_normals_render(ctx, &view, &proj);
 
+    /* Visualize skeleton */
+    if (ctx->visualizing_skeleton && gobjl[1]->model.skel)
+        game_visualize_skeleton_render(ctx, &view, &proj, &gobjl[1]->transform, gobjl[1]->model.skel);
+
     /* Render sample text */
     char* text = "A Quick Brown Fox Jumps Over The Lazy Dog 0123456789";
     text_render_print(ctx->text_rndr, text, vec2_new(10, 10), vec4_light_grey());
@@ -484,6 +588,9 @@ void game_shutdown(struct game_context* ctx)
             glDeleteTextures(1, &diff_tex);
         }
         vector_destroy(&gobj->diff_textures);
+        /* Free skeleton if exists */
+        if (gobj->model.skel)
+            skeleton_delete(gobj->model.skel);
     }
     vector_destroy(&ctx->gobjects);
 

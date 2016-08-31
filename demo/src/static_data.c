@@ -212,3 +212,39 @@ void main()                               \n\
 {                                         \n\
     out_color = vec4(1.0, 1.0, 0.0, 1.0); \n\
 }";
+
+const char* SV_VS_SRC =
+"#version 330 core                      \n\
+layout (location = 0) in vec3 pos;      \n\
+                                        \n\
+uniform mat4 projection;                \n\
+uniform mat4 view;                      \n\
+uniform mat4 model;                     \n\
+                                        \n\
+void main()                             \n\
+{                                       \n\
+    gl_Position = projection * view * model * vec4(pos, 1.0f); \n\
+}";
+
+const char* SV_GS_SRC =
+"#version 330 core                                 \n\
+layout (lines) in;                                 \n\
+layout (line_strip, max_vertices = 2) out;         \n\
+                                                   \n\
+void main()                                        \n\
+{                                                  \n\
+    gl_Position = gl_in[0].gl_Position;            \n\
+    EmitVertex();                                  \n\
+    gl_Position = gl_in[1].gl_Position;            \n\
+    EmitVertex();                                  \n\
+    EndPrimitive();                                \n\
+}";
+
+const char* SV_FS_SRC =
+"#version 330 core                        \n\
+out vec4 out_color;                       \n\
+                                          \n\
+void main()                               \n\
+{                                         \n\
+    out_color = vec4(0.0, 0.0, 1.0, 1.0); \n\
+}";

@@ -52,10 +52,25 @@ struct mesh {
     int mat_index;
 };
 
+/* Joint */
+struct joint {
+    struct joint* parent;
+    float position[3];
+    float rotation[4]; /* quat */
+};
+
+/* Skeleton */
+struct skeleton {
+    struct joint* joints;
+    size_t num_joints;
+};
+
+/* Model */
 struct model {
     int num_meshes;
     struct mesh** meshes;
     int num_materials;
+    struct skeleton* skeleton;
 };
 
 struct model* model_new();
@@ -63,5 +78,9 @@ void model_delete(struct model*);
 
 struct mesh* mesh_new();
 void mesh_delete(struct mesh*);
+
+struct skeleton* skeleton_new();
+void skeleton_delete(struct skeleton*);
+void skeleton_joint_transform(struct joint* j, float trans[16]);
 
 #endif /* ! _MODEL_H_ */
