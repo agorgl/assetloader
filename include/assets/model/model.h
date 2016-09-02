@@ -59,10 +59,22 @@ struct joint {
     float rotation[4]; /* quat */
 };
 
-/* Skeleton */
-struct skeleton {
+/* Frame */
+struct frame {
     struct joint* joints;
     size_t num_joints;
+};
+
+/* Frameset */
+struct frameset {
+    struct frame** frames;
+    size_t num_frames;
+};
+
+/* Skeleton */
+struct skeleton {
+    struct frame* rest_pose;
+    char** joint_names;
 };
 
 /* Model */
@@ -71,6 +83,7 @@ struct model {
     struct mesh** meshes;
     int num_materials;
     struct skeleton* skeleton;
+    struct frameset* frameset;
 };
 
 struct model* model_new();
@@ -81,6 +94,14 @@ void mesh_delete(struct mesh*);
 
 struct skeleton* skeleton_new();
 void skeleton_delete(struct skeleton*);
-void skeleton_joint_transform(struct joint* j, float trans[16]);
+
+struct frame* frame_new();
+struct frame* frame_copy(struct frame* f);
+void frame_delete(struct frame*);
+void frame_joint_transform(struct joint* j, float trans[16]);
+struct frame* frame_interpolate(struct frame* f0, struct frame* f1, float t);
+
+struct frameset* frameset_new();
+void frameset_delete(struct frameset* fs);
 
 #endif /* ! _MODEL_H_ */

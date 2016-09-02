@@ -111,9 +111,11 @@ static void upload_model_geom_data(const char* filename, struct model_handle* mo
     printf("Num vertices: %d\n", total_verts);
     printf("Num indices: %d\n", total_indices);
 
-    /* Move skeleton */
+    /* Move skeleton and frameset */
     model->skel = m->skeleton;
+    model->fset = m->frameset;
     m->skeleton = 0;
+    m->frameset = 0;
 
     /* Free model data */
     model_delete(m);
@@ -353,6 +355,9 @@ void game_init(struct game_context* ctx)
 
     /* Initialize text rendering */
     ctx->text_rndr = text_render_init();
+
+    /* Animation */
+    ctx->anim_tmr = 0;
 }
 
 void game_update(void* userdata, float dt)
@@ -381,6 +386,8 @@ void game_update(void* userdata, float dt)
         camera_look(&ctx->cam, cur_diff_x, cur_diff_y);
     /* Update camera matrix */
     camera_update(&ctx->cam);
+    /* Update animation state */
+    ctx->anim_tmr += 25.0f * (dt / 1000.0f);
 }
 
 static void game_visualize_normals_render(struct game_context* ctx, mat4* view, mat4* proj)
@@ -410,24 +417,24 @@ static void game_visualize_normals_render(struct game_context* ctx, mat4* view, 
     glUseProgram(0);
 }
 
-static void game_points_from_skeleton(struct skeleton* skel, float** points, size_t* num_points)
+static void game_points_from_skeleton(struct frame* f, float** points, size_t* num_points)
 {
     /* Construct points from skeleton */
-    *num_points = skel->num_joints * 2;
+    *num_points = f->num_joints * 2;
     *points = malloc(*num_points * 3 * sizeof(float));
     memset(*points, 0, *num_points * 3 * sizeof(float));
-    for (size_t i = 0; i < skel->num_joints; ++i) {
+    for (size_t i = 0; i < f->num_joints; ++i) {
         /* Tranformed current point */
-        struct joint* j = skel->joints + i;
+        struct joint* j = f->joints + i;
         float trans[16];
-        skeleton_joint_transform(j, trans);
+        frame_joint_transform(j, trans);
         vec3 tpt = mat4_mul_vec3(*(mat4*)trans, vec3_new(0, 0, 0));
         /* Transformed parent point */
         vec3 tppt;
         if (j->parent) {
             struct joint* pj = j->parent;
             float ptrans[16];
-            skeleton_joint_transform(pj, ptrans);
+            frame_joint_transform(pj, ptrans);
             tppt = mat4_mul_vec3(*(mat4*)ptrans, vec3_new(0, 0, 0));
         } else {
             tppt = tpt;
@@ -438,11 +445,11 @@ static void game_points_from_skeleton(struct skeleton* skel, float** points, siz
     }
 }
 
-static void game_visualize_skeleton_render(struct game_context* ctx, mat4* view, mat4* proj, mat4* model, struct skeleton* skel)
+static void game_visualize_skeleton_render(struct game_context* ctx, mat4* view, mat4* proj, mat4* model, struct frame* frame)
 {
     float* pts = 0;
     size_t num_pts;
-    game_points_from_skeleton(skel, &pts, &num_pts);
+    game_points_from_skeleton(frame, &pts, &num_pts);
     glDisable(GL_DEPTH_TEST);
 
     GLuint vbo;
@@ -545,8 +552,12 @@ void game_render(void* userdata, float interpolation)
         game_visualize_normals_render(ctx, &view, &proj);
 
     /* Visualize skeleton */
-    if (ctx->visualizing_skeleton && gobjl[1]->model.skel)
-        game_visualize_skeleton_render(ctx, &view, &proj, &gobjl[1]->transform, gobjl[1]->model.skel);
+    struct model_handle* vobj = &gobjl[1]->model;
+    if (ctx->visualizing_skeleton && vobj->skel) {
+        size_t cur_fr_idx = (int)ctx->anim_tmr % vobj->fset->num_frames;
+        struct frame* cur_fr = vobj->fset->frames[cur_fr_idx];
+        game_visualize_skeleton_render(ctx, &view, &proj, &gobjl[1]->transform, cur_fr);
+    }
 
     /* Render sample text */
     char* text = "A Quick Brown Fox Jumps Over The Lazy Dog 0123456789";
@@ -591,6 +602,9 @@ void game_shutdown(struct game_context* ctx)
         /* Free skeleton if exists */
         if (gobj->model.skel)
             skeleton_delete(gobj->model.skel);
+        /* Free frameset if exists */
+        if (gobj->model.fset)
+            frameset_delete(gobj->model.fset);
     }
     vector_destroy(&ctx->gobjects);
 

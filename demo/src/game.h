@@ -45,11 +45,13 @@ struct mesh_handle
     unsigned int indice_count;
 };
 
+
 struct model_handle
 {
     struct mesh_handle* meshes;
     unsigned int num_meshes;
     struct skeleton* skel;
+    struct frameset* fset;
 };
 
 struct game_object
@@ -81,6 +83,8 @@ struct game_context
     /* Skeleton visualization */
     int visualizing_skeleton;
     unsigned int vis_skel_prog;
+    /* Animation */
+    float anim_tmr;
     /* Text rendering */
     text_renderer_t* text_rndr;
 };

@@ -6,23 +6,81 @@
 #include <hashmap.h>
 #include <linalgb.h>
 
+static struct frameset* iqm_read_frames(struct iqm_file* iqm)
+{
+    struct iqm_header* h = &iqm->header;
+    unsigned char* base = iqm->base;
+    unsigned short* framedata = (unsigned short*)(base + h->ofs_frames);
+    struct frameset* frameset = frameset_new();
+
+    struct frame** frames = malloc(h->num_frames * sizeof(struct frame*));
+    memset(frames, 0, h->num_frames * sizeof(struct frame*));
+
+    printf("Num frames: %u\n", h->num_frames);
+    printf("Num poses: %u\n", h->num_poses);
+    for (uint32_t i = 0; i < h->num_frames; ++i) {
+        /* Setup empty frame */
+        struct frame* f = frame_new();
+        f->num_joints = h->num_poses;
+        f->joints = realloc(f->joints, f->num_joints * sizeof(struct joint));
+        memset(f->joints, 0, f->num_joints * sizeof(struct joint));
+
+        for (uint32_t j = 0; j < h->num_poses; ++j) {
+            struct iqm_pose* pose = (struct iqm_pose*)(base + h->ofs_poses) + j;
+
+            float fc[10] = {0, 0, 0, 0, 0, 0, 0, 1, 1, 1};
+            for (int k = 0; k < 10; ++k) {
+                fc[k] = pose->channeloffset[k];
+                if (pose->mask & (1 << k)) {
+                    fc[k] += *framedata * pose->channelscale[k];
+                    ++framedata;
+                }
+            }
+
+            /* Copy joint data */
+            struct joint* jnt = f->joints + j;
+            memcpy(jnt->position, fc + 0, 3 * sizeof(float));
+            memcpy(jnt->rotation, fc + 3, 4 * sizeof(float));
+            jnt->parent = pose->parent < 0 ? 0 : f->joints + pose->parent;
+        }
+
+        /* Append new frame to the list */
+        frames[i] = f;
+    }
+
+    frameset->num_frames = h->num_frames;
+    frameset->frames = frames;
+    return frameset;
+}
+
 static struct skeleton* iqm_read_skeleton(struct iqm_file* iqm)
 {
     struct iqm_header* h = &iqm->header;
     unsigned char* base = iqm->base;
-
     struct skeleton* skel = skeleton_new();
-    skel->num_joints = h->num_joints;
-    skel->joints = realloc(skel->joints, skel->num_joints * sizeof(struct joint));
-    memset(skel->joints, 0, skel->num_joints * sizeof(struct joint));
+
+    /* Joints */
+    skel->rest_pose->num_joints = h->num_joints;
+    skel->rest_pose->joints = realloc(skel->rest_pose->joints, skel->rest_pose->num_joints * sizeof(struct joint));
+    memset(skel->rest_pose->joints, 0, skel->rest_pose->num_joints * sizeof(struct joint));
+    /* Joint names */
+    skel->joint_names = realloc(skel->joint_names, skel->rest_pose->num_joints * sizeof(char*));
+    memset(skel->joint_names, 0, skel->rest_pose->num_joints * sizeof(char*));
 
     printf("Num joints: %u\n", h->num_joints);
     for (uint32_t i = 0; i < h->num_joints; ++i) {
         struct iqm_joint* joint = (struct iqm_joint*)(base + h->ofs_joints + i * sizeof(struct iqm_joint));
 
         /* Set joint parent */
-        struct joint* j = skel->joints + i;
-        j->parent = joint->parent == -1 ? 0 : skel->joints + joint->parent;
+        struct joint* j = skel->rest_pose->joints + i;
+        j->parent = joint->parent == -1 ? 0 : skel->rest_pose->joints + joint->parent;
+
+        /* Copy joint name */
+        const char* name = (const char*)(base + h->ofs_text + joint->name);
+        size_t name_sz = strlen(name) * sizeof(char);
+        skel->joint_names[i] = malloc(name_sz + 1);
+        memcpy(skel->joint_names[i], name, name_sz);
+        *(skel->joint_names[i] + name_sz) = 0;
 
         /* Copy joint data */
         memcpy(j->position, joint->translate, 3 * sizeof(float));
@@ -146,6 +204,10 @@ struct model* model_from_iqm(const unsigned char* data, size_t sz)
         /* Read skeleton */
         if (iqm.header.num_joints > 0) {
             m->skeleton = iqm_read_skeleton(&iqm);
+        }
+        /* Read frameset */
+        if (iqm.header.num_frames > 0) {
+            m->frameset = iqm_read_frames(&iqm);
         }
         return m;
     }
