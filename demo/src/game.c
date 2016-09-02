@@ -471,7 +471,7 @@ static void game_visualize_skeleton_render(struct game_context* ctx, mat4* view,
     glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "view"), 1, GL_TRUE, (GLfloat*)view);
     glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "model"), 1, GL_TRUE, (GLfloat*)model);
 
-    glDrawArrays(GL_LINES, 0, num_pts * 2);
+    glDrawArrays(GL_LINES, 0, num_pts);
     glUseProgram(0);
 
     glBindVertexArray(0);
