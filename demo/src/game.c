@@ -585,7 +585,7 @@ void game_render(void* userdata, float interpolation)
                 size_t uname_sz = 6 + 3 + 1 + 1;
                 char* uname = calloc(uname_sz, 1);
                 strcat(uname, "bones[");
-                itoa(i, uname + 6, 10);
+                snprintf(uname + 6, 3, "%lu", i);
                 strcat(uname, "]");
                 /* Upload */
                 GLuint bone_loc = glGetUniformLocation(ctx->prog, uname);
