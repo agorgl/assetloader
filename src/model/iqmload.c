@@ -186,7 +186,7 @@ static struct mesh* iqm_read_mesh(struct iqm_file* iqm, uint32_t mesh_idx, uint3
 }
 
 static size_t int_hash(void* key) { return (size_t)key; }
-static int int_eql(void* k1, void* k2) { return (uint32_t)k1 == (uint32_t)k2; }
+static int int_eql(void* k1, void* k2) { return (uintptr_t)k1 == (uintptr_t)k2; }
 
 static struct model* iqm_read_model(struct iqm_file* iqm)
 {
@@ -200,7 +200,7 @@ static struct model* iqm_read_model(struct iqm_file* iqm)
         model->meshes[model->num_meshes - 1] = nm;
 
         /* Assign actual material index */
-        void* material = hashmap_get(&material_ids, (void*)nm->mat_index);
+        void* material = hashmap_get(&material_ids, (void*)(uintptr_t)nm->mat_index);
         if (material) {
             nm->mat_index = *(uint32_t*)material;
         } else {
