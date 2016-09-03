@@ -97,25 +97,27 @@ static void fbx_property_print(struct fbx_property prop)
             printf("%d", prop.data.i);
             break;
         case fbx_pt_float:
-            printf("%f", prop.data.f);
+            printf("%ff", prop.data.f);
             break;
         case fbx_pt_double:
             printf("%f", prop.data.d);
             break;
         case fbx_pt_long:
-            printf("%d", prop.data.i);
+            printf("%dL", prop.data.i);
             break;
         case fbx_pt_string:
-            printf("%.*s", prop.length, prop.data.str);
+            printf("\"%.*s\"", prop.length, prop.data.str);
             break;
         case fbx_pt_float_arr:
         case fbx_pt_double_arr:
         case fbx_pt_long_arr:
         case fbx_pt_int_arr:
         case fbx_pt_bool_arr:
-        case fbx_pt_raw:
-            printf("%p", prop.data.p);
+        case fbx_pt_raw: {
+            uint32_t arr_len = prop.length / fbx_pt_unit_size(prop.type);
+            printf("[(%u)]", arr_len);
             break;
+        }
         default:
             printf("???");
             break;
@@ -145,22 +147,27 @@ void fbx_record_print(struct fbx_record* rec, int depth)
 void fbx_record_pretty_print(struct fbx_record* rec, int depth)
 {
     /* Print record name */
-    printf("%*s%s: {\n", depth * 4, " ", rec->name);
+    printf("%*s%s:", depth * 4, " ", rec->name);
     /* Print record properties */
+    if (rec->num_props)
+        printf(" ");
     for (unsigned int i = 0; i < rec->num_props; ++i) {
         struct fbx_property prop = rec->properties[i];
-        printf("%*s(%c) %u bytes: ",
-                (depth + 1) * 4, " ", prop.code, prop.length);
         fbx_property_print(prop);
-        printf(",\n");
+        printf(i < rec->num_props - 1 ? ", " : "");
     }
     /* Recurse */
     struct fbx_record* r = rec->subrecords;
-    while (r) {
-        fbx_record_pretty_print(r, depth + 1);
-        r = r->next;
+    if (r) {
+        printf(" {\n");
+        while (r) {
+            fbx_record_pretty_print(r, depth + 1);
+            r = r->next;
+        }
+        printf("%*s}\n", depth * 4, " ");
+    } else {
+        printf("\n");
     }
-    printf("%*s}\n", depth * 4, " ");
 }
 
 struct fbx_record* fbx_find_subrecord_with_name(struct fbx_record* rec, const char* name)
