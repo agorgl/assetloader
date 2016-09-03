@@ -44,6 +44,12 @@ struct vertex {
     float uvs[2];
 };
 
+/* Vertex weight */
+struct vertex_weight {
+    uint32_t bone_ids[4];
+    float bone_weights[4];
+};
+
 /* Mesh */
 struct mesh {
     int num_verts;
@@ -51,6 +57,7 @@ struct mesh {
     struct vertex* vertices;
     uint32_t* indices;
     int mat_index;
+    struct vertex_weight* weights;
 };
 
 /* Joint */

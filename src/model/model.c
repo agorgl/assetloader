@@ -34,6 +34,8 @@ void model_delete(struct model* m)
 
 void mesh_delete(struct mesh* mesh)
 {
+    if (mesh->weights)
+        free(mesh->weights);
     free(mesh->vertices);
     free(mesh->indices);
     free(mesh);

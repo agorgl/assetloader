@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <hashmap.h>
 #include <linalgb.h>
+#include <assert.h>
 
 static struct frameset* iqm_read_frames(struct iqm_file* iqm)
 {
@@ -109,9 +110,19 @@ static struct mesh* iqm_read_mesh(struct iqm_file* iqm, uint32_t mesh_idx, uint3
     m->indices = realloc(m->indices, m->num_indices * sizeof(uint32_t));
     memset(m->indices, 0, m->num_indices * sizeof(uint32_t));
 
+    /* Check is mesh has bone weights and allocate space if needed */
+    for (uint32_t j = 0; j < h->num_vertexarrays; ++j) {
+        struct iqm_vertexarray* va = (struct iqm_vertexarray*)(base + h->ofs_vertexarrays) + j;
+        if (va->type == IQM_BLENDINDEXES || va->type == IQM_BLENDWEIGHTS) {
+            m->weights = malloc(m->num_verts * sizeof(struct vertex_weight));
+            break;
+        }
+    }
+
     /* Populate vertices */
     for (int i = 0; i < m->num_verts; ++i) {
         struct vertex* cur_vert = m->vertices + i;
+        struct vertex_weight* cur_weight = m->weights + i;
         /* Iterate vertex arrays filling current vertex with data */
         for (uint32_t j = 0; j < h->num_vertexarrays; ++j) {
             struct iqm_vertexarray* va = (struct iqm_vertexarray*)(
@@ -135,6 +146,22 @@ static struct mesh* iqm_read_mesh(struct iqm_file* iqm, uint32_t mesh_idx, uint3
                 case IQM_TANGENT:
                     memcpy(cur_vert->tangent, data_loc, 3 * sizeof(float));
                     break;
+                case IQM_BLENDINDEXES: {
+                    assert(iqm_va_fmt_size(va->format) == sizeof(unsigned char));
+                    uint32_t bis[4];
+                    for (int i = 0; i < 4; ++i)
+                        bis[i] = ((unsigned char*) data_loc)[i];
+                    memcpy(cur_weight->bone_ids, bis, 4 * sizeof(uint32_t));
+                    break;
+                }
+                case IQM_BLENDWEIGHTS: {
+                    assert(iqm_va_fmt_size(va->format) == sizeof(unsigned char));
+                    float biw[4];
+                    for (int i = 0; i < 4; ++i)
+                        biw[i] = ((unsigned char*) data_loc)[i] / 255.0f;
+                    memcpy(cur_weight->bone_weights, biw, 4 * sizeof(float));
+                    break;
+                }
                 default:
                     break;
             }

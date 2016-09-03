@@ -41,6 +41,7 @@ struct mesh_handle
     unsigned int vao;
     unsigned int vbo;
     unsigned int uvs;
+    unsigned int wbo;
     unsigned int ebo;
     unsigned int indice_count;
 };

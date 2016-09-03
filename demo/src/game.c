@@ -65,6 +65,7 @@ static void upload_model_geom_data(const char* filename, struct model_handle* mo
     /* Allocate handle memory */
     model->num_meshes = m->num_meshes;
     model->meshes = malloc(m->num_meshes * sizeof(struct mesh_handle));
+    memset(model->meshes, 0, model->num_meshes * sizeof(struct mesh_handle));
 
     unsigned int total_verts = 0;
     unsigned int total_indices = 0;
@@ -94,6 +95,23 @@ static void upload_model_geom_data(const char* filename, struct model_handle* mo
         GLuint nm_attrib = 2;
         glEnableVertexAttribArray(nm_attrib);
         glVertexAttribPointer(nm_attrib, 3, GL_FLOAT, GL_FALSE, sizeof(struct vertex), (GLvoid*)offsetof(struct vertex, normal));
+
+        /* Create vertex weight data vbo */
+        if (mesh->weights) {
+            glGenBuffers(1, &mh->wbo);
+            glBindBuffer(GL_ARRAY_BUFFER, mh->wbo);
+            glBufferData(GL_ARRAY_BUFFER,
+                mesh->num_verts * sizeof(struct vertex_weight),
+                mesh->weights,
+                GL_STATIC_DRAW);
+
+            GLuint bi_attrib = 3;
+            glEnableVertexAttribArray(bi_attrib);
+            glVertexAttribIPointer(bi_attrib, 4, GL_UNSIGNED_INT, sizeof(struct vertex_weight), (GLvoid*)offsetof(struct vertex_weight, bone_ids));
+            GLuint bw_attrib = 4;
+            glEnableVertexAttribArray(bw_attrib);
+            glVertexAttribPointer(bw_attrib, 4, GL_FLOAT, GL_FALSE, sizeof(struct vertex_weight), (GLvoid*)offsetof(struct vertex_weight, bone_weights));
+        }
 
         /* Create indice ebo */
         glGenBuffers(1, &mh->ebo);
@@ -480,6 +498,30 @@ static void game_visualize_skeleton_render(struct game_context* ctx, mat4* view,
     glDeleteBuffers(1, &vbo);
 }
 
+static void game_bones_calculate(struct skeleton* skel, struct frame* f, mat4** bones, size_t* num_bones)
+{
+    *num_bones = f->num_joints;
+    /* Calc inverse skeleton matrices */
+    mat4* invskel = malloc(*num_bones * sizeof(mat4));
+    memset(invskel, 0, *num_bones * sizeof(mat4));
+    for (size_t i = 0; i < *num_bones; ++i) {
+        struct joint* j = skel->rest_pose->joints + i;
+        float trans[16];
+        frame_joint_transform(j, trans);
+        invskel[i] = mat4_inverse(*(mat4*)trans);
+    }
+    /* Calc bone matrices */
+    *bones = malloc(*num_bones * sizeof(mat4));
+    memset(*bones, 0, *num_bones * sizeof(mat4));
+    for (size_t i = 0; i < f->num_joints; ++i) {
+        struct joint* j = f->joints + i;
+        float trans[16];
+        frame_joint_transform(j, trans);
+        (*bones)[i] = mat4_mul_mat4(*(mat4*)trans, invskel[i]);
+    }
+    free(invskel);
+}
+
 void game_render(void* userdata, float interpolation)
 {
     struct game_context* ctx = userdata;
@@ -526,6 +568,32 @@ void game_render(void* userdata, float interpolation)
         GLuint mvp_loc = glGetUniformLocation(ctx->prog, "MVP");
         mvp = mat4_transpose(mvp);
         glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, (GLfloat*)&mvp);
+        /* Upload animated flag */
+        glUniform1i(glGetUniformLocation(ctx->prog, "animated"), gobj->model.skel != 0);
+        /* Upload bones */
+        if (gobj->model.skel) {
+            /* Current frame */
+            size_t cur_fr_idx = (int)ctx->anim_tmr % gobj->model.fset->num_frames;
+            struct frame* cur_fr = gobj->model.fset->frames[cur_fr_idx];
+            /* Translations */
+            mat4* bones;
+            size_t num_bones;
+            game_bones_calculate(gobj->model.skel, cur_fr, &bones, &num_bones);
+            /* Loop through each bone */
+            for (size_t i = 0; i < num_bones; ++i) {
+                /* Construct uniform name ("bones[" + i + "]" + '\0') */
+                size_t uname_sz = 6 + 3 + 1 + 1;
+                char* uname = calloc(uname_sz, 1);
+                strcat(uname, "bones[");
+                itoa(i, uname + 6, 10);
+                strcat(uname, "]");
+                /* Upload */
+                GLuint bone_loc = glGetUniformLocation(ctx->prog, uname);
+                glUniformMatrix4fv(bone_loc, 1, GL_TRUE, (GLfloat*)&bones[i]);
+                free(uname);
+            }
+            free(bones);
+        }
 
         /* Render mesh by mesh */
         for (unsigned int i = 0; i < mdlh->num_meshes; ++i) {
@@ -536,11 +604,9 @@ void game_render(void* userdata, float interpolation)
             glBindTexture(GL_TEXTURE_2D, diff_tex);
             /* Render */
             glBindVertexArray(mh->vao);
-            glBindBuffer(GL_ARRAY_BUFFER, mh->vbo);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mh->ebo);
             glDrawElements(GL_TRIANGLES, mh->indice_count, GL_UNSIGNED_INT, (void*)0);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
             glBindVertexArray(0);
         }
     }
@@ -590,6 +656,8 @@ void game_shutdown(struct game_context* ctx)
             glDeleteBuffers(1, &mh->ebo);
             glDeleteBuffers(1, &mh->uvs);
             glDeleteBuffers(1, &mh->vbo);
+            if (mh->wbo)
+                glDeleteBuffers(1, &mh->wbo);
             glDeleteVertexArrays(1, &mh->vao);
         }
         free(gobj->model.meshes);

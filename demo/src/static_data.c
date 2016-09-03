@@ -5,13 +5,28 @@ const char* VS_SRC =
 "#version 330 core                      \n\
 layout (location = 0) in vec3 position; \n\
 layout (location = 1) in vec2 uv;       \n\
+layout (location = 3) in uvec4 bids;    \n\
+layout (location = 4) in vec4 bweights; \n\
 out vec2 UV;                            \n\
                                         \n\
+const int MAX_BONES = 100;              \n\
 uniform mat4 MVP;                       \n\
+uniform mat4 bones[MAX_BONES];          \n\
+uniform bool animated;                  \n\
                                         \n\
 void main() {                           \n\
     UV = uv;                            \n\
-    gl_Position = MVP * vec4(position, 1.0); \n\
+                                        \n\
+    if (animated) {                     \n\
+        mat4 btrans = mat4(0.0);                          \n\
+        btrans += bones[bids[0]] * bweights[0];           \n\
+        btrans += bones[bids[1]] * bweights[1];           \n\
+        btrans += bones[bids[2]] * bweights[2];           \n\
+        btrans += bones[bids[3]] * bweights[3];           \n\
+        gl_Position = MVP * btrans * vec4(position, 1.0); \n\
+    } else {                                              \n\
+        gl_Position = MVP * vec4(position, 1.0);          \n\
+    }                                                     \n\
 }";
 
 const char* FS_SRC =
