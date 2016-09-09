@@ -176,7 +176,10 @@ static int fbx_read_transform(struct fbx_record* mdl, mat4* transform)
     struct fbx_record* p = transform_rec->subrecords;
 
     int has_transform = 0;
+    /* Local Transforms */
     float s[3] = {1.0f, 1.0f, 1.0f}, r[3] = {0.0f, 0.0f, 0.0f}, t[3] = {0.0f, 0.0f, 0.0f};
+    /* Pre/Post rotations */
+    int rot_active = 0; float pre_rot[3];
 
     while (p) {
         size_t pname_len = p->properties[0].length;
@@ -194,24 +197,30 @@ static int fbx_read_transform(struct fbx_record* mdl, mat4* transform)
             fbx_read_transform_vec(p, t);
             has_transform = 1;
         }
+        else if (strncmp("RotationActive", pname, pname_len) == 0) {
+            rot_active = p->properties[4].data.i;
+        }
+        else if (strncmp("PreRotation", pname, pname_len) == 0) {
+            fbx_read_transform_vec(p, pre_rot);
+            has_transform = 1;
+        }
 
         p = p->next;
     }
 
     if (has_transform) {
-        /*
-        printf("Found transform! \n\\t Scaling: %f %f %f\n\\t Rotation: %f %f %f\n\\t Translation: %f %f %f\n",
-            s[0], s[1], s[2], r[0], r[1], r[2], t[0], t[1], t[2]);
-        */
-        *transform = mat4_inverse(
-            mat4_mul_mat4(
-                mat4_mul_mat4(
-                    mat4_rotation_euler(radians(r[0]), radians(r[1]), radians(r[2])),
-                    mat4_scale(vec3_new(s[0], s[1], s[2]))
-                ),
-                mat4_translation(vec3_new(t[0], t[1], t[2]))
-            )
-        );
+        *transform = mat4_id();
+        /* Lcl Translation */
+        *transform = mat4_mul_mat4(*transform, mat4_translation(vec3_new(t[0], t[1], t[2])));
+        /* PreRotation */
+        if (rot_active)
+            *transform = mat4_mul_mat4(*transform, mat4_rotation_euler(-radians(pre_rot[0]),
+                                                                       -radians(pre_rot[1]),
+                                                                       -radians(pre_rot[2])));
+        /* Lcl Rotation */
+        *transform = mat4_mul_mat4(*transform, mat4_rotation_euler(radians(r[0]), radians(r[1]), radians(r[2])));
+        /* Lcl Scaling */
+        *transform = mat4_mul_mat4(*transform, mat4_scale(vec3_new(s[0], s[1], s[2])));
     }
     return has_transform;
 }

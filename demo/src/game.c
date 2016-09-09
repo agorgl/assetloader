@@ -187,9 +187,10 @@ static void setup_data(struct game_context* ctx)
     tex_id[0] = upload_texture("ext/models/artorias_sword/Sword_albedo.jpg");
     vector_append(&go.diff_textures, tex_id + 0);
     /*-*/
-    scale = 6;
+    scale = 0.0006;
     go.transform = mat4_translation(vec3_new(0.0f, -0.4f, 0.0f));
     go.transform = mat4_mul_mat4(go.transform, mat4_scale(vec3_new(scale, scale, scale)));
+    go.transform = mat4_mul_mat4(go.transform, mat4_rotation_x(radians(180)));
     vector_append(&ctx->gobjects, &go);
 
     /* Alduin */
@@ -239,7 +240,7 @@ static void setup_data(struct game_context* ctx)
     tex_id[0] = upload_texture("ext/Bark2.tif");
     vector_append(&go.diff_textures, tex_id + 0);
     /*-*/
-    scale = 100;
+    scale = 0.01;
     go.transform = mat4_translation(vec3_new(0.0f, 0.1f, 0.0f));
     go.transform = mat4_mul_mat4(go.transform, mat4_scale(vec3_new(scale, scale, scale)));
     vector_append(&ctx->gobjects, &go);
@@ -251,7 +252,7 @@ static void setup_data(struct game_context* ctx)
     tex_id[0] = upload_texture("ext/models/barrel/barrel.tif");
     vector_append(&go.diff_textures, tex_id + 0);
     /*-*/
-    scale = 2;
+    scale = 0.02;
     go.transform = mat4_translation(vec3_new(0.0f, -0.4f, 0.0f)),
     go.transform = mat4_mul_mat4(go.transform, mat4_scale(vec3_new(scale, scale, scale)));
     vector_append(&ctx->gobjects, &go);
