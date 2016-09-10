@@ -184,6 +184,26 @@ static void setup_data(struct game_context* ctx)
         mat4_scale(vec3_new(scale, scale, scale)));
     vector_append(&ctx->gobjects, &go);
 
+    /* Warrior Woman */
+    upload_model_geom_data("ext/models/warrior_woman/Medieval_character_01.fbx", &go.model);
+    /*-*/
+    vector_init(&go.diff_textures, sizeof(GLuint));
+    tex_id[0] = upload_texture("ext/models/warrior_woman/Armor_01.png");
+    tex_id[1] = upload_texture("ext/models/warrior_woman/Head.png");
+    tex_id[2] = upload_texture("ext/models/warrior_woman/Kiem.png");
+    vector_append(&go.diff_textures, tex_id + 0); /* Right pauldron */
+    vector_append(&go.diff_textures, tex_id + 0); /* Left pauldron */
+    vector_append(&go.diff_textures, tex_id + 0); /* Body */
+    vector_append(&go.diff_textures, tex_id + 1); /* Head */
+    vector_append(&go.diff_textures, tex_id + 2); /* Sword bottom */
+    vector_append(&go.diff_textures, tex_id + 2); /* Sword */
+    vector_append(&go.diff_textures, tex_id + 2); /* Sword emblem? */
+    /*-*/
+    scale = 0.008;
+    go.transform = mat4_translation(vec3_new(0.0f, -0.4f, 0.0f));
+    go.transform = mat4_mul_mat4(go.transform, mat4_scale(vec3_new(scale, scale, scale)));
+    vector_append(&ctx->gobjects, &go);
+
     /* Sword */
     upload_model_geom_data("ext/models/artorias_sword/Artorias_Sword.fbx", &go.model);
     /*-*/
