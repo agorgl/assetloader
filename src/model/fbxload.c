@@ -50,7 +50,7 @@ static struct fbx_property* fbx_find_layer_property(struct fbx_record* geom, con
     return r2->properties;
 }
 
-static struct mesh* fbx_read_mesh(struct fbx_record* geom)
+static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset)
 {
     /* Check if geometry node contains any vertices */
     struct fbx_record* verts_nod = fbx_find_subrecord_with_name(geom, "Vertices");
@@ -65,6 +65,8 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom)
     struct fbx_property* binormals = fbx_find_layer_property(geom, "LayerElementBinormal", "Binormals");
     struct fbx_property* uvs = fbx_find_layer_property(geom, "LayerElementUV", "UV");
     struct fbx_property* uv_idxs = fbx_find_layer_property(geom, "LayerElementUV", "UVIndex");
+    struct fbx_property* mats = fbx_find_layer_property(geom, "LayerElementMaterial", "Materials");
+    struct fbx_property* mats_mapping = fbx_find_layer_property(geom, "LayerElementMaterial", "MappingInformationType");
 
     /* Create mesh */
     struct mesh* mesh = mesh_new();
@@ -72,6 +74,7 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom)
     mesh->num_verts = 0;
     mesh->num_indices = 0;
     int stored_indices = indices->length / fbx_pt_unit_size(indices->type);
+    int last_material = -1;
 
     /* Allocate top limit */
     mesh->vertices = realloc(mesh->vertices, stored_indices * sizeof(struct vertex));
@@ -84,15 +87,35 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom)
 
     /* Populate mesh */
     int fc = 0; /* Counter of vertices in running face */
-    for (int i = 0; i < stored_indices; ++i) {
+    int tot_pols = 0; /* Counter of polygons encountered so far */
+    for (int i = *indice_offset; i < stored_indices; ++i) {
+        /* Check if mesh has multiple materials or not */
+        int cur_material = -1;
+        if (mats && strncmp("AllSame", mats_mapping->data.str, 7) != 0) {
+            /* Gather material for current vertice */
+            cur_material = *(mats->data.ip + tot_pols);
+        } else {
+            cur_material = 0;
+        }
+        /* Initial value for last_material */
+        if (last_material == -1)
+            last_material = cur_material;
+        /* Check if new mesh should be created according to current material */
+        if (last_material != cur_material) {
+            *indice_offset = i;
+            goto cleanup;
+        }
+        last_material = cur_material;
         /* NOTE!
          * Negative array values in the positions' indices array exist
          * to indicate the last index of a polygon.
          * To find the actual indice value we must negate it
          * and substract 1 from that value */
         int32_t pos_ind = indices->data.ip[i];
-        if (pos_ind < 0)
+        if (pos_ind < 0) {
             pos_ind = -1 * pos_ind - 1;
+            ++tot_pols;
+        }
         uint32_t uv_ind = 0;
         if (uvs)
             uv_ind = uv_idxs->data.ip[i];
@@ -143,6 +166,8 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom)
         ++mesh->num_indices;
     }
 
+    *indice_offset = -1;
+cleanup:
     hashmap_destroy(&stored_vertices);
     return mesh;
 }
@@ -256,21 +281,28 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_record* c
     struct model* model = model_new();
     struct fbx_record* geom = fbx_find_subrecord_with_name(obj, "Geometry");
     while (geom) {
-        struct mesh* nm = fbx_read_mesh(geom);
-        if (nm) {
-            model->num_meshes++;
-            model->meshes = realloc(model->meshes, model->num_meshes * sizeof(struct mesh*));
-            model->meshes[model->num_meshes - 1] = nm;
-            /* Check if a transform matrix is available */
-            int64_t model_node_id = fbx_get_connection_id(conns, geom->properties[0].data.l);
-            struct fbx_record* mdl_node = fbx_find_model_node(obj, model_node_id);
-            if (mdl_node) {
-                mat4 transform;
-                if (fbx_read_transform(mdl_node, &transform)) {
-                    fbx_transform_vertices(nm, transform);
+        /* A single geometry node can be multiple meshes, due to non uniform materials.
+         * Param indice_offset is filled with -1 if there are no more data to process
+         * in current geom node, or with a value that must be passed to subsequent
+         * calls of the fbx_read_mesh function to gather next meshes. */
+        int indice_offset = 0;
+        do {
+            struct mesh* nm = fbx_read_mesh(geom, &indice_offset);
+            if (nm) {
+                model->num_meshes++;
+                model->meshes = realloc(model->meshes, model->num_meshes * sizeof(struct mesh*));
+                model->meshes[model->num_meshes - 1] = nm;
+                /* Check if a transform matrix is available */
+                int64_t model_node_id = fbx_get_connection_id(conns, geom->properties[0].data.l);
+                struct fbx_record* mdl_node = fbx_find_model_node(obj, model_node_id);
+                if (mdl_node) {
+                    mat4 transform;
+                    if (fbx_read_transform(mdl_node, &transform)) {
+                        fbx_transform_vertices(nm, transform);
+                    }
                 }
             }
-        }
+        } while (indice_offset != -1);
         /* Process next mesh */
         geom = fbx_find_sibling_with_name(geom, "Geometry");
     }
