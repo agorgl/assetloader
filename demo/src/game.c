@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 #include "window.h"
 #include "input.h"
 #include <glad/glad.h>
@@ -58,7 +59,10 @@ static void upload_model_geom_data(const char* filename, struct model_handle* mo
 {
     /* Parse obj */
     printf("Model: %s\n", filename);
+    clock_t t1 = clock();
     struct model* m = model_from_file(filename);
+    clock_t t2 = clock();
+    printf("Load time %lu msec\n", 1000 * (t2 - t1) / CLOCKS_PER_SEC);
     printf("Num meshes: %d\n", m->num_meshes);
     printf("Num materials: %d\n", m->num_materials);
 
