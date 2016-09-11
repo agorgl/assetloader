@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <hashmap.h>
+#include <vector.h>
 #include <linalgb.h>
 
 /*-----------------------------------------------------------------
@@ -172,19 +173,62 @@ cleanup:
     return mesh;
 }
 
-/* Fetches connection id for the given key */
-static int64_t fbx_get_connection_id(struct fbx_record* connections, int64_t key)
+/*-----------------------------------------------------------------
+ * Connections Index
+ *-----------------------------------------------------------------*/
+struct fbx_conns_idx { struct hashmap index; };
+
+static size_t id_hash(hm_ptr key) { return (size_t)key; }
+static int id_eql(hm_ptr k1, hm_ptr k2) { return k1 == k2; }
+
+static void fbx_build_connections_index(struct fbx_record* connections, struct fbx_conns_idx* cidx)
 {
-    int64_t id = -1;
+    /* Allocate internal hashmap resources */
+    hashmap_init(&cidx->index, id_hash, id_eql);
+
+    /* Iterate through full connections list */
     struct fbx_record* c = connections->subrecords;
     while (c) {
-        if (c->properties[1].data.l == key) {
-            id = c->properties[2].data.l;
-            break;
+        int64_t child_id = c->properties[1].data.l;
+        int64_t parnt_id = c->properties[2].data.l;
+        /* Check if parent list exists, if not create a new one */
+        struct vector** par_list = (struct vector**)hashmap_get(&cidx->index, child_id);
+        if (!par_list) {
+            struct vector* plist = malloc(sizeof(struct vector));
+            vector_init(plist, sizeof(int64_t));
+            hashmap_put(&cidx->index, child_id, hm_cast(plist));
+            par_list = &plist;
         }
+        /* Put current pair */
+        vector_append(*par_list, &parnt_id);
+        /* Next */
         c = c->next;
     }
-    return id;
+}
+
+static void id_free_iter_fn(hm_ptr key, hm_ptr value)
+{
+    (void)key;
+    struct vector* v = (struct vector*)hm_pcast(value);
+    vector_destroy(v);
+    free(v);
+}
+
+static void fbx_destroy_connections_index(struct fbx_conns_idx* cidx)
+{
+    hashmap_iter(&cidx->index, id_free_iter_fn);
+    hashmap_destroy(&cidx->index);
+}
+
+static int64_t fbx_get_first_connection_id(struct fbx_conns_idx* cidx, int64_t id)
+{
+    int64_t pid = -1;
+    hm_ptr* p = hashmap_get(&cidx->index, id);
+    if (p) {
+        struct vector* par_list = (struct vector*)hm_pcast(*p);
+        pid = *(int64_t*)vector_at(par_list, 0);
+    }
+    return pid;
 }
 
 /* Reads vec3 from Properties70 subrecord */
@@ -278,6 +322,11 @@ static void fbx_transform_vertices(struct mesh* m, mat4 transform)
 
 static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_record* conns)
 {
+    /* Build connections index */
+    struct fbx_conns_idx cidx;
+    fbx_build_connections_index(conns, &cidx);
+
+    /* Gather model data */
     struct model* model = model_new();
     struct fbx_record* geom = fbx_find_subrecord_with_name(obj, "Geometry");
     while (geom) {
@@ -293,7 +342,7 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_record* c
                 model->meshes = realloc(model->meshes, model->num_meshes * sizeof(struct mesh*));
                 model->meshes[model->num_meshes - 1] = nm;
                 /* Check if a transform matrix is available */
-                int64_t model_node_id = fbx_get_connection_id(conns, geom->properties[0].data.l);
+                int64_t model_node_id = fbx_get_first_connection_id(&cidx, geom->properties[0].data.l);
                 struct fbx_record* mdl_node = fbx_find_model_node(obj, model_node_id);
                 if (mdl_node) {
                     mat4 transform;
@@ -306,6 +355,9 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_record* c
         /* Process next mesh */
         geom = fbx_find_sibling_with_name(geom, "Geometry");
     }
+
+    /* Free connections index */
+    fbx_destroy_connections_index(&cidx);
     return model;
 }
 
