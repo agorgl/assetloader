@@ -78,15 +78,15 @@ struct parser_state {
     int cur_mat_idx; /* Current material index set to meshes when being flushed */
 };
 
-static size_t indice_hash(void* key)
+static size_t indice_hash(hm_ptr key)
 {
-    int32_t* k = (int32_t*) key;
+    int32_t* k = (int32_t*) hm_pcast(key);
     return (size_t) k[0] ^ k[1] ^ k[2];
 }
 
-static int indice_eql(void* k1, void* k2)
+static int indice_eql(hm_ptr k1, hm_ptr k2)
 {
-    return memcmp(k1, k2, 3 * sizeof(int32_t)) == 0; /* Compare obj vertex index triplets */
+    return memcmp(hm_pcast(k1), hm_pcast(k2), 3 * sizeof(int32_t)) == 0; /* Compare obj vertex index triplets */
 }
 
 static struct mesh* mesh_from_parser_state(struct parser_state* ps)
@@ -111,7 +111,7 @@ static struct mesh* mesh_from_parser_state(struct parser_state* ps)
             int32_t* vi = (int32_t*)vector_at(&ps->faces, i) + 3 * j;
 
             /* Check if current triple has already been stored */
-            void* indice = hashmap_get(&stored_vertices, vi);
+            hm_ptr* indice = hashmap_get(&stored_vertices, hm_cast(vi));
             ++mesh->num_indices;
             if (indice) {
                 mesh->indices[mesh->num_indices - 1] = *((uint32_t*)indice);
@@ -144,7 +144,7 @@ static struct mesh* mesh_from_parser_state(struct parser_state* ps)
                 /* Store new vertice index into indices array */
                 mesh->indices[mesh->num_indices - 1] = mesh->num_verts - 1;
                 /* Store face triple ptr to lookup table */
-                hashmap_put(&stored_vertices, vi, (void*)(uintptr_t)(mesh->num_verts - 1));
+                hashmap_put(&stored_vertices, hm_cast(vi), hm_cast(mesh->num_verts - 1));
             }
         }
     }
@@ -165,9 +165,9 @@ static void flush_mesh(struct parser_state* ps, struct model* m)
     vector_init(&ps->faces, 9 * sizeof(int32_t));
 }
 
-static size_t found_materials_hash(void* key)
+static size_t found_materials_hash(hm_ptr key)
 {
-    const char* str = key;
+    const char* str = hm_pcast(key);
     unsigned long hash = 5381;
     int c;
     while ((c = *str++) != 0)
@@ -175,15 +175,15 @@ static size_t found_materials_hash(void* key)
     return hash;
 }
 
-static int found_materials_eql(void* k1, void* k2)
+static int found_materials_eql(hm_ptr k1, hm_ptr k2)
 {
-    return strcmp((const char*)k1, (const char*)k2) == 0;
+    return strcmp((const char*)hm_pcast(k1), (const char*)hm_pcast(k2)) == 0;
 }
 
-static void found_materials_iter(void* key, void* value)
+static void found_materials_iter(hm_ptr key, hm_ptr value)
 {
     (void) value;
-    free(key);
+    free(hm_pcast(key));
 }
 
 /* line is null terminated buffer and line_sz is the buffer length with the null terminator */
@@ -312,7 +312,7 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
         char* material = calloc(we - cur + 1, sizeof(char));
         memcpy(material, cur, (we - cur) * sizeof(char));
         /* Check if material is already found */
-        void* fmat = hashmap_get(&ps->found_materials, material);
+        hm_ptr* fmat = hashmap_get(&ps->found_materials, hm_cast(material));
         if (fmat) {
             free(material);
             ps->cur_mat_idx = *(int*)fmat;
@@ -320,7 +320,7 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
         else {
             ++m->num_materials;
             ps->cur_mat_idx = m->num_materials - 1;
-            hashmap_put(&ps->found_materials, material, (void*)(uintptr_t)(m->num_materials - 1));
+            hashmap_put(&ps->found_materials, hm_cast(material), hm_cast(m->num_materials - 1));
         }
     }
 }

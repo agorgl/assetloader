@@ -47,7 +47,7 @@ void hashmap_iter(struct hashmap* hm, hm_iter_fn iter_cb)
     }
 }
 
-static void hashmap_put_internal(struct hashmap* hm, void* key, void* value)
+static void hashmap_put_internal(struct hashmap* hm, hm_ptr key, hm_ptr value)
 {
     /* Get index from the given key's hash */
     size_t index = hm->hashfn(key) % hm->capacity;
@@ -76,7 +76,7 @@ static void hashmap_put_internal(struct hashmap* hm, void* key, void* value)
     hm->size++;
 }
 
-static void hashmap_remove_internal(struct hashmap* hm, void* key)
+static void hashmap_remove_internal(struct hashmap* hm, hm_ptr key)
 {
     /* Get index from the given key's hash */
     size_t index = hm->hashfn(key) % hm->capacity;
@@ -126,7 +126,7 @@ static void hashmap_resize(struct hashmap* hm)
     free_buckets(old_buckets, ocap);
 }
 
-void hashmap_put(struct hashmap* hm, void* key, void* value)
+void hashmap_put(struct hashmap* hm, hm_ptr key, hm_ptr value)
 {
     /* Check if resize needed */
     if (((float)hm->size / hm->capacity) >= HASHMAP_DEFAULT_LOAD_FACTOR)
@@ -136,13 +136,13 @@ void hashmap_put(struct hashmap* hm, void* key, void* value)
     hashmap_put_internal(hm, key, value);
 }
 
-void hashmap_remove(struct hashmap* hm, void* key)
+void hashmap_remove(struct hashmap* hm, hm_ptr key)
 {
     /* Actual remove */
     hashmap_remove_internal(hm, key);
 }
 
-void* hashmap_get(struct hashmap* hm, void* key)
+hm_ptr* hashmap_get(struct hashmap* hm, hm_ptr key)
 {
     /* Get the bucket index associated with given key's hash */
     size_t index = hm->hashfn(key) % hm->capacity;
@@ -156,7 +156,7 @@ void* hashmap_get(struct hashmap* hm, void* key)
     return 0;
 }
 
-int hashmap_exists(struct hashmap* hm, void* key)
+int hashmap_exists(struct hashmap* hm, hm_ptr key)
 {
     return hashmap_get(hm, key) != 0;
 }

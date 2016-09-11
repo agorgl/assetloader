@@ -4,6 +4,7 @@
 
 #include "leak_detect.h"
 #include <string.h>
+#define __USE_MINGW_ANSI_STDIO 1
 #include <stdio.h>
 #include <assert.h>
 #include <limits.h>
@@ -48,13 +49,13 @@ struct ld_alloc_db {
 static struct ld_alloc_db alloc_db;
 static mtx_t lock;
 
-static size_t hash_fn(void* key)
+static size_t hash_fn(hm_ptr key)
 {
     long h = (long) key;
     return (13 * h) ^ (h >> 15);
 }
 
-static int hm_eql(void* k1, void* k2)
+static int hm_eql(hm_ptr k1, hm_ptr k2)
 {
     return k1 == k2;
 }
@@ -65,10 +66,10 @@ void ld_init()
     hashmap_init(&alloc_db.allocations, hash_fn, hm_eql);
 }
 
-static void allocations_free_iter(void* key, void* value)
+static void allocations_free_iter(hm_ptr key, hm_ptr value)
 {
-    struct ld_alloc_info* ai = (struct ld_alloc_info*) value;
-    free(key);
+    struct ld_alloc_info* ai = (struct ld_alloc_info*)hm_pcast(value);
+    free(hm_pcast(key));
     free(ai);
 }
 
@@ -82,21 +83,21 @@ void ld_shutdown()
 static void add_leak(struct ld_alloc_db* db, void* ptr, struct ld_alloc_info* info)
 {
     mtx_lock(&lock);
-    hashmap_put(&db->allocations, ptr, info);
+    hashmap_put(&db->allocations, hm_cast(ptr), hm_cast(info));
     mtx_unlock(&lock);
 }
 
 static struct ld_alloc_info* get_leak(struct ld_alloc_db* db, void* ptr)
 {
-    struct ld_alloc_info** ai = hashmap_get(&db->allocations, ptr);
+    struct ld_alloc_info** ai = (struct ld_alloc_info**)hashmap_get(&db->allocations, hm_cast(ptr));
     return *ai;
 }
 
 static void remove_leak(struct ld_alloc_db* db, void* ptr)
 {
     mtx_lock(&lock);
-    struct ld_alloc_info* alloc_info = get_leak(db, ptr);
-    hashmap_remove(&db->allocations, ptr);
+    struct ld_alloc_info* alloc_info = (struct ld_alloc_info*)get_leak(db, ptr);
+    hashmap_remove(&db->allocations, hm_cast(ptr));
     free(alloc_info);
     mtx_unlock(&lock);
 }
@@ -149,14 +150,14 @@ void ld_free(void* addr)
     free(addr);
 }
 
-static void allocations_print_iter(void* key, void* value)
+static void allocations_print_iter(hm_ptr key, hm_ptr value)
 {
-    struct ld_alloc_info* ai = (struct ld_alloc_info*) value;
+    struct ld_alloc_info* ai = (struct ld_alloc_info*)hm_pcast(value);
     printf(PRINT_LEAK_STR,
            ai->filename,
            ai->line,
            ai->size,
-           (unsigned long)key);
+           (size_t)key);
 }
 
 void ld_print_leaks()

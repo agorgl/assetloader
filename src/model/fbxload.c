@@ -23,9 +23,9 @@ static void fbx_cpy_fa(float* dst, void* src, size_t len, size_t unit_sz)
     }
 }
 
-static size_t vertex_hash(void* key)
+static size_t vertex_hash(hm_ptr key)
 {
-    struct vertex* v = (struct vertex*) key;
+    struct vertex* v = (struct vertex*)hm_pcast(key);
     return (size_t)(v->position[0]
                   * v->position[1]
                   * v->position[2]
@@ -34,9 +34,9 @@ static size_t vertex_hash(void* key)
                   * v->normal[2]);
 }
 
-static int vertex_eql(void* k1, void* k2)
+static int vertex_eql(hm_ptr k1, hm_ptr k2)
 {
-    return memcmp(k1, k2, sizeof(struct vertex)) == 0; /* Compare obj vertex index triplets */
+    return memcmp(hm_pcast(k1), hm_pcast(k2), sizeof(struct vertex)) == 0; /* Compare obj vertex index triplets */
 }
 
 static struct fbx_property* fbx_find_layer_property(struct fbx_record* geom, const char* layer, const char* subrec)
@@ -133,7 +133,7 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset)
             fbx_cpy_fa(tv.uvs, uvs->data.dp + uv_ind * 2, 2, vu_sz);
 
         /* Check if current vertex is already stored */
-        void* stored_indice = hashmap_get(&stored_vertices, &tv);
+        hm_ptr* stored_indice = hashmap_get(&stored_vertices, hm_cast(&tv));
         if (stored_indice) {
             mesh->indices[mesh->num_indices] = *(uint32_t*)stored_indice;
         } else {
@@ -144,7 +144,7 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset)
             /* Set indice */
             mesh->indices[mesh->num_indices] = nidx;
             /* Store vertex ptr to lookup table */
-            hashmap_put(&stored_vertices, mesh->vertices + nidx, (void*)(uintptr_t)nidx);
+            hashmap_put(&stored_vertices, hm_cast(mesh->vertices + nidx), hm_cast(nidx));
         }
 
         /*
