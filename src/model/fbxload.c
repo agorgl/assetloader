@@ -51,7 +51,7 @@ static struct fbx_property* fbx_find_layer_property(struct fbx_record* geom, con
     return r2->properties;
 }
 
-static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset)
+static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, int* mat_id)
 {
     /* Check if geometry node contains any vertices */
     struct fbx_record* verts_nod = fbx_find_subrecord_with_name(geom, "Vertices");
@@ -75,7 +75,7 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset)
     mesh->num_verts = 0;
     mesh->num_indices = 0;
     int stored_indices = indices->length / fbx_pt_unit_size(indices->type);
-    int last_material = -1;
+    int last_material = -1, cur_material = -1;
 
     /* Allocate top limit */
     mesh->vertices = realloc(mesh->vertices, stored_indices * sizeof(struct vertex));
@@ -91,7 +91,6 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset)
     int tot_pols = 0; /* Counter of polygons encountered so far */
     for (int i = *indice_offset; i < stored_indices; ++i) {
         /* Check if mesh has multiple materials or not */
-        int cur_material = -1;
         if (mats && strncmp("AllSame", mats_mapping->data.str, 7) != 0) {
             /* Gather material for current vertice */
             cur_material = *(mats->data.ip + tot_pols);
@@ -169,6 +168,7 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset)
 
     *indice_offset = -1;
 cleanup:
+    *mat_id = cur_material;
     hashmap_destroy(&stored_vertices);
     return mesh;
 }
@@ -369,30 +369,76 @@ static void fbx_transform_vertices(struct mesh* m, mat4 transform)
     }
 }
 
+/*-----------------------------------------------------------------
+ * Materials
+ *-----------------------------------------------------------------*/
+/* Searches for materials ids for model node with the given id */
+static void fbx_find_materials_for_model(struct fbx_record* objs, struct fbx_conns_idx* cidx, int64_t mdl_id, struct vector* mat_ids)
+{
+    const char* mat_node_name = "Material";
+    /* Iterate through all material nodes */
+    struct fbx_record* mat = fbx_find_subrecord_with_name(objs, mat_node_name);
+    while (mat) {
+        int64_t mat_id = mat->properties[0].data.l;
+        /* Check if given model uses current material */
+        hm_ptr* r = hashmap_get(&cidx->index, mat_id);
+        if (r) {
+            struct vector* par_list = (struct vector*)hm_pcast(*r);
+            /* Search model id in material's parent list */
+            for (size_t i = 0; i < par_list->size; ++i) {
+                int64_t pid = *(int64_t*)vector_at(par_list, i);
+                if (pid == mdl_id) {
+                    vector_append(mat_ids, &mat_id);
+                    break;
+                }
+            }
+        }
+        /* Process next material node */
+        mat = fbx_find_sibling_with_name(mat, mat_node_name);
+    }
+}
+
+static size_t mat_id_hash(hm_ptr key) { return (size_t)key; }
+static int mat_id_eql(hm_ptr k1, hm_ptr k2) { return k1 == k2; }
+
+/*-----------------------------------------------------------------
+ * Model
+ *-----------------------------------------------------------------*/
 static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_record* conns)
 {
     /* Build connections index */
     struct fbx_conns_idx cidx;
     fbx_build_connections_index(conns, &cidx);
+    /* Map that maps internal material ids to ours */
+    struct hashmap mat_map;
+    hashmap_init(&mat_map, mat_id_hash, mat_id_eql);
 
     /* Gather model data */
     struct model* model = model_new();
     struct fbx_record* geom = fbx_find_subrecord_with_name(obj, "Geometry");
     while (geom) {
+        /* Get model node corresponding to current geometry node */
+        int64_t model_node_id = fbx_get_first_connection_id(&cidx, geom->properties[0].data.l);
+        struct fbx_record* mdl_node = fbx_find_model_node(obj, model_node_id);
+        /* Create a list with the material ids */
+        struct vector mat_ids;
+        vector_init(&mat_ids, sizeof(int64_t));
+        fbx_find_materials_for_model(obj, &cidx, model_node_id, &mat_ids);
+
         /* A single geometry node can be multiple meshes, due to non uniform materials.
          * Param indice_offset is filled with -1 if there are no more data to process
          * in current geom node, or with a value that must be passed to subsequent
          * calls of the fbx_read_mesh function to gather next meshes. */
         int indice_offset = 0;
+        int mat_idx = 0;
         do {
-            struct mesh* nm = fbx_read_mesh(geom, &indice_offset);
+            struct mesh* nm = fbx_read_mesh(geom, &indice_offset, &mat_idx);
             if (nm) {
+                /* Append new mesh */
                 model->num_meshes++;
                 model->meshes = realloc(model->meshes, model->num_meshes * sizeof(struct mesh*));
                 model->meshes[model->num_meshes - 1] = nm;
-                /* Check if a transform matrix is available */
-                int64_t model_node_id = fbx_get_first_connection_id(&cidx, geom->properties[0].data.l);
-                struct fbx_record* mdl_node = fbx_find_model_node(obj, model_node_id);
+                /* Check if a transform matrix is available and transform if appropriate */
                 if (mdl_node) {
                     mat4 transform;
                     int has_transform = fbx_read_transform(obj, &cidx, model_node_id, &transform);
@@ -400,12 +446,30 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_record* c
                         fbx_transform_vertices(nm, transform);
                     }
                 }
+                /* Set material */
+                if (mat_ids.size > 0) {
+                    int64_t fbx_mat_id = *(int64_t*)vector_at(&mat_ids, mat_idx);
+                    /* Try to find fbx material id in materials map,
+                     * if not add it as a new pair with next available id */
+                    hm_ptr* p = hashmap_get(&mat_map, hm_cast(fbx_mat_id));
+                    if (!p) {
+                        nm->mat_index = mat_map.size;
+                        hashmap_put(&mat_map, hm_cast(fbx_mat_id), hm_cast(nm->mat_index));
+                    } else {
+                        nm->mat_index = *p;
+                    }
+                }
             }
         } while (indice_offset != -1);
+
+        /* Free materials list */
+        vector_destroy(&mat_ids);
         /* Process next mesh */
         geom = fbx_find_sibling_with_name(geom, "Geometry");
     }
 
+    /* Free materials map */
+    hashmap_destroy(&mat_map);
     /* Free connections index */
     fbx_destroy_connections_index(&cidx);
     return model;
