@@ -231,6 +231,9 @@ static int64_t fbx_get_first_connection_id(struct fbx_conns_idx* cidx, int64_t i
     return pid;
 }
 
+/*-----------------------------------------------------------------
+ * Transform post process
+ *-----------------------------------------------------------------*/
 /* Reads vec3 from Properties70 subrecord */
 static void fbx_read_transform_vec(struct fbx_record* r, float* v)
 {
@@ -239,7 +242,7 @@ static void fbx_read_transform_vec(struct fbx_record* r, float* v)
 }
 
 /* Returns a positive value if transform data where found and the given matrix was filled */
-static int fbx_read_transform(struct fbx_record* mdl, mat4* transform)
+static int fbx_read_local_transform(struct fbx_record* mdl, mat4* transform)
 {
     struct fbx_record* transform_rec = fbx_find_subrecord_with_name(mdl, "Properties70");
     struct fbx_record* p = transform_rec->subrecords;
@@ -308,6 +311,51 @@ static struct fbx_record* fbx_find_model_node(struct fbx_record* objs, int64_t i
     return mdl;
 }
 
+static int fbx_read_transform(struct fbx_record* objs, struct fbx_conns_idx* cidx, int64_t mdl_id, mat4* out)
+{
+    /* List with subsequent model node id's until we reach parent */
+    int64_t cur_id = mdl_id;
+    struct vector chain;
+    vector_init(&chain, sizeof(int64_t));
+    vector_append(&chain, &cur_id);
+    while(cur_id) {
+        /* Loop through parents */
+        int found_parent_id = 0;
+        struct vector* par_list = hm_pcast(*hashmap_get(&cidx->index, cur_id));
+        for (size_t i = 0; i < par_list->size; ++i) {
+            /* Check if parent id is a model id */
+            int64_t cpid = *(int64_t*)vector_at(par_list, i);
+            struct fbx_record* mdl = fbx_find_model_node(objs, cpid);
+            if (mdl) {
+                vector_append(&chain, &cpid);
+                cur_id = cpid;
+                found_parent_id = 1;
+                break;
+            }
+        }
+        if (!found_parent_id)
+            break;
+    }
+
+    /* Construct transform */
+    *out = mat4_id();
+    int has_transform = 0;
+    for (size_t i = 0; i < chain.size; ++i) {
+        int64_t id = *(int64_t*)vector_at(&chain, i);
+        struct fbx_record* mdl_node = fbx_find_model_node(objs, id);
+        //printf("Chain(%d): %lu -> ", mdl_node ? 1 : 0, id);
+        if (mdl_node) {
+            mat4 cur;
+            if (fbx_read_local_transform(mdl_node, &cur)) {
+                *out = mat4_mul_mat4(*out, cur);
+                has_transform = 1;
+            }
+        }
+    }
+    //printf("Root!\n");
+    return has_transform;
+}
+
 static void fbx_transform_vertices(struct mesh* m, mat4 transform)
 {
     for (int i = 0; i < m->num_verts; ++i) {
@@ -346,7 +394,8 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_record* c
                 struct fbx_record* mdl_node = fbx_find_model_node(obj, model_node_id);
                 if (mdl_node) {
                     mat4 transform;
-                    if (fbx_read_transform(mdl_node, &transform)) {
+                    int has_transform = fbx_read_transform(obj, &cidx, model_node_id, &transform);
+                    if (has_transform) {
                         fbx_transform_vertices(nm, transform);
                     }
                 }
