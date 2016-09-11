@@ -39,7 +39,7 @@ static void parse_face_triple(const char* token, size_t token_sz, int32_t* tripl
     for (int32_t i = 0; i < 3; ++i) {
         wend = cur;
         /* Advance word end operator */
-        while (*wend != '/' && wend < tok_end)
+        while (wend < tok_end && *wend != '/')
             ++wend;
         /* Parse integer */
         if (wend - cur > 0)
@@ -56,14 +56,14 @@ static void parse_space_sep_entry(const char* token, size_t token_sz, float* arr
 
     for (size_t i = 0; i < count; ++i) {
         /* Skip whitespace to next word */
-        while (is_space(*cur) && cur < line_end)
+        while (cur < line_end && is_space(*cur))
             ++cur;
         /* Check if eol reached */
         if (cur == line_end)
             break;
         arr[i] = parse_float((const char*)cur, line_end - cur);
         /* Skip parsed word */
-        while (!is_space(*cur) && cur < line_end)
+        while (cur < line_end && !is_space(*cur))
             ++cur;
     }
 }
@@ -195,16 +195,16 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
     const unsigned char* cur = line;
 
     /* Skip leading whitespace */
-    while (is_space(*cur) && cur < line_end)
+    while (cur < line_end && is_space(*cur))
         ++cur;
 
     /* Check if comment or empty line and skip them */
-    if (*cur == '#' || cur == line_end - 1)
+    if (cur == line_end - 1 || *cur == '#')
         return;
 
     /* Find terminator of first word (first whitespace) */
     const unsigned char* wend = cur;
-    while(!is_space(*wend) && wend < line_end)
+    while(wend < line_end && !is_space(*wend))
         ++wend;
     size_t next_word_sz = wend - cur;
 
@@ -262,19 +262,19 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
         int i = 0;
         while (cur != line_end) {
             /* Skip whitespace to next word */
-            while (is_space(*cur) && cur < line_end)
+            while (cur < line_end && is_space(*cur))
                 ++cur;
             /* Check if eol reached */
             if (cur == line_end - 1)
                 break;
             /* Find end of current triple */
             const unsigned char* tend = cur;
-            while (!is_space(*tend) && tend < line_end)
+            while (tend < line_end && !is_space(*tend))
                 ++tend;
             /* Parse the triple */
             parse_face_triple((const char*)cur, tend - cur, f + i * 3);
             /* Skip parsed word */
-            while (!is_space(*cur) && cur < line_end)
+            while (cur < line_end && !is_space(*cur))
                 ++cur;
             /* Quad or more need additional face per triple */
             if (i >= 3) {
@@ -302,11 +302,11 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
         /* Skip space after keyword */
         cur += 6;
         /* Skip whitespace to next word */
-        while (is_space(*cur) && cur < line_end)
+        while (cur < line_end && is_space(*cur))
             ++cur;
         /* Find the end of the material name */
         const unsigned char* we = cur;
-        while (!is_space(*we) && we < line_end)
+        while (we < line_end && !is_space(*we))
             ++we;
         /* Copy material name to new buffer */
         char* material = calloc(we - cur + 1, sizeof(char));
@@ -347,7 +347,7 @@ struct model* model_from_obj(const unsigned char* data, size_t sz)
     while (cur <= data + sz) {
         /* Set end of line point */
         unsigned char* eol = cur;
-        while (*eol != '\n' && (eol < data + sz))
+        while ((eol < data + sz) && *eol != '\n')
             ++eol;
 
         /* Process line */
