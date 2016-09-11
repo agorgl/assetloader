@@ -44,6 +44,7 @@ struct mesh_handle
     unsigned int wbo;
     unsigned int ebo;
     unsigned int indice_count;
+    unsigned int mat_idx;
 };
 
 

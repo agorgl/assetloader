@@ -76,6 +76,7 @@ static void upload_model_geom_data(const char* filename, struct model_handle* mo
     for (unsigned int i = 0; i < model->num_meshes; ++i) {
         struct mesh* mesh = m->meshes[i];
         struct mesh_handle* mh = model->meshes + i;
+        mh->mat_idx = mesh->mat_index;
         printf("Using material: %d\n", mesh->mat_index);
 
         /* Create vao */
@@ -191,13 +192,9 @@ static void setup_data(struct game_context* ctx)
     tex_id[0] = upload_texture("ext/models/warrior_woman/Armor_01.png");
     tex_id[1] = upload_texture("ext/models/warrior_woman/Head.png");
     tex_id[2] = upload_texture("ext/models/warrior_woman/Kiem.png");
-    vector_append(&go.diff_textures, tex_id + 0); /* Right pauldron */
-    vector_append(&go.diff_textures, tex_id + 0); /* Left pauldron */
-    vector_append(&go.diff_textures, tex_id + 0); /* Body */
-    vector_append(&go.diff_textures, tex_id + 1); /* Head */
-    vector_append(&go.diff_textures, tex_id + 2); /* Sword bottom */
-    vector_append(&go.diff_textures, tex_id + 2); /* Sword */
-    vector_append(&go.diff_textures, tex_id + 2); /* Sword emblem? */
+    vector_append(&go.diff_textures, tex_id + 0);
+    vector_append(&go.diff_textures, tex_id + 1);
+    vector_append(&go.diff_textures, tex_id + 2);
     /*-*/
     scale = 0.008;
     go.transform = mat4_translation(vec3_new(0.0f, -0.4f, 0.0f));
@@ -625,7 +622,7 @@ void game_render(void* userdata, float interpolation)
             struct mesh_handle* mh = mdlh->meshes + i;
             /* Set diffuse texture */
             glActiveTexture(GL_TEXTURE0);
-            GLuint diff_tex = *(GLuint*)vector_at(&gobj->diff_textures, i);
+            GLuint diff_tex = *(GLuint*)vector_at(&gobj->diff_textures, mh->mat_idx);
             glBindTexture(GL_TEXTURE_2D, diff_tex);
             /* Render */
             glBindVertexArray(mh->vao);
