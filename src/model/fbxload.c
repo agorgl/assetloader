@@ -352,6 +352,7 @@ static int fbx_read_transform(struct fbx_record* objs, struct fbx_conns_idx* cid
             }
         }
     }
+    vector_destroy(&chain);
     //printf("Root!\n");
     return has_transform;
 }
