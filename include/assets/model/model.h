@@ -65,6 +65,7 @@ struct joint {
     struct joint* parent;
     float position[3];
     float rotation[4]; /* quat */
+    float scaling[3];
 };
 
 /* Frame */

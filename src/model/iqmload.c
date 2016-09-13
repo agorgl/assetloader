@@ -42,6 +42,7 @@ static struct frameset* iqm_read_frames(struct iqm_file* iqm)
             struct joint* jnt = f->joints + j;
             memcpy(jnt->position, fc + 0, 3 * sizeof(float));
             memcpy(jnt->rotation, fc + 3, 4 * sizeof(float));
+            memcpy(jnt->scaling, fc + 7, 3 * sizeof(float));
             jnt->parent = pose->parent < 0 ? 0 : f->joints + pose->parent;
         }
 
@@ -86,6 +87,7 @@ static struct skeleton* iqm_read_skeleton(struct iqm_file* iqm)
         /* Copy joint data */
         memcpy(j->position, joint->translate, 3 * sizeof(float));
         memcpy(j->rotation, joint->rotate, 4 * sizeof(float));
+        memcpy(j->scaling, joint->scale, 3 * sizeof(float));
     }
 
     return skel;

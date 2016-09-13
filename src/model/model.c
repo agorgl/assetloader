@@ -78,6 +78,7 @@ struct frame* frame_copy(struct frame* f)
         struct joint* nj = nf->joints + i;
         memcpy(nj->position, j->position, 3 * sizeof(float));
         memcpy(nj->rotation, j->rotation, 4 * sizeof(float));
+        memcpy(nj->scaling, j->scaling, 3 * sizeof(float));
         nj->parent = j->parent ? nf->joints + (j->parent - f->joints) : 0;
     }
     return nf;
@@ -99,6 +100,10 @@ void frame_joint_transform(struct joint* j, float trans[16])
     res = mat4_mul_mat4(
         res, mat4_rotation_quat(
             quat_new(j->rotation[0], j->rotation[1], j->rotation[2], j->rotation[3]))
+    );
+    res = mat4_mul_mat4(
+        res, mat4_scale(
+            vec3_new(j->scaling[0], j->scaling[1], j->scaling[2]))
     );
 
     if (j->parent) {
@@ -125,6 +130,11 @@ struct frame* frame_interpolate(struct frame* f0, struct frame* f1, float t)
         quat f1r = quat_new(f1->joints[i].rotation[0], f1->joints[i].rotation[1], f1->joints[i].rotation[2], f1->joints[i].rotation[3]);
         quat fir = quat_slerp(f0r, f1r, t);
         memcpy(fi->joints[i].rotation, &fir, 4 * sizeof(float));
+        /* Scaling with linear interpolation */
+        vec3 f0s = vec3_new(f0->joints[i].scaling[0], f0->joints[i].scaling[1], f0->joints[i].scaling[2]);
+        vec3 f1s = vec3_new(f1->joints[i].scaling[0], f1->joints[i].scaling[1], f1->joints[i].scaling[2]);
+        vec3 fis = vec3_lerp(f0s, f1s, t);
+        memcpy(fi->joints[i].scaling, &fis, 3 * sizeof(float));
     }
     return fi;
 }
