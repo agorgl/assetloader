@@ -121,10 +121,10 @@ struct frame* frame_interpolate(struct frame* f0, struct frame* f1, float t)
         vec3 fip = vec3_lerp(f0p, f1p, t);
         memcpy(fi->joints[i].position, &fip, 3 * sizeof(float));
         /* Rotation with spherical linear interpolation */
-        vec3 f0r = vec3_new(f0->joints[i].rotation[0], f0->joints[i].rotation[1], f0->joints[i].rotation[2]);
-        vec3 f1r = vec3_new(f1->joints[i].rotation[0], f1->joints[i].rotation[1], f1->joints[i].rotation[2]);
-        vec3 fir = vec3_lerp(f0r, f1r, t);
-        memcpy(fi->joints[i].rotation, &fir, 3 * sizeof(float));
+        quat f0r = quat_new(f0->joints[i].rotation[0], f0->joints[i].rotation[1], f0->joints[i].rotation[2], f0->joints[i].rotation[3]);
+        quat f1r = quat_new(f1->joints[i].rotation[0], f1->joints[i].rotation[1], f1->joints[i].rotation[2], f1->joints[i].rotation[3]);
+        quat fir = quat_slerp(f0r, f1r, t);
+        memcpy(fi->joints[i].rotation, &fir, 4 * sizeof(float));
     }
     return fi;
 }
