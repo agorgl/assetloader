@@ -242,16 +242,12 @@ static void fbx_read_transform_vec(struct fbx_record* r, float* v)
 }
 
 /* Returns a positive value if transform data where found and the given matrix was filled */
-static int fbx_read_local_transform(struct fbx_record* mdl, mat4* transform)
+static int fbx_read_local_transform(struct fbx_record* mdl, float t[3], float r[3], float s[3], int* rot_active, float pre_rot[3])
 {
     struct fbx_record* transform_rec = fbx_find_subrecord_with_name(mdl, "Properties70");
     struct fbx_record* p = transform_rec->subrecords;
 
     int has_transform = 0;
-    /* Local Transforms */
-    float s[3] = {1.0f, 1.0f, 1.0f}, r[3] = {0.0f, 0.0f, 0.0f}, t[3] = {0.0f, 0.0f, 0.0f};
-    /* Pre/Post rotations */
-    int rot_active = 0; float pre_rot[3];
 
     while (p) {
         size_t pname_len = p->properties[0].length;
@@ -270,7 +266,7 @@ static int fbx_read_local_transform(struct fbx_record* mdl, mat4* transform)
             has_transform = 1;
         }
         else if (strncmp("RotationActive", pname, pname_len) == 0) {
-            rot_active = p->properties[4].data.i;
+            *rot_active = p->properties[4].data.i;
         }
         else if (strncmp("PreRotation", pname, pname_len) == 0) {
             fbx_read_transform_vec(p, pre_rot);
@@ -280,21 +276,24 @@ static int fbx_read_local_transform(struct fbx_record* mdl, mat4* transform)
         p = p->next;
     }
 
-    if (has_transform) {
-        *transform = mat4_id();
-        /* Lcl Translation */
-        *transform = mat4_mul_mat4(*transform, mat4_translation(vec3_new(t[0], t[1], t[2])));
-        /* PreRotation */
-        if (rot_active)
-            *transform = mat4_mul_mat4(*transform, mat4_rotation_euler(-radians(pre_rot[0]),
-                                                                       -radians(pre_rot[1]),
-                                                                       -radians(pre_rot[2])));
-        /* Lcl Rotation */
-        *transform = mat4_mul_mat4(*transform, mat4_rotation_euler(radians(r[0]), radians(r[1]), radians(r[2])));
-        /* Lcl Scaling */
-        *transform = mat4_mul_mat4(*transform, mat4_scale(vec3_new(s[0], s[1], s[2])));
-    }
     return has_transform;
+}
+
+/* Composes local transform components into their matrix */
+static void fbx_compose_local_transform(mat4* transform, float t[3], float r[3], float s[3], int rot_active, float pre_rot[3])
+{
+    *transform = mat4_id();
+    /* Lcl Translation */
+    *transform = mat4_mul_mat4(*transform, mat4_translation(vec3_new(t[0], t[1], t[2])));
+    /* PreRotation */
+    if (rot_active)
+        *transform = mat4_mul_mat4(*transform, mat4_rotation_euler(-radians(pre_rot[0]),
+                                                                   -radians(pre_rot[1]),
+                                                                   -radians(pre_rot[2])));
+    /* Lcl Rotation */
+    *transform = mat4_mul_mat4(*transform, mat4_rotation_euler(radians(r[0]), radians(r[1]), radians(r[2])));
+    /* Lcl Scaling */
+    *transform = mat4_mul_mat4(*transform, mat4_scale(vec3_new(s[0], s[1], s[2])));
 }
 
 /* Searches for a Model node with the given id */
@@ -345,8 +344,13 @@ static int fbx_read_transform(struct fbx_record* objs, struct fbx_conns_idx* cid
         struct fbx_record* mdl_node = fbx_find_model_node(objs, id);
         //printf("Chain(%d): %lu -> ", mdl_node ? 1 : 0, id);
         if (mdl_node) {
-            mat4 cur;
-            if (fbx_read_local_transform(mdl_node, &cur)) {
+            /* Local Transforms */
+            float s[3] = {1.0f, 1.0f, 1.0f}, r[3] = {0.0f, 0.0f, 0.0f}, t[3] = {0.0f, 0.0f, 0.0f};
+            /* Pre/Post rotations */
+            int rot_active = 0; float pre_rot[3];
+            if (fbx_read_local_transform(mdl_node, t, r, s, &rot_active, pre_rot)) {
+                mat4 cur;
+                fbx_compose_local_transform(&cur, t, r, s, rot_active, pre_rot);
                 *out = mat4_mul_mat4(*out, cur);
                 has_transform = 1;
             }
