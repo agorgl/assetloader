@@ -591,9 +591,9 @@ void game_render(void* userdata, float interpolation)
         mvp = mat4_transpose(mvp);
         glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, (GLfloat*)&mvp);
         /* Upload animated flag */
-        glUniform1i(glGetUniformLocation(ctx->prog, "animated"), gobj->model.skel != 0);
+        glUniform1i(glGetUniformLocation(ctx->prog, "animated"), gobj->model.fset != 0);
         /* Upload bones */
-        if (gobj->model.skel) {
+        if (gobj->model.skel && gobj->model.fset) {
             /* Current frame */
             size_t cur_fr_idx = (int)ctx->anim_tmr % gobj->model.fset->num_frames;
             struct frame* cur_fr = gobj->model.fset->frames[cur_fr_idx];
@@ -642,8 +642,13 @@ void game_render(void* userdata, float interpolation)
     /* Visualize skeleton */
     struct model_handle* vobj = &gobjl[1]->model;
     if (ctx->visualizing_skeleton && vobj->skel) {
-        size_t cur_fr_idx = (int)ctx->anim_tmr % vobj->fset->num_frames;
-        struct frame* cur_fr = vobj->fset->frames[cur_fr_idx];
+        struct frame* cur_fr = 0;
+        if (vobj->fset) {
+            size_t cur_fr_idx = (int)ctx->anim_tmr % vobj->fset->num_frames;
+            cur_fr = vobj->fset->frames[cur_fr_idx];
+        } else {
+            cur_fr = vobj->skel->rest_pose;
+        }
         game_visualize_skeleton_render(ctx, &view, &proj, &gobjl[1]->transform, cur_fr);
     }
 
