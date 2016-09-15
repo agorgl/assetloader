@@ -475,6 +475,135 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_conns_idx
 }
 
 /*-----------------------------------------------------------------
+ * Skeleton
+ *-----------------------------------------------------------------*/
+static int fbx_joint_count(struct fbx_record* objs)
+{
+    const char* mdl_node_name = "Model";
+    struct fbx_record* mdl = fbx_find_subrecord_with_name(objs, mdl_node_name);
+    int count = 0;
+    while (mdl) {
+        const char* type = mdl->properties[2].data.str;
+        if (strncmp("LimbNode", type, 8) == 0)
+            ++count;
+        /* Process next model node */
+        mdl = fbx_find_sibling_with_name(mdl, mdl_node_name);
+    }
+    return count;
+}
+
+static int fbx_joint_parent_index(struct fbx_record* objs, struct fbx_conns_idx* cidx, int64_t child_id)
+{
+    /* Get parent connection id */
+    hm_ptr* p = hashmap_get(&cidx->index, child_id);
+    int64_t par_id = -1;
+    int par_ofs = -1;
+    if (p) {
+        struct vector* par_list = (struct vector*)hm_pcast(*p);
+        for (size_t i = 0; i < par_list->size; ++i) {
+            /* Check if current parent id is a joint */
+            int64_t cpid = *(int64_t*)vector_at(par_list, i);
+            struct fbx_record* mdl = fbx_find_model_node(objs, cpid);
+            if (mdl) {
+                const char* type = mdl->properties[2].data.str;
+                if (strncmp("LimbNode", type, 8) == 0) {
+                    par_id = cpid;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (par_id != -1) {
+        /* Get offset of the parent model node */
+        par_ofs = 0;
+        const char* mdl_node_name = "Model";
+        struct fbx_record* mdl = fbx_find_subrecord_with_name(objs, mdl_node_name);
+        while (mdl) {
+            int64_t cid = mdl->properties[0].data.l;
+            if (cid == par_id)
+                break;
+            const char* type = mdl->properties[2].data.str;
+            if (strncmp("LimbNode", type, 8) == 0)
+                ++par_ofs;
+            /* Process next model node */
+            mdl = fbx_find_sibling_with_name(mdl, mdl_node_name);
+        }
+    }
+
+    return par_ofs;
+}
+
+static struct skeleton* fbx_read_skeleton(struct fbx_record* objs, struct fbx_conns_idx* cidx)
+{
+    /* Allocate skeleton */
+    int jcount = fbx_joint_count(objs);
+    if (jcount == 0)
+        return 0;
+    /* Joints */
+    struct skeleton* skel = skeleton_new();
+    skel->rest_pose->num_joints = jcount;
+    skel->rest_pose->joints = realloc(skel->rest_pose->joints, skel->rest_pose->num_joints * sizeof(struct joint));
+    memset(skel->rest_pose->joints, 0, skel->rest_pose->num_joints * sizeof(struct joint));
+    /* Joint names */
+    skel->joint_names = realloc(skel->joint_names, skel->rest_pose->num_joints * sizeof(char*));
+    memset(skel->joint_names, 0, skel->rest_pose->num_joints * sizeof(char*));
+    printf("Num joints: %u\n", jcount);
+
+    /* Iterate "LimbNode" marked Model nodes */
+    const char* mdl_node_name = "Model";
+    struct fbx_record* mdl = fbx_find_subrecord_with_name(objs, mdl_node_name);
+    int cur_joint_idx = 0;
+    while (mdl) {
+        const char* type = mdl->properties[2].data.str;
+        if (strncmp("LimbNode", type, 8) == 0) {
+            /* Copy joint name */
+            const char* name = mdl->properties[1].data.str;
+            size_t name_sz = strlen(name) * sizeof(char);
+            skel->joint_names[cur_joint_idx] = malloc(name_sz + 1);
+            memcpy(skel->joint_names[cur_joint_idx], name, name_sz);
+            *(skel->joint_names[cur_joint_idx] + name_sz) = 0;
+            /* Local Transforms */
+            float s[3] = {1.0f, 1.0f, 1.0f}, r[3] = {0.0f, 0.0f, 0.0f}, t[3] = {0.0f, 0.0f, 0.0f};
+            /* Pre/Post rotations */
+            int rot_active = 0; float pre_rot[3] = {0.0f, 0.0f, 0.0f};
+            fbx_read_local_transform(mdl, t, r, s, &rot_active, pre_rot);
+            /* Copy joint data */
+            struct joint* j = skel->rest_pose->joints + cur_joint_idx;
+            memcpy(j->position, t, 3 * sizeof(float));
+            /* TODO: Find anorthodox rotation composition */
+            float fr[3] = { 0.0f, 0.0f, 0.0f };
+            fr[0] += r[1];
+            fr[1] += r[0];
+            fr[2] += r[2];
+            if (rot_active) {
+                fr[0] += pre_rot[0];
+                fr[1] += pre_rot[1];
+                fr[2] += pre_rot[2];
+            }
+            quat q = quat_from_euler(vec3_new(radians(fr[0]),
+                                              radians(fr[1]),
+                                              radians(fr[2])));
+            memcpy(j->rotation, &q, 4 * sizeof(float));
+            memcpy(j->scaling, &s, 3 * sizeof(float));
+            /* Set joint parent */
+            int par_idx = fbx_joint_parent_index(objs, cidx, mdl->properties[0].data.l);
+            j->parent = par_idx == -1 ? 0 : skel->rest_pose->joints + par_idx;
+
+            /*
+            printf("Found bone: %s [S(%.2f,%.2f,%.2f),R(%.2f,%.2f,%.2f),PR(%.2f,%.2f,%.2f)]\n",
+                    name, s[0], s[1], s[2], r[0], r[1], r[2], pre_rot[0], pre_rot[1], pre_rot[2]);
+             */
+            ++cur_joint_idx;
+        }
+        /* Process next model node */
+        mdl = fbx_find_sibling_with_name(mdl, mdl_node_name);
+    }
+
+    return skel;
+}
+
+/*-----------------------------------------------------------------
  * Constructor
  *-----------------------------------------------------------------*/
 struct model* model_from_fbx(const unsigned char* data, size_t sz)
@@ -509,6 +638,9 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
     /* Gather model data from parsed tree  */
     struct fbx_record* objs = fbx_find_subrecord_with_name(fbx.root, "Objects");
     struct model* m = fbx_read_model(objs, &cidx);
+
+    /* Gather skeleton data */
+    m->skeleton = fbx_read_skeleton(objs, &cidx);
 
     /* Free connections index */
     fbx_destroy_connections_index(&cidx);
