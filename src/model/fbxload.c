@@ -408,11 +408,8 @@ static int mat_id_eql(hm_ptr k1, hm_ptr k2) { return k1 == k2; }
 /*-----------------------------------------------------------------
  * Model
  *-----------------------------------------------------------------*/
-static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_record* conns)
+static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_conns_idx* cidx)
 {
-    /* Build connections index */
-    struct fbx_conns_idx cidx;
-    fbx_build_connections_index(conns, &cidx);
     /* Map that maps internal material ids to ours */
     struct hashmap mat_map;
     hashmap_init(&mat_map, mat_id_hash, mat_id_eql);
@@ -422,12 +419,12 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_record* c
     struct fbx_record* geom = fbx_find_subrecord_with_name(obj, "Geometry");
     while (geom) {
         /* Get model node corresponding to current geometry node */
-        int64_t model_node_id = fbx_get_first_connection_id(&cidx, geom->properties[0].data.l);
+        int64_t model_node_id = fbx_get_first_connection_id(cidx, geom->properties[0].data.l);
         struct fbx_record* mdl_node = fbx_find_model_node(obj, model_node_id);
         /* Create a list with the material ids */
         struct vector mat_ids;
         vector_init(&mat_ids, sizeof(int64_t));
-        fbx_find_materials_for_model(obj, &cidx, model_node_id, &mat_ids);
+        fbx_find_materials_for_model(obj, cidx, model_node_id, &mat_ids);
 
         /* A single geometry node can be multiple meshes, due to non uniform materials.
          * Param indice_offset is filled with -1 if there are no more data to process
@@ -445,7 +442,7 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_record* c
                 /* Check if a transform matrix is available and transform if appropriate */
                 if (mdl_node) {
                     mat4 transform;
-                    int has_transform = fbx_read_transform(obj, &cidx, model_node_id, &transform);
+                    int has_transform = fbx_read_transform(obj, cidx, model_node_id, &transform);
                     if (has_transform) {
                         fbx_transform_vertices(nm, transform);
                     }
@@ -474,11 +471,12 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_record* c
 
     /* Free materials map */
     hashmap_destroy(&mat_map);
-    /* Free connections index */
-    fbx_destroy_connections_index(&cidx);
     return model;
 }
 
+/*-----------------------------------------------------------------
+ * Constructor
+ *-----------------------------------------------------------------*/
 struct model* model_from_fbx(const unsigned char* data, size_t sz)
 {
     /* Initialize parser state */
@@ -503,11 +501,17 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
     struct fbx_record* r = fbx_read_root_record(&ps);
     fbx.root = r;
 
+    /* Build connections index */
+    struct fbx_record* conns = fbx_find_subrecord_with_name(fbx.root, "Connections");
+    struct fbx_conns_idx cidx;
+    fbx_build_connections_index(conns, &cidx);
+
     /* Gather model data from parsed tree  */
     struct fbx_record* objs = fbx_find_subrecord_with_name(fbx.root, "Objects");
-    struct fbx_record* conns = fbx_find_subrecord_with_name(fbx.root, "Connections");
-    struct model* m = fbx_read_model(objs, conns);
+    struct model* m = fbx_read_model(objs, &cidx);
 
+    /* Free connections index */
+    fbx_destroy_connections_index(&cidx);
     /* Free tree */
     fbx_record_destroy(r);
     return m;
