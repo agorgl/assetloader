@@ -266,6 +266,16 @@ static int64_t fbx_get_first_connection_id(struct fbx_conns_idx* cidx, int64_t i
     return pid;
 }
 
+static struct vector* fbx_get_connection_ids(struct hashmap* index, int64_t id)
+{
+    hm_ptr* p = hashmap_get(index, id);
+    if (p) {
+        struct vector* list = (struct vector*)hm_pcast(*p);
+        return list;
+    }
+    return 0;
+}
+
 /*-----------------------------------------------------------------
  * Transform post process
  *-----------------------------------------------------------------*/
@@ -355,7 +365,7 @@ static int fbx_read_transform(struct fbx_record* objs, struct fbx_conns_idx* cid
     while(cur_id) {
         /* Loop through parents */
         int found_parent_id = 0;
-        struct vector* par_list = hm_pcast(*hashmap_get(&cidx->index, cur_id));
+        struct vector* par_list = fbx_get_connection_ids(&cidx->index, cur_id);
         for (size_t i = 0; i < par_list->size; ++i) {
             /* Check if parent id is a model id */
             int64_t cpid = *(int64_t*)vector_at(par_list, i);
@@ -420,9 +430,8 @@ static void fbx_find_materials_for_model(struct fbx_record* objs, struct fbx_con
     while (mat) {
         int64_t mat_id = mat->properties[0].data.l;
         /* Check if given model uses current material */
-        hm_ptr* r = hashmap_get(&cidx->index, mat_id);
-        if (r) {
-            struct vector* par_list = (struct vector*)hm_pcast(*r);
+        struct vector* par_list = fbx_get_connection_ids(&cidx->index, mat_id);
+        if (par_list) {
             /* Search model id in material's parent list */
             for (size_t i = 0; i < par_list->size; ++i) {
                 int64_t pid = *(int64_t*)vector_at(par_list, i);
@@ -530,11 +539,10 @@ static int fbx_joint_count(struct fbx_record* objs)
 static int fbx_joint_parent_index(struct fbx_record* objs, struct fbx_conns_idx* cidx, int64_t child_id)
 {
     /* Get parent connection id */
-    hm_ptr* p = hashmap_get(&cidx->index, child_id);
+    struct vector* par_list = fbx_get_connection_ids(&cidx->index, child_id);
     int64_t par_id = -1;
     int par_ofs = -1;
-    if (p) {
-        struct vector* par_list = (struct vector*)hm_pcast(*p);
+    if (par_list) {
         for (size_t i = 0; i < par_list->size; ++i) {
             /* Check if current parent id is a joint */
             int64_t cpid = *(int64_t*)vector_at(par_list, i);
