@@ -176,12 +176,12 @@ cleanup:
 /*-----------------------------------------------------------------
  * Connections Index
  *-----------------------------------------------------------------*/
-struct fbx_conns_idx { struct hashmap index; };
+struct fbx_conns_idx { struct hashmap index; struct hashmap rev_index; };
 
 static size_t id_hash(hm_ptr key) { return (size_t)key; }
 static int id_eql(hm_ptr k1, hm_ptr k2) { return k1 == k2; }
 
-static void fbx_build_connections_index(struct fbx_record* connections, struct fbx_conns_idx* cidx)
+static void fbx_build_connections_fw_index(struct fbx_record* connections, struct fbx_conns_idx* cidx)
 {
     /* Allocate internal hashmap resources */
     hashmap_init(&cidx->index, id_hash, id_eql);
@@ -206,6 +206,37 @@ static void fbx_build_connections_index(struct fbx_record* connections, struct f
     }
 }
 
+static void fbx_build_connections_rev_index(struct fbx_record* connections, struct fbx_conns_idx* cidx)
+{
+    /* Allocate internal hashmap resources */
+    hashmap_init(&cidx->rev_index, id_hash, id_eql);
+
+    /* Iterate through full connections list */
+    struct fbx_record* c = connections->subrecords;
+    while (c) {
+        int64_t child_id = c->properties[1].data.l;
+        int64_t parnt_id = c->properties[2].data.l;
+        /* Check if parent list exists, if not create a new one */
+        struct vector** child_list = (struct vector**)hashmap_get(&cidx->rev_index, parnt_id);
+        if (!child_list) {
+            struct vector* clist = malloc(sizeof(struct vector));
+            vector_init(clist, sizeof(int64_t));
+            hashmap_put(&cidx->rev_index, parnt_id, hm_cast(clist));
+            child_list = &clist;
+        }
+        /* Put current pair */
+        vector_append(*child_list, &child_id);
+        /* Next */
+        c = c->next;
+    }
+}
+
+static void fbx_build_connections_index(struct fbx_record* connections, struct fbx_conns_idx* cidx)
+{
+    fbx_build_connections_fw_index(connections, cidx);
+    fbx_build_connections_rev_index(connections, cidx);
+}
+
 static void id_free_iter_fn(hm_ptr key, hm_ptr value)
 {
     (void)key;
@@ -216,8 +247,12 @@ static void id_free_iter_fn(hm_ptr key, hm_ptr value)
 
 static void fbx_destroy_connections_index(struct fbx_conns_idx* cidx)
 {
+    /* Destroy forward index */
     hashmap_iter(&cidx->index, id_free_iter_fn);
     hashmap_destroy(&cidx->index);
+    /* Destroy reverse index */
+    hashmap_iter(&cidx->rev_index, id_free_iter_fn);
+    hashmap_destroy(&cidx->rev_index);
 }
 
 static int64_t fbx_get_first_connection_id(struct fbx_conns_idx* cidx, int64_t id)
