@@ -604,6 +604,96 @@ static struct skeleton* fbx_read_skeleton(struct fbx_record* objs, struct fbx_co
 }
 
 /*-----------------------------------------------------------------
+ * Frameset
+ *-----------------------------------------------------------------*/
+enum frame_rate {
+    frame_rate_default         = 0,
+    frame_rate_120             = 1,
+    frame_rate_100             = 2,
+    frame_rate_60              = 3,
+    frame_rate_50              = 4,
+    frame_rate_48              = 5,
+    frame_rate_30              = 6,
+    frame_rate_30_drop         = 7,
+    frame_rate_ntsc_drop_frame = 8,
+    frame_rate_ntsc_full_frame = 9,
+    frame_rate_pal             = 10,
+    frame_rate_cinema          = 11,
+    frame_rate_1000            = 12,
+    frame_rate_cinema_nd       = 13,
+    frame_rate_custom          = 14
+};
+
+static float fbx_framerate(struct fbx_record* gsettings)
+{
+    struct fbx_record* p70_rec = fbx_find_subrecord_with_name(gsettings, "Properties70");
+    struct fbx_record* p = p70_rec->subrecords;
+
+    enum frame_rate fr_rate = frame_rate_default;
+    float cust_fr_rate = 0.0f;
+    /* Read frame rate properties */
+    while (p) {
+        size_t pname_len = p->properties[0].length;
+        const char* pname = p->properties[0].data.str;
+        if (strncmp("TimeMode", pname, pname_len) == 0) {
+            fr_rate = p->properties[4].data.i;
+        } else if (strncmp("CustomFrameRate", pname, pname_len) == 0) {
+            cust_fr_rate = p->properties[4].data.i;
+        }
+        p = p->next;
+    }
+    /* Get frame rate value */
+    float fr = 0.0f;
+    switch (fr_rate) {
+        case frame_rate_default:
+            fr = 1.0f;
+            break;
+        case frame_rate_120:
+            fr = 120.0f;
+            break;
+        case frame_rate_100:
+            fr = 100.0f;
+            break;
+        case frame_rate_60:
+            fr = 60.0f;
+            break;
+        case frame_rate_50:
+            fr = 50.0f;
+            break;
+        case frame_rate_48:
+            fr = 48.0f;
+            break;
+        case frame_rate_30:
+        case frame_rate_30_drop:
+            fr = 30.0f;
+            break;
+        case frame_rate_ntsc_drop_frame:
+        case frame_rate_ntsc_full_frame:
+            fr = 29.9700262f;
+            break;
+        case frame_rate_pal:
+            fr = 25.0f;
+            break;
+        case frame_rate_cinema:
+            fr = 24.0f;
+            break;
+        case frame_rate_1000:
+            fr = 1000.0f;
+            break;
+        case frame_rate_cinema_nd:
+            fr = 23.976f;
+            break;
+        case frame_rate_custom:
+            fr = cust_fr_rate;
+            break;
+        default:
+            fr = -1.0f;
+            break;
+    }
+    return fr;
+}
+
+/*-----------------------------------------------------------------
  * Constructor
  *-----------------------------------------------------------------*/
 struct model* model_from_fbx(const unsigned char* data, size_t sz)
@@ -641,6 +731,11 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
 
     /* Gather skeleton data */
     m->skeleton = fbx_read_skeleton(objs, &cidx);
+
+    /* Retrieve animation framerate */
+    struct fbx_record* gsettings = fbx_find_subrecord_with_name(fbx.root, "GlobalSettings");
+    float fr = fbx_framerate(gsettings);
+    printf("Framerate: %f\n", fr);
 
     /* Free connections index */
     fbx_destroy_connections_index(&cidx);
