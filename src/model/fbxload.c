@@ -408,6 +408,66 @@ static int fbx_read_transform(struct fbx_record* objs, struct fbx_conns_idx* cid
     return has_transform;
 }
 
+/* Parses "d|X", "d|Y", "d|Z" properties of an AnimationCurveNode element into given data array */
+static void fbx_read_animation_curve_node(struct fbx_record* acn_node, float data[3])
+{
+    struct fbx_record* p70 = acn_node->subrecords + 0;
+    struct fbx_record* p = p70->subrecords;
+    while (p) {
+        const char* name = p->properties[0].data.str;
+        size_t name_sz = p->properties[0].length;
+        if (name_sz >= 3) {
+            char component = name[2];
+            float value = p->properties[4].data.d;
+            switch (component) {
+                case 'X':
+                    data[0] = value;
+                    break;
+                case 'Y':
+                    data[1] = value;
+                    break;
+                case 'Z':
+                    data[2] = value;
+                    break;
+            }
+        }
+        p = p->next;
+    }
+}
+
+/* Searches for AnimationCurveNode elements assosiated with the given model id,
+ * parses them and fills given data array. Returns bitflag of the components filled */
+static int fbx_read_acn_transform(struct fbx_record* objs, struct fbx_conns_idx* cidx, int64_t mdl_id, float t[3], float r[3], float s[3])
+{
+    const char* acn_node_name = "AnimationCurveNode";
+    /* Get child ids for current model node */
+    struct vector* acn_chld_node_ids = fbx_get_connection_ids(&cidx->rev_index, mdl_id);
+    /* Search which of them are the animation curve nodes we want */
+    int filled = 0;
+    for (size_t i = 0; i < acn_chld_node_ids->size; ++i) {
+        int64_t chld_id = *(int64_t*)vector_at(acn_chld_node_ids, i);
+        struct fbx_record* rec = fbx_find_node_type_with_id(objs, acn_node_name, chld_id);
+        if (!rec)
+            continue;
+        /* */
+        const char* type = rec->properties[1].data.str;
+        size_t type_sz = rec->properties[1].length;
+        if (strncmp("T", type, type_sz) == 0) {
+            fbx_read_animation_curve_node(rec, t);
+            filled |= 1 << 1;
+        }
+        else if (strncmp("R", type, type_sz) == 0) {
+            fbx_read_animation_curve_node(rec, r);
+            filled |= 1 << 2;
+        }
+        else if (strncmp("S", type, type_sz) == 0) {
+            fbx_read_animation_curve_node(rec, s);
+            filled |= 1 << 3;
+        }
+    }
+    return filled;
+}
+
 static void fbx_transform_vertices(struct mesh* m, mat4 transform)
 {
     for (int i = 0; i < m->num_verts; ++i) {
