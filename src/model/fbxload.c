@@ -176,7 +176,7 @@ cleanup:
 /*-----------------------------------------------------------------
  * Connections Index
  *-----------------------------------------------------------------*/
-struct fbx_conns_idx { struct hashmap index; struct hashmap rev_index; };
+struct fbx_conns_idx { struct hashmap index; struct hashmap rev_index; struct hashmap desc_index; };
 
 static size_t id_hash(hm_ptr key) { return (size_t)key; }
 static int id_eql(hm_ptr k1, hm_ptr k2) { return k1 == k2; }
@@ -231,10 +231,29 @@ static void fbx_build_connections_rev_index(struct fbx_record* connections, stru
     }
 }
 
+static void fbx_build_connections_desc_index(struct fbx_record* connections, struct fbx_conns_idx* cidx)
+{
+    /* Allocate internal hashmap resources */
+    hashmap_init(&cidx->desc_index, id_hash, id_eql);
+
+    /* Iterate through full connections list */
+    struct fbx_record* c = connections->subrecords;
+    while (c) {
+        int64_t child_id = c->properties[1].data.l;
+        const char* desc = 0;
+        if (c->num_props >= 4)
+            desc = c->properties[3].data.str;
+        hashmap_put(&cidx->desc_index, child_id, hm_cast(desc));
+        /* Next */
+        c = c->next;
+    }
+}
+
 static void fbx_build_connections_index(struct fbx_record* connections, struct fbx_conns_idx* cidx)
 {
     fbx_build_connections_fw_index(connections, cidx);
     fbx_build_connections_rev_index(connections, cidx);
+    fbx_build_connections_desc_index(connections, cidx);
 }
 
 static void id_free_iter_fn(hm_ptr key, hm_ptr value)
@@ -247,6 +266,8 @@ static void id_free_iter_fn(hm_ptr key, hm_ptr value)
 
 static void fbx_destroy_connections_index(struct fbx_conns_idx* cidx)
 {
+    /* Destroy description index */
+    hashmap_destroy(&cidx->desc_index);
     /* Destroy forward index */
     hashmap_iter(&cidx->index, id_free_iter_fn);
     hashmap_destroy(&cidx->index);
@@ -272,6 +293,16 @@ static struct vector* fbx_get_connection_ids(struct hashmap* index, int64_t id)
     if (p) {
         struct vector* list = (struct vector*)hm_pcast(*p);
         return list;
+    }
+    return 0;
+}
+
+static const char* fbx_get_connection_desc(struct fbx_conns_idx* cidx, int64_t id)
+{
+    hm_ptr* p = hashmap_get(&cidx->desc_index, id);
+    if (p) {
+        const char* desc = hm_pcast(*p);
+        return desc;
     }
     return 0;
 }
