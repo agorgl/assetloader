@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 #include <hashmap.h>
 #include <vector.h>
 #include <linalgb.h>
@@ -857,6 +858,151 @@ static float fbx_framerate(struct fbx_record* gsettings)
     return fr;
 }
 
+#define convert_fbx_time(time) (((float)time) / 46186158000L)
+
+static int fbx_find_num_frames(struct fbx_record* objs)
+{
+    const char* anim_curve_node_name = "AnimationCurve";
+    int max_num_frames = 0;
+    /* Iterate through all AnimationCurve object nodes */
+    struct fbx_record* anim_curve = fbx_find_subrecord_with_name(objs, anim_curve_node_name);
+    while (anim_curve) {
+        /* Iterate through subproperties */
+        struct fbx_record* p = anim_curve->subrecords;
+        while (p) {
+            if (strcmp(p->name, "KeyTime") == 0) {
+                struct fbx_property* prop = p->properties + 0;
+                int num_frames = prop->length / fbx_pt_unit_size(prop->type);
+                /* Set new max */
+                if (num_frames > max_num_frames)
+                    max_num_frames = num_frames;
+                break;
+            }
+            p = p->next;
+        }
+        /* Process next anim curve node */
+        anim_curve = fbx_find_sibling_with_name(anim_curve, anim_curve_node_name);
+    }
+    return max_num_frames;
+}
+
+static float fbx_calc_anim_curv_value(struct fbx_record* anim_curv_node, int cur_frame, int max_frames)
+{
+    struct fbx_property* key_value = 0;
+    struct fbx_property* key_time = 0;
+    /* Gather the two relevant properties */
+    struct fbx_record* p = anim_curv_node->subrecords;
+    while (p) {
+        if (strcmp("KeyValueFloat", p->name) == 0) {
+            key_value = p->properties + 0;
+        } else if (strcmp("KeyTime", p->name) == 0) {
+            key_time = p->properties + 0;
+        }
+        p = p->next;
+    }
+    /* Calc the corresponding value */
+    size_t key_time_sz = key_time->length / fbx_pt_unit_size(key_time->type);
+    size_t key_time_idx = roundf(key_time_sz * ((float)cur_frame / max_frames));
+    float value = key_value->data.fp[key_time_idx];
+    return value;
+}
+
+static void fbx_read_frame_transform(struct fbx_conns_idx* cidx, struct fbx_objs_idx* objs_idx, int mdl_id, int cur_frame, int max_frames, float t[3], float r[3], float s[3])
+{
+    /* Get AnimationCurveNode childs of model node */
+    struct vector* mdl_chld_ids = fbx_get_connection_ids(&cidx->rev_index, mdl_id);
+    for (size_t i = 0; i < mdl_chld_ids->size; ++i) {
+        int64_t mdl_chld_id = *(int64_t*)vector_at(mdl_chld_ids, i);
+        struct fbx_record* rec = fbx_find_object_type_with_id(objs_idx, "AnimationCurveNode", mdl_chld_id);
+        if (rec) {
+            /* Select the transform component to fill */
+            const char* component_type = rec->properties[1].data.str;
+            size_t component_type_sz = rec->properties[1].length;
+            float* component_target = 0;
+            if (strncmp("T", component_type, component_type_sz) == 0)
+                component_target = t;
+            else if (strncmp("R", component_type, component_type_sz) == 0)
+                component_target = r;
+            else if (strncmp("S", component_type, component_type_sz) == 0)
+                component_target = s;
+
+            /* Find AnimationCurveNode's AnimationCurve childs */
+            struct vector* acn_chld_ids = fbx_get_connection_ids(&cidx->rev_index, mdl_chld_id);
+            for (size_t j = 0; j < acn_chld_ids->size; ++j) {
+                int64_t acn_chld_id = *(int64_t*)vector_at(acn_chld_ids, j);
+                /* Get child description */
+                const char* desc = fbx_get_connection_desc(cidx, acn_chld_id);
+                int tidx = -1;
+                if (strncmp("d|X", desc, 3) == 0)
+                    tidx = 0;
+                else if (strncmp("d|Y", desc, 3) == 0)
+                    tidx = 1;
+                else if (strncmp("d|Z", desc, 3) == 0)
+                    tidx = 2;
+
+                if (tidx != -1) {
+                    struct fbx_record* anim_curve_node = fbx_find_object_with_id(objs_idx, acn_chld_id);
+                    component_target[tidx] = fbx_calc_anim_curv_value(anim_curve_node, cur_frame, max_frames);
+                }
+            }
+        }
+    }
+}
+
+static struct frameset* fbx_read_frames(struct fbx_record* objs, struct fbx_conns_idx* cidx, struct fbx_objs_idx* objs_idx)
+{
+    /* Create empty frameset */
+    struct frameset* fset = frameset_new();
+    fset->num_frames = fbx_find_num_frames(objs);
+    fset->frames = malloc(fset->num_frames * sizeof(struct frame*));
+    memset(fset->frames, 0, fset->num_frames * sizeof(struct frame*));
+
+    /* Prepopulate with empty frames */
+    int jcount = fbx_joint_count(objs);
+    for (uint32_t i = 0; i < fset->num_frames; ++i) {
+        struct frame* fr = frame_new();
+        fr->num_joints = jcount;
+        fr->joints = realloc(fr->joints, fr->num_joints * sizeof(struct joint));
+        memset(fr->joints, 0, fr->num_joints * sizeof(struct joint));
+        fset->frames[i] = fr;
+    }
+
+    /* Iterate "LimbNode" marked Model nodes */
+    const char* mdl_node_name = "Model";
+    struct fbx_record* mdl = fbx_find_subrecord_with_name(objs, mdl_node_name);
+    int cur_joint_idx = 0;
+    while (mdl) {
+        int64_t mdl_id = mdl->properties[0].data.l;
+        const char* type = mdl->properties[2].data.str;
+        if (strncmp("LimbNode", type, 8) == 0) {
+            /* AnimationCurveNode transforms */
+            /*
+            float acn_s[3] = {1.0f, 1.0f, 1.0f}, acn_r[3] = {0.0f, 0.0f, 0.0f}, acn_t[3] = {0.0f, 0.0f, 0.0f};
+            fbx_read_acn_transform(objs_idx, cidx, mdl_id, acn_t, acn_r, acn_s);
+            */
+            int par_idx = fbx_joint_parent_index(objs, cidx, objs_idx, mdl_id);
+            /* Iterate through each frame */
+            for (uint32_t i = 0; i < fset->num_frames; ++i) {
+                struct joint* j = fset->frames[i]->joints + cur_joint_idx;
+                float s[3] = {1.0f, 1.0f, 1.0f}, r[3] = {0.0f, 0.0f, 0.0f}, t[3] = {0.0f, 0.0f, 0.0f};
+                fbx_read_frame_transform(cidx, objs_idx, mdl_id, i, fset->num_frames, t, r, s);
+                memcpy(j->position, t, 3 * sizeof(float));
+                quat q = quat_from_euler(vec3_new(radians(r[1]),
+                                                  radians(r[0]),
+                                                  radians(r[2])));
+                memcpy(j->rotation, &q, 4 * sizeof(float));
+                memcpy(j->scaling, &s, 3 * sizeof(float));
+                j->parent = par_idx == -1 ? 0 : fset->frames[i]->joints + par_idx;
+            }
+            ++cur_joint_idx;
+        }
+        /* Process next model node */
+        mdl = fbx_find_sibling_with_name(mdl, mdl_node_name);
+    }
+
+    return 0;
+}
+
 /*-----------------------------------------------------------------
  * Constructor
  *-----------------------------------------------------------------*/
@@ -904,6 +1050,9 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
     struct fbx_record* gsettings = fbx_find_subrecord_with_name(fbx.root, "GlobalSettings");
     float fr = fbx_framerate(gsettings);
     printf("Framerate: %f\n", fr);
+
+    /* Read frameset */
+    m->frameset = fbx_read_frames(objs, &cidx, &objs_idx);
 
     /* Free objects index */
     fbx_destroy_objs_index(&objs_idx);
