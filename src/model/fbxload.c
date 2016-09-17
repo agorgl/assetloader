@@ -277,17 +277,45 @@ static struct vector* fbx_get_connection_ids(struct hashmap* index, int64_t id)
 }
 
 /*-----------------------------------------------------------------
- * Search helpers
+ * Objects index
  *-----------------------------------------------------------------*/
-static struct fbx_record* fbx_find_node_type_with_id(struct fbx_record* par_node, const char* type, int64_t id)
+struct fbx_objs_idx { struct hashmap index; };
+
+static void fbx_build_objs_index(struct fbx_record* objs, struct fbx_objs_idx* objs_idx)
 {
-    struct fbx_record* n = fbx_find_subrecord_with_name(par_node, type);
-    while (n) {
-        int64_t nid = n->properties[0].data.l;
-        if (nid == id)
-            return n;
-        n = fbx_find_sibling_with_name(n, type);
+    /* Allocate internal hashmap resources */
+    hashmap_init(&objs_idx->index, id_hash, id_eql);
+    /* Iterate through full objects list */
+    struct fbx_record* o = objs->subrecords;
+    while (o) {
+        int64_t obj_id = o->properties[0].data.l;
+        /* Put current pair */
+        hashmap_put(&objs_idx->index, obj_id, hm_cast(o));
+        /* Next */
+        o = o->next;
     }
+}
+
+static void fbx_destroy_objs_index(struct fbx_objs_idx* objs_idx)
+{
+    hashmap_destroy(&objs_idx->index);
+}
+
+static struct fbx_record* fbx_find_object_with_id(struct fbx_objs_idx* objs_idx, int64_t id)
+{
+    hm_ptr* p = hashmap_get(&objs_idx->index, id);
+    if (p) {
+        struct fbx_record* r = (struct fbx_record*)hm_pcast(*p);
+        return r;
+    }
+    return 0;
+}
+
+static struct fbx_record* fbx_find_object_type_with_id(struct fbx_objs_idx* objs_idx, const char* type, int64_t id)
+{
+    struct fbx_record* r = fbx_find_object_with_id(objs_idx, id);
+    if (r && strcmp(type, r->name) == 0)
+        return r;
     return 0;
 }
 
@@ -356,7 +384,7 @@ static void fbx_compose_local_transform(mat4* transform, float t[3], float r[3],
     *transform = mat4_mul_mat4(*transform, mat4_scale(vec3_new(s[0], s[1], s[2])));
 }
 
-static int fbx_read_transform(struct fbx_record* objs, struct fbx_conns_idx* cidx, int64_t mdl_id, mat4* out)
+static int fbx_read_transform(struct fbx_objs_idx* objs_idx, struct fbx_conns_idx* cidx, int64_t mdl_id, mat4* out)
 {
     const char* model_node_name = "Model";
     /* List with subsequent model node id's until we reach parent */
@@ -371,7 +399,7 @@ static int fbx_read_transform(struct fbx_record* objs, struct fbx_conns_idx* cid
         for (size_t i = 0; i < par_list->size; ++i) {
             /* Check if parent id is a model id */
             int64_t cpid = *(int64_t*)vector_at(par_list, i);
-            struct fbx_record* mdl = fbx_find_node_type_with_id(objs, model_node_name, cpid);
+            struct fbx_record* mdl = fbx_find_object_type_with_id(objs_idx, model_node_name, cpid);
             if (mdl) {
                 vector_append(&chain, &cpid);
                 cur_id = cpid;
@@ -388,7 +416,7 @@ static int fbx_read_transform(struct fbx_record* objs, struct fbx_conns_idx* cid
     int has_transform = 0;
     for (size_t i = 0; i < chain.size; ++i) {
         int64_t id = *(int64_t*)vector_at(&chain, i);
-        struct fbx_record* mdl_node = fbx_find_node_type_with_id(objs, model_node_name, id);
+        struct fbx_record* mdl_node = fbx_find_object_type_with_id(objs_idx, model_node_name, id);
         //printf("Chain(%d): %lu -> ", mdl_node ? 1 : 0, id);
         if (mdl_node) {
             /* Local Transforms */
@@ -437,7 +465,7 @@ static void fbx_read_animation_curve_node(struct fbx_record* acn_node, float dat
 
 /* Searches for AnimationCurveNode elements assosiated with the given model id,
  * parses them and fills given data array. Returns bitflag of the components filled */
-static int fbx_read_acn_transform(struct fbx_record* objs, struct fbx_conns_idx* cidx, int64_t mdl_id, float t[3], float r[3], float s[3])
+static int fbx_read_acn_transform(struct fbx_objs_idx* objs_idx, struct fbx_conns_idx* cidx, int64_t mdl_id, float t[3], float r[3], float s[3])
 {
     const char* acn_node_name = "AnimationCurveNode";
     /* Get child ids for current model node */
@@ -446,7 +474,7 @@ static int fbx_read_acn_transform(struct fbx_record* objs, struct fbx_conns_idx*
     int filled = 0;
     for (size_t i = 0; i < acn_chld_node_ids->size; ++i) {
         int64_t chld_id = *(int64_t*)vector_at(acn_chld_node_ids, i);
-        struct fbx_record* rec = fbx_find_node_type_with_id(objs, acn_node_name, chld_id);
+        struct fbx_record* rec = fbx_find_object_type_with_id(objs_idx, acn_node_name, chld_id);
         if (!rec)
             continue;
         /* */
@@ -514,7 +542,7 @@ static int mat_id_eql(hm_ptr k1, hm_ptr k2) { return k1 == k2; }
 /*-----------------------------------------------------------------
  * Model
  *-----------------------------------------------------------------*/
-static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_conns_idx* cidx)
+static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_conns_idx* cidx, struct fbx_objs_idx* objs_idx)
 {
     /* Map that maps internal material ids to ours */
     struct hashmap mat_map;
@@ -526,7 +554,7 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_conns_idx
     while (geom) {
         /* Get model node corresponding to current geometry node */
         int64_t model_node_id = fbx_get_first_connection_id(cidx, geom->properties[0].data.l);
-        struct fbx_record* mdl_node = fbx_find_node_type_with_id(obj, "Model", model_node_id);
+        struct fbx_record* mdl_node = fbx_find_object_type_with_id(objs_idx, "Model", model_node_id);
         /* Create a list with the material ids */
         struct vector mat_ids;
         vector_init(&mat_ids, sizeof(int64_t));
@@ -548,7 +576,7 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_conns_idx
                 /* Check if a transform matrix is available and transform if appropriate */
                 if (mdl_node) {
                     mat4 transform;
-                    int has_transform = fbx_read_transform(obj, cidx, model_node_id, &transform);
+                    int has_transform = fbx_read_transform(objs_idx, cidx, model_node_id, &transform);
                     if (has_transform) {
                         fbx_transform_vertices(nm, transform);
                     }
@@ -598,7 +626,7 @@ static int fbx_joint_count(struct fbx_record* objs)
     return count;
 }
 
-static int fbx_joint_parent_index(struct fbx_record* objs, struct fbx_conns_idx* cidx, int64_t child_id)
+static int fbx_joint_parent_index(struct fbx_record* objs, struct fbx_conns_idx* cidx, struct fbx_objs_idx* objs_idx, int64_t child_id)
 {
     /* Get parent connection id */
     struct vector* par_list = fbx_get_connection_ids(&cidx->index, child_id);
@@ -608,7 +636,7 @@ static int fbx_joint_parent_index(struct fbx_record* objs, struct fbx_conns_idx*
         for (size_t i = 0; i < par_list->size; ++i) {
             /* Check if current parent id is a joint */
             int64_t cpid = *(int64_t*)vector_at(par_list, i);
-            struct fbx_record* mdl = fbx_find_node_type_with_id(objs, "Model", cpid);
+            struct fbx_record* mdl = fbx_find_object_type_with_id(objs_idx, "Model", cpid);
             if (mdl) {
                 const char* type = mdl->properties[2].data.str;
                 if (strncmp("LimbNode", type, 8) == 0) {
@@ -639,7 +667,7 @@ static int fbx_joint_parent_index(struct fbx_record* objs, struct fbx_conns_idx*
     return par_ofs;
 }
 
-static struct skeleton* fbx_read_skeleton(struct fbx_record* objs, struct fbx_conns_idx* cidx)
+static struct skeleton* fbx_read_skeleton(struct fbx_record* objs, struct fbx_conns_idx* cidx, struct fbx_objs_idx* objs_idx)
 {
     /* Allocate skeleton */
     int jcount = fbx_joint_count(objs);
@@ -692,7 +720,7 @@ static struct skeleton* fbx_read_skeleton(struct fbx_record* objs, struct fbx_co
             memcpy(j->rotation, &q, 4 * sizeof(float));
             memcpy(j->scaling, &s, 3 * sizeof(float));
             /* Set joint parent */
-            int par_idx = fbx_joint_parent_index(objs, cidx, mdl->properties[0].data.l);
+            int par_idx = fbx_joint_parent_index(objs, cidx, objs_idx, mdl->properties[0].data.l);
             j->parent = par_idx == -1 ? 0 : skel->rest_pose->joints + par_idx;
 
             /*
@@ -830,18 +858,24 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
     struct fbx_conns_idx cidx;
     fbx_build_connections_index(conns, &cidx);
 
-    /* Gather model data from parsed tree  */
+    /* Build objects index */
     struct fbx_record* objs = fbx_find_subrecord_with_name(fbx.root, "Objects");
-    struct model* m = fbx_read_model(objs, &cidx);
+    struct fbx_objs_idx objs_idx;
+    fbx_build_objs_index(objs, &objs_idx);
+
+    /* Gather model data from parsed tree  */
+    struct model* m = fbx_read_model(objs, &cidx, &objs_idx);
 
     /* Gather skeleton data */
-    m->skeleton = fbx_read_skeleton(objs, &cidx);
+    m->skeleton = fbx_read_skeleton(objs, &cidx, &objs_idx);
 
     /* Retrieve animation framerate */
     struct fbx_record* gsettings = fbx_find_subrecord_with_name(fbx.root, "GlobalSettings");
     float fr = fbx_framerate(gsettings);
     printf("Framerate: %f\n", fr);
 
+    /* Free objects index */
+    fbx_destroy_objs_index(&objs_idx);
     /* Free connections index */
     fbx_destroy_connections_index(&cidx);
     /* Free tree */
