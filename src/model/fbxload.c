@@ -720,6 +720,7 @@ static struct skeleton* fbx_read_skeleton(struct fbx_record* objs, struct fbx_co
     struct fbx_record* mdl = fbx_find_subrecord_with_name(objs, mdl_node_name);
     int cur_joint_idx = 0;
     while (mdl) {
+        int64_t mdl_id = mdl->properties[0].data.l;
         const char* type = mdl->properties[2].data.str;
         if (strncmp("LimbNode", type, 8) == 0) {
             /* Copy joint name */
@@ -752,7 +753,7 @@ static struct skeleton* fbx_read_skeleton(struct fbx_record* objs, struct fbx_co
             memcpy(j->rotation, &q, 4 * sizeof(float));
             memcpy(j->scaling, &s, 3 * sizeof(float));
             /* Set joint parent */
-            int par_idx = fbx_joint_parent_index(objs, cidx, objs_idx, mdl->properties[0].data.l);
+            int par_idx = fbx_joint_parent_index(objs, cidx, objs_idx, mdl_id);
             j->parent = par_idx == -1 ? 0 : skel->rest_pose->joints + par_idx;
 
             /*
