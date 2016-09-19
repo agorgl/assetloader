@@ -405,13 +405,15 @@ static void fbx_compose_local_transform(mat4* transform, float t[3], float r[3],
     *transform = mat4_id();
     /* Lcl Translation */
     *transform = mat4_mul_mat4(*transform, mat4_translation(vec3_new(t[0], t[1], t[2])));
+    /* Lcl Rotation */
+    *transform = mat4_mul_mat4(*transform, mat4_rotation_quat(quat_from_euler(vec3_new(radians(r[1]),
+                                                                                       radians(r[0]),
+                                                                                       radians(r[2])))));
     /* PreRotation */
     if (rot_active)
-        *transform = mat4_mul_mat4(*transform, mat4_rotation_euler(-radians(pre_rot[0]),
-                                                                   -radians(pre_rot[1]),
-                                                                   -radians(pre_rot[2])));
-    /* Lcl Rotation */
-    *transform = mat4_mul_mat4(*transform, mat4_rotation_euler(radians(r[0]), radians(r[1]), radians(r[2])));
+        *transform = mat4_mul_mat4(*transform, mat4_rotation_quat(quat_from_euler(vec3_new(radians(pre_rot[1]),
+                                                                                           radians(pre_rot[0]),
+                                                                                           radians(pre_rot[2])))));
     /* Lcl Scaling */
     *transform = mat4_mul_mat4(*transform, mat4_scale(vec3_new(s[0], s[1], s[2])));
 }
@@ -729,37 +731,34 @@ static struct skeleton* fbx_read_skeleton(struct fbx_record* objs, struct fbx_co
             skel->joint_names[cur_joint_idx] = malloc(name_sz + 1);
             memcpy(skel->joint_names[cur_joint_idx], name, name_sz);
             *(skel->joint_names[cur_joint_idx] + name_sz) = 0;
+            /* Set joint parent */
+            struct joint* j = skel->rest_pose->joints + cur_joint_idx;
+            int par_idx = fbx_joint_parent_index(objs, cidx, objs_idx, mdl_id);
+            j->parent = par_idx == -1 ? 0 : skel->rest_pose->joints + par_idx;
             /* Local Transforms */
             float s[3] = {1.0f, 1.0f, 1.0f}, r[3] = {0.0f, 0.0f, 0.0f}, t[3] = {0.0f, 0.0f, 0.0f};
             /* Pre/Post rotations */
             int rot_active = 0; float pre_rot[3] = {0.0f, 0.0f, 0.0f};
             fbx_read_local_transform(mdl, t, r, s, &rot_active, pre_rot);
-            /* Copy joint data */
-            struct joint* j = skel->rest_pose->joints + cur_joint_idx;
-            memcpy(j->position, t, 3 * sizeof(float));
-            /* TODO: Find anorthodox rotation composition */
-            float fr[3] = { 0.0f, 0.0f, 0.0f };
-            fr[0] += r[1];
-            fr[1] += r[0];
-            fr[2] += r[2];
-            if (rot_active) {
-                fr[0] += pre_rot[0];
-                fr[1] += pre_rot[1];
-                fr[2] += pre_rot[2];
-            }
-            quat q = quat_from_euler(vec3_new(radians(fr[0]),
-                                              radians(fr[1]),
-                                              radians(fr[2])));
-            memcpy(j->rotation, &q, 4 * sizeof(float));
-            memcpy(j->scaling, &s, 3 * sizeof(float));
-            /* Set joint parent */
-            int par_idx = fbx_joint_parent_index(objs, cidx, objs_idx, mdl_id);
-            j->parent = par_idx == -1 ? 0 : skel->rest_pose->joints + par_idx;
+            /* AnimationCurveNode transform */
+            float acn_s[3] = {1.0f, 1.0f, 1.0f}, acn_r[3] = {0.0f, 0.0f, 0.0f}, acn_t[3] = {0.0f, 0.0f, 0.0f};
+            fbx_read_acn_transform(objs_idx, cidx, mdl_id, acn_t, acn_r, acn_s);
 
-            /*
-            printf("Found bone: %s [S(%.2f,%.2f,%.2f),R(%.2f,%.2f,%.2f),PR(%.2f,%.2f,%.2f)]\n",
-                    name, s[0], s[1], s[2], r[0], r[1], r[2], pre_rot[0], pre_rot[1], pre_rot[2]);
-             */
+            /* Note: quat_from_euler param order is y,x,z */
+            quat rq = quat_from_euler(vec3_new(radians(r[1]),
+                                               radians(r[0]),
+                                               radians(r[2])));
+            if (rot_active) {
+                quat prq = quat_from_euler(vec3_new(radians(pre_rot[1]),
+                                                    radians(pre_rot[0]),
+                                                    radians(pre_rot[2])));
+                rq = quat_mul_quat(prq, rq);
+            }
+
+            /* Copy joint data */
+            memcpy(j->position, t, 3 * sizeof(float));
+            memcpy(j->rotation, &rq, 4 * sizeof(float));
+            memcpy(j->scaling, s, 3 * sizeof(float));
             ++cur_joint_idx;
         }
         /* Process next model node */
@@ -1010,23 +1009,34 @@ static struct frameset* fbx_read_frames(struct fbx_record* objs, struct fbx_conn
         int64_t mdl_id = mdl->properties[0].data.l;
         const char* type = mdl->properties[2].data.str;
         if (strncmp("LimbNode", type, 8) == 0) {
+            /* Local Transforms */
+            float s[3] = {1.0f, 1.0f, 1.0f}, r[3] = {0.0f, 0.0f, 0.0f}, t[3] = {0.0f, 0.0f, 0.0f};
+            int rot_active = 0; float pre_rot[3] = {0.0f, 0.0f, 0.0f};
+            fbx_read_local_transform(mdl, t, r, s, &rot_active, pre_rot);
             /* AnimationCurveNode transforms */
             /*
             float acn_s[3] = {1.0f, 1.0f, 1.0f}, acn_r[3] = {0.0f, 0.0f, 0.0f}, acn_t[3] = {0.0f, 0.0f, 0.0f};
             fbx_read_acn_transform(objs_idx, cidx, mdl_id, acn_t, acn_r, acn_s);
             */
+            /* Get parent index */
             int par_idx = fbx_joint_parent_index(objs, cidx, objs_idx, mdl_id);
             /* Iterate through each frame */
             for (uint32_t i = 0; i < fset->num_frames; ++i) {
                 struct joint* j = fset->frames[i]->joints + cur_joint_idx;
-                float s[3] = {1.0f, 1.0f, 1.0f}, r[3] = {0.0f, 0.0f, 0.0f}, t[3] = {0.0f, 0.0f, 0.0f};
-                fbx_read_frame_transform(cidx, objs_idx, mdl_id, i, fset->num_frames, t, r, s);
-                memcpy(j->position, t, 3 * sizeof(float));
-                quat q = quat_from_euler(vec3_new(radians(r[1]),
-                                                  radians(r[0]),
-                                                  radians(r[2])));
-                memcpy(j->rotation, &q, 4 * sizeof(float));
-                memcpy(j->scaling, &s, 3 * sizeof(float));
+                float fs[3] = {1.0f, 1.0f, 1.0f}, fr[3] = {0.0f, 0.0f, 0.0f}, ft[3] = {0.0f, 0.0f, 0.0f};
+                fbx_read_frame_transform(cidx, objs_idx, mdl_id, i, fset->num_frames, ft, fr, fs);
+                quat rq = quat_from_euler(vec3_new(radians(fr[1]),
+                                                   radians(fr[0]),
+                                                   radians(fr[2])));
+                if (rot_active) {
+                    quat prq = quat_from_euler(vec3_new(radians(pre_rot[1]),
+                                                        radians(pre_rot[0]),
+                                                        radians(pre_rot[2])));
+                    rq = quat_mul_quat(prq, rq);
+                }
+                memcpy(j->position, ft, 3 * sizeof(float));
+                memcpy(j->rotation, &rq, 4 * sizeof(float));
+                memcpy(j->scaling, fs, 3 * sizeof(float));
                 j->parent = par_idx == -1 ? 0 : fset->frames[i]->joints + par_idx;
             }
             ++cur_joint_idx;

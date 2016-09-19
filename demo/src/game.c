@@ -211,7 +211,6 @@ static void setup_data(struct game_context* ctx)
     scale = 0.0006;
     go.transform = mat4_translation(vec3_new(0.0f, -0.4f, 0.0f));
     go.transform = mat4_mul_mat4(go.transform, mat4_scale(vec3_new(scale, scale, scale)));
-    go.transform = mat4_mul_mat4(go.transform, mat4_rotation_x(radians(180)));
     vector_append(&ctx->gobjects, &go);
 
     /* Alduin */
