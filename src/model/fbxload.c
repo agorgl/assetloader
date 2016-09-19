@@ -770,7 +770,7 @@ static struct skeleton* fbx_read_skeleton(struct fbx_record* objs, struct fbx_co
 }
 
 /*-----------------------------------------------------------------
- * Frameset
+ * Global Settings
  *-----------------------------------------------------------------*/
 enum frame_rate {
     frame_rate_default         = 0,
@@ -857,6 +857,40 @@ static float fbx_framerate(struct fbx_record* gsettings)
             break;
     }
     return fr;
+}
+
+struct fbx_transform_orientation {
+    size_t indexes[3];
+    float signs[3];
+};
+
+static void fbx_global_orientation(struct fbx_record* gsettings, float sgn[3], size_t val[3])
+{
+    struct fbx_record* p70_rec = fbx_find_subrecord_with_name(gsettings, "Properties70");
+    struct fbx_record* p = p70_rec->subrecords;
+
+    /* Read frame rate properties */
+    float signs[3] = { 1.0f, 1.0f, 1.0f };
+    size_t values[3] = { 0.0f, 1.0f, 2.0f };
+    while (p) {
+        const char* pname = p->properties[0].data.str;
+        if (strncmp("CoordAxisSign", pname, 13) == 0) {
+            signs[0] = p->properties[4].data.i;
+        } else if (strncmp("CoordAxis", pname, 9) == 0) { /* X axis */
+            values[0] = p->properties[4].data.i;
+        } else if (strncmp("UpAxisSign", pname, 10) == 0) {
+            signs[1] = p->properties[4].data.i;
+        } else if (strncmp("UpAxis", pname, 6) == 0) { /* Y axis */
+            values[1] = p->properties[4].data.i;
+        } else if (strncmp("FrontAxisSign", pname, 13) == 0) {
+            signs[2] = p->properties[4].data.i;
+        } else if (strncmp("FrontAxis", pname, 9) == 0) { /* Z axis */
+            values[2] = p->properties[4].data.i;
+        }
+        p = p->next;
+    }
+    memcpy(sgn, signs, 3 * sizeof(float));
+    memcpy(val, values, 3 * sizeof(size_t));
 }
 
 #define convert_fbx_time(time) (((float)time) / 46186158000L)
@@ -1041,6 +1075,14 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
     struct fbx_objs_idx objs_idx;
     fbx_build_objs_index(objs, &objs_idx);
 
+    /* Parse orientation settings */
+    struct fbx_record* gsettings = fbx_find_subrecord_with_name(fbx.root, "GlobalSettings");
+    struct fbx_transform_orientation gorient;
+    fbx_global_orientation(gsettings, gorient.signs, gorient.indexes);
+    printf("Orientation: Sign(%.1f, %.1f, %.1f) Idx(%lu, %lu, %lu)\n",
+            gorient.signs[0], gorient.signs[1], gorient.signs[2],
+            gorient.indexes[0], gorient.indexes[1], gorient.indexes[2]);
+
     /* Gather model data from parsed tree  */
     struct model* m = fbx_read_model(objs, &cidx, &objs_idx);
 
@@ -1048,7 +1090,6 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
     m->skeleton = fbx_read_skeleton(objs, &cidx, &objs_idx);
 
     /* Retrieve animation framerate */
-    struct fbx_record* gsettings = fbx_find_subrecord_with_name(fbx.root, "GlobalSettings");
     float fr = fbx_framerate(gsettings);
     printf("Framerate: %f\n", fr);
 
