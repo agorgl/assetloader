@@ -9,6 +9,14 @@
 #include <vector.h>
 #include <linalgb.h>
 
+/* Forward declarations */
+static int fbx_joint_index(struct fbx_record* objs, int64_t jnt_id);
+
+struct fbx_vertex_weight {
+    int32_t bone_index;
+    float bone_weight;
+};
+
 /*-----------------------------------------------------------------
  * Model construction
  *-----------------------------------------------------------------*/
@@ -52,7 +60,7 @@ static struct fbx_property* fbx_find_layer_property(struct fbx_record* geom, con
     return r2->properties;
 }
 
-static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, int* mat_id)
+static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, int* mat_id, struct hashmap* vw_index)
 {
     /* Check if geometry node contains any vertices */
     struct fbx_record* verts_nod = fbx_find_subrecord_with_name(geom, "Vertices");
@@ -82,6 +90,10 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, i
     mesh->vertices = realloc(mesh->vertices, stored_indices * sizeof(struct vertex));
     mesh->indices = realloc(mesh->indices, stored_indices * 2 * sizeof(uint32_t));
     memset(mesh->vertices, 0, stored_indices * sizeof(struct vertex));
+    if (vw_index) {
+        mesh->weights = realloc(mesh->weights, stored_indices * sizeof(struct vertex_weight));
+        memset(mesh->weights, 0, stored_indices * sizeof(struct vertex_weight));
+    }
 
     /* Used to find and reuse indices of already stored vertices */
     struct hashmap stored_vertices;
@@ -146,6 +158,19 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, i
             mesh->indices[mesh->num_indices] = nidx;
             /* Store vertex ptr to lookup table */
             hashmap_put(&stored_vertices, hm_cast(mesh->vertices + nidx), hm_cast(nidx));
+            /* Fill parallel vertex weight array with given vertex weights */
+            if (vw_index) {
+                hm_ptr* p = hashmap_get(vw_index, pos_ind);
+                if (p) {
+                    struct vertex_weight* tvw = mesh->weights + nidx;
+                    struct vector* wlist = hm_pcast(*p);
+                    for (int i = 0; i < 4; ++i) {
+                        struct fbx_vertex_weight* fbw = vector_at(wlist, i);
+                        tvw->bone_ids[i] = fbw->bone_index;
+                        tvw->bone_weights[i] = fbw->bone_weight;
+                    }
+                }
+            }
         }
 
         /*
@@ -543,6 +568,105 @@ static void fbx_transform_vertices(struct mesh* m, mat4 transform)
 }
 
 /*-----------------------------------------------------------------
+ * Vertex Weights
+ *-----------------------------------------------------------------*/
+/* Creates an index assosiating vertex indexes with lists of weight data for a given Geometry node */
+static void fbx_build_vertex_weights_index(struct fbx_record* geom, struct fbx_record* objs, struct fbx_conns_idx* cidx, struct fbx_objs_idx* objs_idx, struct hashmap** weight_index)
+{
+    const char* deformer_node_name = "Deformer";
+    /* Search Deformer child tagged with "Skin" */
+    struct vector* geom_chld_ids = fbx_get_connection_ids(&cidx->rev_index, geom->properties[0].data.l);
+    if (!geom_chld_ids)
+        return;
+    /* Search for skin node id */
+    int64_t geom_chld_id = -1;
+    for (size_t i = 0; i < geom_chld_ids->size; ++i) {
+        int64_t chld_id = *(int64_t*)vector_at(geom_chld_ids, i);
+        struct fbx_record* skin_node = fbx_find_object_type_with_id(objs_idx, deformer_node_name, chld_id);
+        if (skin_node && strncmp("Skin", skin_node->properties[2].data.str, 4) == 0) {
+            geom_chld_id = chld_id;
+            break;
+        }
+    }
+    if (geom_chld_id == -1)
+        return;
+    /* Initialize index data structure */
+    *weight_index = malloc(sizeof(struct hashmap));
+    hashmap_init(*weight_index, id_hash, id_eql);
+    /* Get Deformer::Skin's childs */
+    struct vector* skin_chld_ids = fbx_get_connection_ids(&cidx->rev_index, geom_chld_id);
+    for (size_t i = 0; i < skin_chld_ids->size; ++i) {
+        int64_t skin_chld_id = *(int64_t*)vector_at(skin_chld_ids, i);
+        struct fbx_record* cluster_node = fbx_find_object_type_with_id(objs_idx, deformer_node_name, skin_chld_id);
+        /* Check if current Deformer node is tagged with "Cluster" */
+        if (cluster_node && strncmp("Cluster", cluster_node->properties[2].data.str, 7) == 0) {
+            /* Get refering node */
+            struct vector* cluster_chld_ids = fbx_get_connection_ids(&cidx->rev_index, skin_chld_id);
+            struct fbx_record* ref_bone = 0;
+            for (size_t i = 0; i < cluster_chld_ids->size; ++i) {
+                int64_t clust_chld_id = *(int64_t*)vector_at(cluster_chld_ids, i);
+                struct fbx_record* model_node = fbx_find_object_type_with_id(objs_idx, "Model", clust_chld_id);
+                if (model_node) {
+                    ref_bone = model_node;
+                    break;
+                }
+            }
+            /* If given deformer cluster is assosiated with a given bone */
+            if (ref_bone) {
+                /* Get referring bone index */
+                int joint_index = fbx_joint_index(objs, ref_bone->properties[0].data.l);
+                /* Search for weight and index lists */
+                struct fbx_record* r = cluster_node->subrecords;
+                struct fbx_property* weights = 0, *indexes = 0;
+                while (r) {
+                    if (strncmp("Weights", r->name, 7) == 0) {
+                        weights = r->properties + 0;
+                    } else if (strncmp("Indexes", r->name, 7) == 0) {
+                        indexes = r->properties + 0;
+                    }
+                    r = r->next;
+                }
+                /* If both exist fill vertex weight hashmap with data */
+                if (weights && indexes) {
+                    for (unsigned int i = 0; i < indexes->length / fbx_pt_unit_size(indexes->type); ++i) {
+                        int64_t idx = indexes->data.ip[i];
+                        double w = weights->data.dp[i];
+                        /* Check if weight list exists, if not create a new one */
+                        struct vector** wt_list = (struct vector**)hashmap_get(*weight_index, idx);
+                        if (!wt_list) {
+                            struct vector* wlist = malloc(sizeof(struct vector));
+                            vector_init(wlist, sizeof(struct fbx_vertex_weight));
+                            hashmap_put(*weight_index, idx, hm_cast(wlist));
+                            wt_list = &wlist;
+                        }
+                        /* Put current value */
+                        struct fbx_vertex_weight vw;
+                        vw.bone_index = joint_index;
+                        vw.bone_weight = w;
+                        vector_append(*wt_list, &vw);
+                    }
+                }
+            }
+        }
+    }
+}
+
+static void weight_index_free_iter(hm_ptr key, hm_ptr value)
+{
+    (void)key;
+    struct vector* v = (struct vector*)hm_pcast(value);
+    vector_destroy(v);
+    free(v);
+}
+
+static void fbx_destroy_weight_index(struct hashmap* weight_index)
+{
+    hashmap_iter(weight_index, weight_index_free_iter);
+    hashmap_destroy(weight_index);
+    free(weight_index);
+}
+
+/*-----------------------------------------------------------------
  * Materials
  *-----------------------------------------------------------------*/
 /* Searches for materials ids for model node with the given id */
@@ -593,6 +717,9 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_conns_idx
         struct vector mat_ids;
         vector_init(&mat_ids, sizeof(int64_t));
         fbx_find_materials_for_model(obj, cidx, model_node_id, &mat_ids);
+        /* Create vertex weight index */
+        struct hashmap* vw_index = 0;
+        fbx_build_vertex_weights_index(geom, obj, cidx, objs_idx, &vw_index);
 
         /* A single geometry node can be multiple meshes, due to non uniform materials.
          * Param indice_offset is filled with -1 if there are no more data to process
@@ -601,7 +728,7 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_conns_idx
         int indice_offset = 0;
         int mat_idx = 0;
         do {
-            struct mesh* nm = fbx_read_mesh(geom, &indice_offset, &mat_idx);
+            struct mesh* nm = fbx_read_mesh(geom, &indice_offset, &mat_idx, vw_index);
             if (nm) {
                 /* Append new mesh */
                 model->num_meshes++;
@@ -631,6 +758,9 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_conns_idx
             }
         } while (indice_offset != -1);
 
+        /* Free vertex weights index */
+        if (vw_index)
+            fbx_destroy_weight_index(vw_index);
         /* Free materials list */
         vector_destroy(&mat_ids);
         /* Process next mesh */
@@ -660,6 +790,25 @@ static int fbx_joint_count(struct fbx_record* objs)
     return count;
 }
 
+static int fbx_joint_index(struct fbx_record* objs, int64_t jnt_id)
+{
+    /* Get offset of the joint model node */
+    const char* mdl_node_name = "Model";
+    int ofs = 0;
+    struct fbx_record* mdl = fbx_find_subrecord_with_name(objs, mdl_node_name);
+    while (mdl) {
+        int64_t mid = mdl->properties[0].data.l;
+        if (mid == jnt_id)
+            return ofs;
+        const char* type = mdl->properties[2].data.str;
+        if (strncmp("LimbNode", type, 8) == 0)
+            ++ofs;
+        /* Process next model node */
+        mdl = fbx_find_sibling_with_name(mdl, mdl_node_name);
+    }
+    return -1;
+}
+
 static int fbx_joint_parent_index(struct fbx_record* objs, struct fbx_conns_idx* cidx, struct fbx_objs_idx* objs_idx, int64_t child_id)
 {
     /* Get parent connection id */
@@ -682,20 +831,7 @@ static int fbx_joint_parent_index(struct fbx_record* objs, struct fbx_conns_idx*
     }
 
     if (par_id != -1) {
-        /* Get offset of the parent model node */
-        par_ofs = 0;
-        const char* mdl_node_name = "Model";
-        struct fbx_record* mdl = fbx_find_subrecord_with_name(objs, mdl_node_name);
-        while (mdl) {
-            int64_t cid = mdl->properties[0].data.l;
-            if (cid == par_id)
-                break;
-            const char* type = mdl->properties[2].data.str;
-            if (strncmp("LimbNode", type, 8) == 0)
-                ++par_ofs;
-            /* Process next model node */
-            mdl = fbx_find_sibling_with_name(mdl, mdl_node_name);
-        }
+        par_ofs = fbx_joint_index(objs, par_id);
     }
 
     return par_ofs;
@@ -1045,7 +1181,7 @@ static struct frameset* fbx_read_frames(struct fbx_record* objs, struct fbx_conn
         mdl = fbx_find_sibling_with_name(mdl, mdl_node_name);
     }
 
-    return 0;
+    return fset;
 }
 
 /*-----------------------------------------------------------------
@@ -1104,7 +1240,8 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
     printf("Framerate: %f\n", fr);
 
     /* Read frameset */
-    m->frameset = fbx_read_frames(objs, &cidx, &objs_idx);
+    if (m->skeleton)
+        m->frameset = fbx_read_frames(objs, &cidx, &objs_idx);
 
     /* Free objects index */
     fbx_destroy_objs_index(&objs_idx);
