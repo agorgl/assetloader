@@ -887,9 +887,9 @@ static struct skeleton* fbx_read_skeleton(struct fbx_record* objs, struct fbx_co
             fbx_read_acn_transform(objs_idx, cidx, mdl_id, acn_t, acn_r, acn_s);
 
             /* Note: quat_from_euler param order is y,x,z */
-            quat rq = quat_from_euler(vec3_new(radians(r[1]),
-                                               radians(r[0]),
-                                               radians(r[2])));
+            quat rq = quat_from_euler(vec3_new(radians(acn_r[1]),
+                                               radians(acn_r[0]),
+                                               radians(acn_r[2])));
             if (rot_active) {
                 quat prq = quat_from_euler(vec3_new(radians(pre_rot[1]),
                                                     radians(pre_rot[0]),
@@ -898,9 +898,9 @@ static struct skeleton* fbx_read_skeleton(struct fbx_record* objs, struct fbx_co
             }
 
             /* Copy joint data */
-            memcpy(j->position, t, 3 * sizeof(float));
+            memcpy(j->position, acn_t, 3 * sizeof(float));
             memcpy(j->rotation, &rq, 4 * sizeof(float));
-            memcpy(j->scaling, s, 3 * sizeof(float));
+            memcpy(j->scaling, acn_s, 3 * sizeof(float));
             ++cur_joint_idx;
         }
         /* Process next model node */
