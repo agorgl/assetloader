@@ -775,6 +775,12 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_conns_idx
 /*-----------------------------------------------------------------
  * Skeleton
  *-----------------------------------------------------------------*/
+static int fbx_is_joint_type(const char* type)
+{
+    return strncmp("LimbNode", type, 8) == 0
+        || strncmp("Null", type, 4) == 0;
+}
+
 static int fbx_joint_count(struct fbx_record* objs)
 {
     const char* mdl_node_name = "Model";
@@ -782,7 +788,7 @@ static int fbx_joint_count(struct fbx_record* objs)
     int count = 0;
     while (mdl) {
         const char* type = mdl->properties[2].data.str;
-        if (strncmp("LimbNode", type, 8) == 0)
+        if (fbx_is_joint_type(type))
             ++count;
         /* Process next model node */
         mdl = fbx_find_sibling_with_name(mdl, mdl_node_name);
@@ -801,7 +807,7 @@ static int fbx_joint_index(struct fbx_record* objs, int64_t jnt_id)
         if (mid == jnt_id)
             return ofs;
         const char* type = mdl->properties[2].data.str;
-        if (strncmp("LimbNode", type, 8) == 0)
+        if (fbx_is_joint_type(type))
             ++ofs;
         /* Process next model node */
         mdl = fbx_find_sibling_with_name(mdl, mdl_node_name);
@@ -822,7 +828,7 @@ static int fbx_joint_parent_index(struct fbx_record* objs, struct fbx_conns_idx*
             struct fbx_record* mdl = fbx_find_object_type_with_id(objs_idx, "Model", cpid);
             if (mdl) {
                 const char* type = mdl->properties[2].data.str;
-                if (strncmp("LimbNode", type, 8) == 0) {
+                if (fbx_is_joint_type(type)) {
                     par_id = cpid;
                     break;
                 }
@@ -853,14 +859,14 @@ static struct skeleton* fbx_read_skeleton(struct fbx_record* objs, struct fbx_co
     memset(skel->joint_names, 0, skel->rest_pose->num_joints * sizeof(char*));
     printf("Num joints: %u\n", jcount);
 
-    /* Iterate "LimbNode" marked Model nodes */
+    /* Iterate joints type Model nodes */
     const char* mdl_node_name = "Model";
     struct fbx_record* mdl = fbx_find_subrecord_with_name(objs, mdl_node_name);
     int cur_joint_idx = 0;
     while (mdl) {
         int64_t mdl_id = mdl->properties[0].data.l;
         const char* type = mdl->properties[2].data.str;
-        if (strncmp("LimbNode", type, 8) == 0) {
+        if (fbx_is_joint_type(type)) {
             /* Copy joint name */
             const char* name = mdl->properties[1].data.str;
             size_t name_sz = strlen(name) * sizeof(char);
@@ -1137,14 +1143,14 @@ static struct frameset* fbx_read_frames(struct fbx_record* objs, struct fbx_conn
         fset->frames[i] = fr;
     }
 
-    /* Iterate "LimbNode" marked Model nodes */
+    /* Iterate joints type Model nodes */
     const char* mdl_node_name = "Model";
     struct fbx_record* mdl = fbx_find_subrecord_with_name(objs, mdl_node_name);
     int cur_joint_idx = 0;
     while (mdl) {
         int64_t mdl_id = mdl->properties[0].data.l;
         const char* type = mdl->properties[2].data.str;
-        if (strncmp("LimbNode", type, 8) == 0) {
+        if (fbx_is_joint_type(type)) {
             /* Local Transforms */
             float s[3] = {1.0f, 1.0f, 1.0f}, r[3] = {0.0f, 0.0f, 0.0f}, t[3] = {0.0f, 0.0f, 0.0f};
             int rot_active = 0; float pre_rot[3] = {0.0f, 0.0f, 0.0f};
