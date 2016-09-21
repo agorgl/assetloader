@@ -1078,7 +1078,7 @@ static float fbx_calc_anim_curv_value(struct fbx_record* anim_curv_node, int cur
     }
     /* Calc the corresponding value */
     size_t key_time_sz = key_time->length / fbx_pt_unit_size(key_time->type);
-    size_t key_time_idx = roundf(key_time_sz * ((float)cur_frame / max_frames));
+    size_t key_time_idx = key_time_sz * ((float)cur_frame / max_frames);
     float value = key_value->data.fp[key_time_idx];
     return value;
 }
