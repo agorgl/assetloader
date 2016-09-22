@@ -887,9 +887,9 @@ static struct skeleton* fbx_read_skeleton(struct fbx_record* objs, struct fbx_co
             fbx_read_acn_transform(objs_idx, cidx, mdl_id, acn_t, acn_r, acn_s);
 
             /* Note: quat_from_euler param order is y,x,z */
-            quat rq = quat_from_euler(vec3_new(radians(acn_r[1]),
-                                               radians(acn_r[0]),
-                                               radians(acn_r[2])));
+            quat rq = quat_from_euler(vec3_new(radians(r[1]),
+                                               radians(r[0]),
+                                               radians(r[2])));
             if (rot_active) {
                 quat prq = quat_from_euler(vec3_new(radians(pre_rot[1]),
                                                     radians(pre_rot[0]),
@@ -898,9 +898,9 @@ static struct skeleton* fbx_read_skeleton(struct fbx_record* objs, struct fbx_co
             }
 
             /* Copy joint data */
-            memcpy(j->position, acn_t, 3 * sizeof(float));
+            memcpy(j->position, t, 3 * sizeof(float));
             memcpy(j->rotation, &rq, 4 * sizeof(float));
-            memcpy(j->scaling, acn_s, 3 * sizeof(float));
+            memcpy(j->scaling, s, 3 * sizeof(float));
             ++cur_joint_idx;
         }
         /* Process next model node */
@@ -1083,8 +1083,11 @@ static float fbx_calc_anim_curv_value(struct fbx_record* anim_curv_node, int cur
     return value;
 }
 
-static void fbx_read_frame_transform(struct fbx_conns_idx* cidx, struct fbx_objs_idx* objs_idx, int mdl_id, int cur_frame, int max_frames, float t[3], float r[3], float s[3])
+/* Returns bitflag of components filled */
+static int fbx_read_frame_transform(struct fbx_conns_idx* cidx, struct fbx_objs_idx* objs_idx, int mdl_id, int cur_frame, int max_frames, float t[3], float r[3], float s[3])
 {
+    /* Result bitflag */
+    int components_filled = 0;
     /* Get AnimationCurveNode childs of model node */
     struct vector* mdl_chld_ids = fbx_get_connection_ids(&cidx->rev_index, mdl_id);
     for (size_t i = 0; i < mdl_chld_ids->size; ++i) {
@@ -1095,12 +1098,18 @@ static void fbx_read_frame_transform(struct fbx_conns_idx* cidx, struct fbx_objs
             const char* component_type = rec->properties[1].data.str;
             size_t component_type_sz = rec->properties[1].length;
             float* component_target = 0;
-            if (strncmp("T", component_type, component_type_sz) == 0)
+            if (strncmp("T", component_type, component_type_sz) == 0) {
                 component_target = t;
-            else if (strncmp("R", component_type, component_type_sz) == 0)
+                components_filled |= (1 << 1);
+            }
+            else if (strncmp("R", component_type, component_type_sz) == 0) {
                 component_target = r;
-            else if (strncmp("S", component_type, component_type_sz) == 0)
+                components_filled |= (1 << 2);
+            }
+            else if (strncmp("S", component_type, component_type_sz) == 0) {
                 component_target = s;
+                components_filled |= (1 << 3);
+            }
 
             /* Find AnimationCurveNode's AnimationCurve childs */
             struct vector* acn_chld_ids = fbx_get_connection_ids(&cidx->rev_index, mdl_chld_id);
@@ -1123,6 +1132,7 @@ static void fbx_read_frame_transform(struct fbx_conns_idx* cidx, struct fbx_objs
             }
         }
     }
+    return components_filled;
 }
 
 static struct frameset* fbx_read_frames(struct fbx_record* objs, struct fbx_conns_idx* cidx, struct fbx_objs_idx* objs_idx)
@@ -1166,19 +1176,25 @@ static struct frameset* fbx_read_frames(struct fbx_record* objs, struct fbx_conn
             for (uint32_t i = 0; i < fset->num_frames; ++i) {
                 struct joint* j = fset->frames[i]->joints + cur_joint_idx;
                 float fs[3] = {1.0f, 1.0f, 1.0f}, fr[3] = {0.0f, 0.0f, 0.0f}, ft[3] = {0.0f, 0.0f, 0.0f};
-                fbx_read_frame_transform(cidx, objs_idx, mdl_id, i, fset->num_frames, ft, fr, fs);
-                quat rq = quat_from_euler(vec3_new(radians(fr[1]),
-                                                   radians(fr[0]),
-                                                   radians(fr[2])));
+                /* Fallback to local transform if a component had no frame transform */
+                int components_filled = fbx_read_frame_transform(cidx, objs_idx, mdl_id, i, fset->num_frames, ft, fr, fs);
+                float* ss = s; float* rr = r; float* tt = t;
+                if (components_filled & (1 << 1)) tt = ft;
+                if (components_filled & (1 << 2)) rr = fr;
+                if (components_filled & (1 << 3)) ss = fs;
+
+                quat rq = quat_from_euler(vec3_new(radians(rr[1]),
+                                                   radians(rr[0]),
+                                                   radians(rr[2])));
                 if (rot_active) {
                     quat prq = quat_from_euler(vec3_new(radians(pre_rot[1]),
                                                         radians(pre_rot[0]),
                                                         radians(pre_rot[2])));
                     rq = quat_mul_quat(prq, rq);
                 }
-                memcpy(j->position, ft, 3 * sizeof(float));
+                memcpy(j->position, tt, 3 * sizeof(float));
                 memcpy(j->rotation, &rq, 4 * sizeof(float));
-                memcpy(j->scaling, fs, 3 * sizeof(float));
+                memcpy(j->scaling, ss, 3 * sizeof(float));
                 j->parent = par_idx == -1 ? 0 : fset->frames[i]->joints + par_idx;
             }
             ++cur_joint_idx;
