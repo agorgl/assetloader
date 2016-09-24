@@ -175,10 +175,16 @@ const char* NV_VS_SRC =
 "#version 330 core                      \n\
 layout (location = 0) in vec3 position; \n\
 layout (location = 2) in vec3 normal;   \n\
+layout (location = 3) in uvec4 bids;    \n\
+layout (location = 4) in vec4 bweights; \n\
                                         \n\
 uniform mat4 projection;                \n\
 uniform mat4 view;                      \n\
 uniform mat4 model;                     \n\
+                                        \n\
+const int MAX_BONES = 100;              \n\
+uniform mat4 bones[MAX_BONES];          \n\
+uniform bool animated;                  \n\
                                         \n\
 out VS_OUT {                            \n\
     vec3 normal;                        \n\
@@ -186,7 +192,15 @@ out VS_OUT {                            \n\
                                         \n\
 void main()                             \n\
 {                                       \n\
-    gl_Position = projection * view * model * vec4(position, 1.0f);                 \n\
+    mat4 btrans = mat4(1.0);            \n\
+    if (animated) {                     \n\
+        btrans = mat4(0.0);                               \n\
+        btrans += bones[bids[0]] * bweights[0];           \n\
+        btrans += bones[bids[1]] * bweights[1];           \n\
+        btrans += bones[bids[2]] * bweights[2];           \n\
+        btrans += bones[bids[3]] * bweights[3];           \n\
+    }                                                     \n\
+    gl_Position = projection * view * model * btrans * vec4(position, 1.0f);        \n\
     mat3 normalMatrix = mat3(transpose(inverse(view * model)));                     \n\
     vs_out.normal = normalize(vec3(projection * vec4(normalMatrix * normal, 1.0))); \n\
 }";

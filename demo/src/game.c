@@ -429,9 +429,61 @@ void game_update(void* userdata, float dt)
     ctx->anim_tmr += 25.0f * (dt / 1000.0f);
 }
 
+static void game_bones_calculate(struct skeleton* skel, struct frame* f, mat4** bones, size_t* num_bones)
+{
+    *num_bones = f->num_joints;
+    /* Calc inverse skeleton matrices */
+    mat4* invskel = malloc(*num_bones * sizeof(mat4));
+    memset(invskel, 0, *num_bones * sizeof(mat4));
+    for (size_t i = 0; i < *num_bones; ++i) {
+        struct joint* j = skel->rest_pose->joints + i;
+        float trans[16];
+        frame_joint_transform(j, trans);
+        invskel[i] = mat4_inverse(*(mat4*)trans);
+    }
+    /* Calc bone matrices */
+    *bones = malloc(*num_bones * sizeof(mat4));
+    memset(*bones, 0, *num_bones * sizeof(mat4));
+    for (size_t i = 0; i < f->num_joints; ++i) {
+        struct joint* j = f->joints + i;
+        float trans[16];
+        frame_joint_transform(j, trans);
+        (*bones)[i] = mat4_mul_mat4(*(mat4*)trans, invskel[i]);
+    }
+    free(invskel);
+}
+
+static void game_upload_bones(struct game_context* ctx, GLuint prog)
+{
+    struct game_object* gobj = vector_at(&ctx->gobjects, ctx->cur_obj);
+    if (gobj->model.skel && gobj->model.fset) {
+        /* Current frame */
+        size_t cur_fr_idx = (int)ctx->anim_tmr % gobj->model.fset->num_frames;
+        struct frame* cur_fr = gobj->model.fset->frames[cur_fr_idx];
+        /* Translations */
+        mat4* bones;
+        size_t num_bones;
+        game_bones_calculate(gobj->model.skel, cur_fr, &bones, &num_bones);
+        /* Loop through each bone */
+        for (size_t i = 0; i < num_bones; ++i) {
+            /* Construct uniform name ("bones[" + i + "]" + '\0') */
+            size_t uname_sz = 6 + 3 + 1 + 1;
+            char* uname = calloc(uname_sz, 1);
+            strcat(uname, "bones[");
+            snprintf(uname + 6, 3, "%lu", i);
+            strcat(uname, "]");
+            /* Upload */
+            GLuint bone_loc = glGetUniformLocation(prog, uname);
+            glUniformMatrix4fv(bone_loc, 1, GL_TRUE, (GLfloat*)&bones[i]);
+            free(uname);
+        }
+        free(bones);
+    }
+}
+
 static void game_visualize_normals_render(struct game_context* ctx, mat4* view, mat4* proj)
 {
-    /* Setup game object to be rendered */
+    /* Select game object to be rendered */
     struct game_object* gobj = vector_at(&ctx->gobjects, ctx->cur_obj);
     struct model_handle* mdlh = &gobj->model;
 
@@ -440,6 +492,10 @@ static void game_visualize_normals_render(struct game_context* ctx, mat4* view, 
     glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "projection"), 1, GL_TRUE, (GLfloat*)proj);
     glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "view"), 1, GL_TRUE, (GLfloat*)view);
     glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "model"), 1, GL_TRUE, (GLfloat*)&gobj->transform);
+    /* Upload animated flag */
+    glUniform1i(glGetUniformLocation(ctx->vis_nrm_prog, "animated"), gobj->model.fset != 0);
+    /* Upload bones */
+    game_upload_bones(ctx, ctx->vis_nrm_prog);
 
     /* Render mesh by mesh */
     for (unsigned int i = 0; i < mdlh->num_meshes; ++i) {
@@ -506,9 +562,9 @@ static void game_visualize_skeleton_render(struct game_context* ctx, mat4* view,
     glVertexAttribPointer(pos_attrib, 3, GL_FLOAT, GL_FALSE, 0, 0);
 
     glUseProgram(ctx->vis_skel_prog);
-    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "projection"), 1, GL_TRUE, (GLfloat*)proj);
-    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "view"), 1, GL_TRUE, (GLfloat*)view);
-    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "model"), 1, GL_TRUE, (GLfloat*)model);
+    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_skel_prog, "projection"), 1, GL_TRUE, (GLfloat*)proj);
+    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_skel_prog, "view"), 1, GL_TRUE, (GLfloat*)view);
+    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_skel_prog, "model"), 1, GL_TRUE, (GLfloat*)model);
 
     glDrawArrays(GL_LINES, 0, num_pts);
     glUseProgram(0);
@@ -517,30 +573,6 @@ static void game_visualize_skeleton_render(struct game_context* ctx, mat4* view,
     glDeleteVertexArrays(1, &vao);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glDeleteBuffers(1, &vbo);
-}
-
-static void game_bones_calculate(struct skeleton* skel, struct frame* f, mat4** bones, size_t* num_bones)
-{
-    *num_bones = f->num_joints;
-    /* Calc inverse skeleton matrices */
-    mat4* invskel = malloc(*num_bones * sizeof(mat4));
-    memset(invskel, 0, *num_bones * sizeof(mat4));
-    for (size_t i = 0; i < *num_bones; ++i) {
-        struct joint* j = skel->rest_pose->joints + i;
-        float trans[16];
-        frame_joint_transform(j, trans);
-        invskel[i] = mat4_inverse(*(mat4*)trans);
-    }
-    /* Calc bone matrices */
-    *bones = malloc(*num_bones * sizeof(mat4));
-    memset(*bones, 0, *num_bones * sizeof(mat4));
-    for (size_t i = 0; i < f->num_joints; ++i) {
-        struct joint* j = f->joints + i;
-        float trans[16];
-        frame_joint_transform(j, trans);
-        (*bones)[i] = mat4_mul_mat4(*(mat4*)trans, invskel[i]);
-    }
-    free(invskel);
 }
 
 void game_render(void* userdata, float interpolation)
@@ -592,30 +624,7 @@ void game_render(void* userdata, float interpolation)
         /* Upload animated flag */
         glUniform1i(glGetUniformLocation(ctx->prog, "animated"), gobj->model.fset != 0);
         /* Upload bones */
-        if (gobj->model.skel && gobj->model.fset) {
-            /* Current frame */
-            size_t cur_fr_idx = (int)ctx->anim_tmr % gobj->model.fset->num_frames;
-            struct frame* cur_fr = gobj->model.fset->frames[cur_fr_idx];
-            /* Translations */
-            mat4* bones;
-            size_t num_bones;
-            game_bones_calculate(gobj->model.skel, cur_fr, &bones, &num_bones);
-            /* Loop through each bone */
-            for (size_t i = 0; i < num_bones; ++i) {
-                /* Construct uniform name ("bones[" + i + "]" + '\0') */
-                size_t uname_sz = 6 + 3 + 1 + 1;
-                char* uname = calloc(uname_sz, 1);
-                strcat(uname, "bones[");
-                snprintf(uname + 6, 3, "%lu", i);
-                strcat(uname, "]");
-                /* Upload */
-                GLuint bone_loc = glGetUniformLocation(ctx->prog, uname);
-                glUniformMatrix4fv(bone_loc, 1, GL_TRUE, (GLfloat*)&bones[i]);
-                free(uname);
-            }
-            free(bones);
-        }
-
+        game_upload_bones(ctx, ctx->prog);
         /* Render mesh by mesh */
         for (unsigned int i = 0; i < mdlh->num_meshes; ++i) {
             struct mesh_handle* mh = mdlh->meshes + i;
