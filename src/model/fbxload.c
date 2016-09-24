@@ -1062,7 +1062,7 @@ static int fbx_find_num_frames(struct fbx_record* objs)
     return max_num_frames;
 }
 
-static float fbx_calc_anim_curv_value(struct fbx_record* anim_curv_node, int cur_frame, int max_frames)
+static float fbx_calc_anim_curv_value(struct fbx_record* anim_curv_node, int cur_frame, int max_frames, float framerate)
 {
     struct fbx_property* key_value = 0;
     struct fbx_property* key_time = 0;
@@ -1076,15 +1076,41 @@ static float fbx_calc_anim_curv_value(struct fbx_record* anim_curv_node, int cur
         }
         p = p->next;
     }
+
     /* Calc the corresponding value */
-    size_t key_time_sz = key_time->length / fbx_pt_unit_size(key_time->type);
-    size_t key_time_idx = key_time_sz * ((float)cur_frame / max_frames);
+    float frame_time = 1.0f / framerate;
+    size_t key_time_arr_sz = key_time->length / fbx_pt_unit_size(key_time->type);
+    float cur_frame_perc = ((float)cur_frame / max_frames);
+    float cur_ideal_time = cur_frame * frame_time;
+    /* Initial value by lerp */
+    size_t key_time_idx = (key_time_arr_sz - 1) * cur_frame_perc;
+    int found = 0;
+    do {
+        /* Reached one of the boundaries */
+        if (key_time_idx == 0 || key_time_idx == key_time_arr_sz - 1)
+            break;
+        /* Calc distances */
+        found = 1;
+        float cur_distance = fabs(convert_fbx_time(key_time->data.lp[key_time_idx]) - cur_ideal_time);
+        float next_distance = fabs(convert_fbx_time(key_time->data.lp[key_time_idx + 1]) - cur_ideal_time);
+        float prev_distance = fabs(convert_fbx_time(key_time->data.lp[key_time_idx - 1]) - cur_ideal_time);
+        /* Check immediate right and immediate left distances */
+        if (next_distance < cur_distance) {
+            ++key_time_idx;
+            found = 0;
+        } else if (prev_distance < cur_distance) {
+            --key_time_idx;
+            found = 0;
+        }
+    } while (!found);
+
+    /* Fetch value for given index */
     float value = key_value->data.fp[key_time_idx];
     return value;
 }
 
 /* Returns bitflag of components filled */
-static int fbx_read_frame_transform(struct fbx_conns_idx* cidx, struct fbx_objs_idx* objs_idx, int mdl_id, int cur_frame, int max_frames, float t[3], float r[3], float s[3])
+static int fbx_read_frame_transform(struct fbx_conns_idx* cidx, struct fbx_objs_idx* objs_idx, int mdl_id, int cur_frame, int max_frames, float framerate, float t[3], float r[3], float s[3])
 {
     /* Result bitflag */
     int components_filled = 0;
@@ -1127,7 +1153,7 @@ static int fbx_read_frame_transform(struct fbx_conns_idx* cidx, struct fbx_objs_
 
                 if (tidx != -1) {
                     struct fbx_record* anim_curve_node = fbx_find_object_with_id(objs_idx, acn_chld_id);
-                    component_target[tidx] = fbx_calc_anim_curv_value(anim_curve_node, cur_frame, max_frames);
+                    component_target[tidx] = fbx_calc_anim_curv_value(anim_curve_node, cur_frame, max_frames, framerate);
                 }
             }
         }
@@ -1135,7 +1161,7 @@ static int fbx_read_frame_transform(struct fbx_conns_idx* cidx, struct fbx_objs_
     return components_filled;
 }
 
-static struct frameset* fbx_read_frames(struct fbx_record* objs, struct fbx_conns_idx* cidx, struct fbx_objs_idx* objs_idx)
+static struct frameset* fbx_read_frames(struct fbx_record* objs, struct fbx_conns_idx* cidx, struct fbx_objs_idx* objs_idx, float framerate)
 {
     /* Create empty frameset */
     struct frameset* fset = frameset_new();
@@ -1177,7 +1203,7 @@ static struct frameset* fbx_read_frames(struct fbx_record* objs, struct fbx_conn
                 struct joint* j = fset->frames[i]->joints + cur_joint_idx;
                 float fs[3] = {1.0f, 1.0f, 1.0f}, fr[3] = {0.0f, 0.0f, 0.0f}, ft[3] = {0.0f, 0.0f, 0.0f};
                 /* Fallback to local transform if a component had no frame transform */
-                int components_filled = fbx_read_frame_transform(cidx, objs_idx, mdl_id, i, fset->num_frames, ft, fr, fs);
+                int components_filled = fbx_read_frame_transform(cidx, objs_idx, mdl_id, i, fset->num_frames, framerate, ft, fr, fs);
                 float* ss = s; float* rr = r; float* tt = t;
                 if (components_filled & (1 << 1)) tt = ft;
                 if (components_filled & (1 << 2)) rr = fr;
@@ -1263,7 +1289,7 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
 
     /* Read frameset */
     if (m->skeleton)
-        m->frameset = fbx_read_frames(objs, &cidx, &objs_idx);
+        m->frameset = fbx_read_frames(objs, &cidx, &objs_idx, fr);
 
     /* Free objects index */
     fbx_destroy_objs_index(&objs_idx);
