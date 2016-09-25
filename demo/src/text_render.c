@@ -195,6 +195,7 @@ void text_render_print(text_renderer_t* tr, const char* text, vec2 pos, vec4 col
     /*
      * Render phase
      */
+    glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
