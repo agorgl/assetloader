@@ -164,118 +164,131 @@ static unsigned int upload_texture(const char* filename)
     return id;
 }
 
+static struct {
+    const char* model_loc;
+    const char* diff_tex_locs[10];
+    float translation[3];
+    float rotation[3];
+    float scaling;
+} scene_objects[] = {
+    {
+        /* Podium */
+        .model_loc     = "ext/models/podium/podium.obj",
+        .diff_tex_locs = {
+            "ext/models/podium/podium.png"
+        },
+        .translation   = {0.0f, -0.5f, 0.0f},
+        .rotation      = {0.0f, 0.0f, 0.0f},
+        .scaling       = 0.08f
+    },
+    {
+        /* Warrior Woman */
+        .model_loc     = "ext/models/warrior_woman/Medieval_character_01.fbx",
+        .diff_tex_locs = {
+            "ext/models/warrior_woman/Armor_01.png",
+            "ext/models/warrior_woman/Head.png",
+            "ext/models/warrior_woman/Kiem.png"
+        },
+        .translation   = {0.0f, -0.4f, 0.0f},
+        .rotation      = {0.0f, 0.0f, 0.0f},
+        .scaling       = 0.008f
+    },
+    {
+        /* Artorias Sword */
+        .model_loc     = "ext/models/artorias_sword/Artorias_Sword.fbx",
+        .diff_tex_locs = {
+            "ext/models/artorias_sword/Sword_albedo.jpg"
+        },
+        .translation   = {0.0f, -0.4f, 0.0f},
+        .rotation      = {0.0f, 0.0f, 0.0f},
+        .scaling       = 0.0006f
+    },
+    {
+        /* Alduin */
+        .model_loc     = "ext/models/alduin/alduin.obj",
+        .diff_tex_locs = {
+            "ext/models/alduin/tex/alduin.jpg",
+            "ext/models/alduin/tex/alduineyes.jpg"
+        },
+        .translation   = {0.4f, -0.4f, 0.0f},
+        .rotation      = {0.0f, 0.0f, 0.0f},
+        .scaling       = 0.0025f
+    },
+    {
+        /* Mr Fixit */
+        .model_loc     = "ext/models/mrfixit/mrfixit.iqm",
+        .diff_tex_locs = {
+            "ext/models/mrfixit/Body.tga",
+            "ext/models/mrfixit/Head.tga"
+        },
+        .translation   = {0.0f, -0.4f, 0.0f},
+        .rotation      = {90.0f, 0.0f, 0.0f},
+        .scaling       = 0.2f
+    },
+    {
+        /* Cube */
+        .model_loc     = "ext/cube.obj",
+        .diff_tex_locs = {
+            "ext/floor.tga"
+        },
+        .translation   = {0.0f, 0.1f, 0.0f},
+        .rotation      = {0.0f, 0.0f, 0.0f},
+        .scaling       = 1.0f
+    },
+    {
+        /* Cube2 */
+        .model_loc     = "ext/cube.fbx",
+        .diff_tex_locs = {
+            "ext/Bark2.tif"
+        },
+        .translation   = {0.0f, 0.1f, 0.0f},
+        .rotation      = {0.0f, 0.0f, 0.0f},
+        .scaling       = 0.01f
+    },
+    {
+        /* Barrel */
+        .model_loc     = "ext/models/barrel/barrel.fbx",
+        .diff_tex_locs = {
+            "ext/models/barrel/barrel.tif"
+        },
+        .translation   = {0.0f, -0.4f, 0.0f},
+        .rotation      = {0.0f, 0.0f, 0.0f},
+        .scaling       = 0.02f
+    },
+};
+
 static void setup_data(struct game_context* ctx)
 {
-    struct game_object go;
-    float scale = 1.0f;
-    GLuint tex_id[16];
-    memset(tex_id, 0, sizeof(tex_id));
+    /* Initialize vector of game objects */
     vector_init(&ctx->gobjects, sizeof(struct game_object));
-
-    /* Podium */
-    upload_model_geom_data("ext/models/podium/podium.obj", &go.model);
-    /*-*/
-    vector_init(&go.diff_textures, sizeof(GLuint));
-    tex_id[0] = upload_texture("ext/models/podium/podium.png");
-    vector_append(&go.diff_textures, tex_id + 0);
-    /*-*/
-    scale = 0.08;
-    go.transform = mat4_mul_mat4(
-        mat4_translation(vec3_new(0.0f, -0.5f, 0.0f)),
-        mat4_scale(vec3_new(scale, scale, scale)));
-    vector_append(&ctx->gobjects, &go);
-
-    /* Warrior Woman */
-    upload_model_geom_data("ext/models/warrior_woman/Medieval_character_01.fbx", &go.model);
-    /*-*/
-    vector_init(&go.diff_textures, sizeof(GLuint));
-    tex_id[0] = upload_texture("ext/models/warrior_woman/Armor_01.png");
-    tex_id[1] = upload_texture("ext/models/warrior_woman/Head.png");
-    tex_id[2] = upload_texture("ext/models/warrior_woman/Kiem.png");
-    vector_append(&go.diff_textures, tex_id + 0);
-    vector_append(&go.diff_textures, tex_id + 1);
-    vector_append(&go.diff_textures, tex_id + 2);
-    /*-*/
-    scale = 0.008;
-    go.transform = mat4_translation(vec3_new(0.0f, -0.4f, 0.0f));
-    go.transform = mat4_mul_mat4(go.transform, mat4_scale(vec3_new(scale, scale, scale)));
-    vector_append(&ctx->gobjects, &go);
-
-    /* Sword */
-    upload_model_geom_data("ext/models/artorias_sword/Artorias_Sword.fbx", &go.model);
-    /*-*/
-    vector_init(&go.diff_textures, sizeof(GLuint));
-    tex_id[0] = upload_texture("ext/models/artorias_sword/Sword_albedo.jpg");
-    vector_append(&go.diff_textures, tex_id + 0);
-    /*-*/
-    scale = 0.0006;
-    go.transform = mat4_translation(vec3_new(0.0f, -0.4f, 0.0f));
-    go.transform = mat4_mul_mat4(go.transform, mat4_scale(vec3_new(scale, scale, scale)));
-    vector_append(&ctx->gobjects, &go);
-
-    /* Alduin */
-    upload_model_geom_data("ext/models/alduin/alduin.obj", &go.model);
-    /*-*/
-    vector_init(&go.diff_textures, sizeof(GLuint));
-    tex_id[0] = upload_texture("ext/models/alduin/tex/alduin.jpg");
-    tex_id[1] = upload_texture("ext/models/alduin/tex/alduineyes.jpg");
-    vector_append(&go.diff_textures, tex_id + 0);
-    vector_append(&go.diff_textures, tex_id + 1);
-    /*-*/
-    scale = 0.0025;
-    go.transform = mat4_mul_mat4(
-        mat4_translation(vec3_new(0.4f, -0.4f, 0.0f)),
-        mat4_scale(vec3_new(scale, scale, scale)));
-    vector_append(&ctx->gobjects, &go);
-
-    /* MrFixit */
-    upload_model_geom_data("ext/models/mrfixit/mrfixit.iqm", &go.model);
-    /*-*/
-    vector_init(&go.diff_textures, sizeof(GLuint));
-    tex_id[0] = upload_texture("ext/models/mrfixit/Body.tga");
-    tex_id[1] = upload_texture("ext/models/mrfixit/Head.tga");
-    vector_append(&go.diff_textures, tex_id + 0);
-    vector_append(&go.diff_textures, tex_id + 1);
-    /*-*/
-    scale = 0.2;
-    go.transform = mat4_translation(vec3_new(0.0f, -0.4f, 0.0f));
-    go.transform = mat4_mul_mat4(go.transform, mat4_scale(vec3_new(scale, scale, scale)));
-    go.transform = mat4_mul_mat4(go.transform, mat4_rotation_x(radians(-90)));
-    vector_append(&ctx->gobjects, &go);
-
-    /* Cube */
-    upload_model_geom_data("ext/cube.obj", &go.model);
-    /*-*/
-    vector_init(&go.diff_textures, sizeof(GLuint));
-    tex_id[0] = upload_texture("ext/floor.tga");
-    vector_append(&go.diff_textures, tex_id + 0);
-    /*-*/
-    go.transform = mat4_translation(vec3_new(0.0f, 0.1f, 0.0f));
-    vector_append(&ctx->gobjects, &go);
-
-    /* Cube2 */
-    upload_model_geom_data("ext/cube.fbx", &go.model);
-    /*-*/
-    vector_init(&go.diff_textures, sizeof(GLuint));
-    tex_id[0] = upload_texture("ext/Bark2.tif");
-    vector_append(&go.diff_textures, tex_id + 0);
-    /*-*/
-    scale = 0.01;
-    go.transform = mat4_translation(vec3_new(0.0f, 0.1f, 0.0f));
-    go.transform = mat4_mul_mat4(go.transform, mat4_scale(vec3_new(scale, scale, scale)));
-    vector_append(&ctx->gobjects, &go);
-
-    /* Barrel */
-    upload_model_geom_data("ext/models/barrel/barrel.fbx", &go.model);
-    /*-*/
-    vector_init(&go.diff_textures, sizeof(GLuint));
-    tex_id[0] = upload_texture("ext/models/barrel/barrel.tif");
-    vector_append(&go.diff_textures, tex_id + 0);
-    /*-*/
-    scale = 0.02;
-    go.transform = mat4_translation(vec3_new(0.0f, -0.4f, 0.0f)),
-    go.transform = mat4_mul_mat4(go.transform, mat4_scale(vec3_new(scale, scale, scale)));
-    vector_append(&ctx->gobjects, &go);
+    /* Add all scene objects */
+    size_t num_scene_objects = sizeof(scene_objects) / sizeof(scene_objects[0]);
+    for (size_t i = 0; i < num_scene_objects; ++i) {
+        struct game_object go;
+        /* Load, parse and upload model */
+        upload_model_geom_data(scene_objects[i].model_loc, &go.model);
+        /* Load, parse and upload each texture */
+        vector_init(&go.diff_textures, sizeof(GLuint));
+        for (int j = 0; j < 10; ++j) {
+            const char* diff_tex_loc = scene_objects[i].diff_tex_locs[j];
+            if (!diff_tex_loc)
+                break;
+            GLuint tex_id = upload_texture(diff_tex_loc);
+            vector_append(&go.diff_textures, &tex_id);
+        }
+        /* Construct model matrix */
+        float* pos = scene_objects[i].translation;
+        float* rot = scene_objects[i].rotation;
+        float scl = scene_objects[i].scaling;
+        go.transform = mat4_mul_mat4(
+            mat4_mul_mat4(
+                mat4_translation(vec3_new(pos[0], pos[1], pos[2])),
+                mat4_rotation_euler(radians(rot[0]), radians(rot[1]), radians(rot[2]))
+            ),
+            mat4_scale(vec3_new(scl, scl, scl))
+        );
+        vector_append(&ctx->gobjects, &go);
+    }
 }
 
 static void game_visualize_normals_setup(struct game_context* ctx)
