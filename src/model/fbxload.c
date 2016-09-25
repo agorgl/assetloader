@@ -588,6 +588,12 @@ static void fbx_transform_vertices(struct mesh* m, mat4 transform)
         pos[0] = npos.x;
         pos[1] = npos.y;
         pos[2] = npos.z;
+        /* Transform normals */
+        float* nm = m->vertices[i].normal;
+        vec3 nnm = vec3_normalize(mat4_mul_vec3(transform, vec3_new(nm[0], nm[1], nm[2])));
+        nm[0] = nnm.x;
+        nm[1] = nnm.y;
+        nm[2] = nnm.z;
     }
 }
 
