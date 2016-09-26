@@ -218,15 +218,17 @@ static void fbx_build_connections_fw_index(struct fbx_record* connections, struc
         int64_t child_id = c->properties[1].data.l;
         int64_t parnt_id = c->properties[2].data.l;
         /* Check if parent list exists, if not create a new one */
-        struct vector** par_list = (struct vector**)hashmap_get(&cidx->index, child_id);
-        if (!par_list) {
-            struct vector* plist = malloc(sizeof(struct vector));
+        hm_ptr* p = hashmap_get(&cidx->index, child_id);
+        struct vector* plist = 0;
+        if (!p) {
+            plist = malloc(sizeof(struct vector));
             vector_init(plist, sizeof(int64_t));
             hashmap_put(&cidx->index, child_id, hm_cast(plist));
-            par_list = &plist;
+        } else {
+            plist = (struct vector*)*p;
         }
         /* Put current pair */
-        vector_append(*par_list, &parnt_id);
+        vector_append(plist, &parnt_id);
         /* Next */
         c = c->next;
     }
@@ -243,15 +245,17 @@ static void fbx_build_connections_rev_index(struct fbx_record* connections, stru
         int64_t child_id = c->properties[1].data.l;
         int64_t parnt_id = c->properties[2].data.l;
         /* Check if parent list exists, if not create a new one */
-        struct vector** child_list = (struct vector**)hashmap_get(&cidx->rev_index, parnt_id);
-        if (!child_list) {
-            struct vector* clist = malloc(sizeof(struct vector));
+        hm_ptr* p = hashmap_get(&cidx->rev_index, parnt_id);
+        struct vector* clist;
+        if (!p) {
+            clist = malloc(sizeof(struct vector));
             vector_init(clist, sizeof(int64_t));
             hashmap_put(&cidx->rev_index, parnt_id, hm_cast(clist));
-            child_list = &clist;
+        } else {
+            clist = (struct vector*)*p;
         }
         /* Put current pair */
-        vector_append(*child_list, &child_id);
+        vector_append(clist, &child_id);
         /* Next */
         c = c->next;
     }
@@ -662,18 +666,20 @@ static void fbx_build_vertex_weights_index(struct fbx_record* geom, struct fbx_r
                         int64_t idx = indexes->data.ip[i];
                         double w = weights->data.dp[i];
                         /* Check if weight list exists, if not create a new one */
-                        struct vector** wt_list = (struct vector**)hashmap_get(*weight_index, idx);
-                        if (!wt_list) {
-                            struct vector* wlist = malloc(sizeof(struct vector));
+                        hm_ptr* p = hashmap_get(*weight_index, idx);
+                        struct vector* wlist = 0;
+                        if (!p) {
+                            wlist = malloc(sizeof(struct vector));
                             vector_init(wlist, sizeof(struct fbx_vertex_weight));
                             hashmap_put(*weight_index, idx, hm_cast(wlist));
-                            wt_list = &wlist;
+                        } else {
+                            wlist = (struct vector*)*p;
                         }
                         /* Put current value */
                         struct fbx_vertex_weight vw;
                         vw.bone_index = joint_index;
                         vw.bone_weight = w;
-                        vector_append(*wt_list, &vw);
+                        vector_append(wlist, &vw);
                     }
                 }
             }
