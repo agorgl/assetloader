@@ -248,9 +248,6 @@ else
 	endif
 endif
 
-# Preprocessor flags
-CPPFLAGS = $(strip $(foreach define, $(DEFINES), $(DEFINEFLAG)$(define)))
-
 #---------------------------------------------------------------
 # Generated values
 #---------------------------------------------------------------
@@ -276,6 +273,9 @@ DEPSDIR = deps
 depsgather = $(foreach d, $(wildcard $1/*), $d $(call depsgather, $d/$(strip $2), $2))
 DEPS = $(strip $(sort $(call depsgather, $(DEPSDIR), $(DEPSDIR)))) $(MOREDEPS)
 DEPNAMES = $(strip $(foreach d, $(DEPS), $(lastword $(subst /, , $d))))
+
+# Preprocessor flags
+CPPFLAGS = $(strip $(foreach define, $(DEFINES), $(DEFINEFLAG)$(define)))
 
 # Include directories (implicit)
 INCDIR = $(strip $(INCFLAG)include $(foreach dep, $(DEPS), $(INCFLAG)$(dep)/include))
