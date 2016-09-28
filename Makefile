@@ -110,6 +110,33 @@ OBJEXT = .o
 HDEPEXT = .d
 
 #---------------------------------------------------------------
+# Header dependency generation helpers
+#---------------------------------------------------------------
+# Command chunks that help generate dependency files in each toolchain
+sed-escape = $(subst /,\/,$(subst \,\\,$(1)))
+msvc-dep-gen = $(1) /showIncludes >$(basename $@)$(HDEPEXT) & \
+	$(if $(SILENT),,sed -e "/^Note: including file:/d" $(basename $@)$(HDEPEXT) &&) \
+	sed -i \
+		-e "/: error /q1" \
+		-e "/^Note: including file:/!d" \
+		-e "s/^Note: including file:\s*\(.*\)$$/\1/" \
+		-e "s/\\/\//g" \
+		-e "s/ /\\ /g" \
+		-e "s/^\(.*\)$$/\t\1 \\/" \
+		-e "2 s/^.*$$/$(call sed-escape,$@)\: $(call sed-escape,$<) &/g" \
+		$(basename $@)$(HDEPEXT) || (echo. >$(basename $@)$(HDEPEXT) & exit 1)
+gcc-dep-gen = -MMD -MT $@ -MF $(basename $@)$(HDEPEXT)
+
+# Command wrapper that adds dependency generation functionality to given compile command
+ifndef NO_INC_BUILD
+dep-gen-wrapper = $(if $(filter $(TOOLCHAIN), MSVC), \
+	$(call msvc-dep-gen, $(1)), \
+	$(1) $(gcc-dep-gen))
+else
+dep-gen-wrapper = $(1)
+endif
+
+#---------------------------------------------------------------
 # Per project configuration
 #---------------------------------------------------------------
 # Should at least define:
@@ -313,30 +340,6 @@ showvars: variables
 	@$(call mkdir, $(@D))
 	$(eval lcommand = $(archive))
 	@$(lcommand)
-
-# Command chunks that help generate dependency files in each toolchain
-sed-escape = $(subst /,\/,$(subst \,\\,$(1)))
-msvc-dep-gen = $(1) /showIncludes >$(basename $@)$(HDEPEXT) & \
-	$(if $(SILENT),,sed -e "/^Note: including file:/d" $(basename $@)$(HDEPEXT) &&) \
-	sed -i \
-		-e "/: error /q1" \
-		-e "/^Note: including file:/!d" \
-		-e "s/^Note: including file:\s*\(.*\)$$/\1/" \
-		-e "s/\\/\//g" \
-		-e "s/ /\\ /g" \
-		-e "s/^\(.*\)$$/\t\1 \\/" \
-		-e "2 s/^.*$$/$(call sed-escape,$@)\: $(call sed-escape,$<) &/g" \
-		$(basename $@)$(HDEPEXT) || (echo. >$(basename $@)$(HDEPEXT) & exit 1)
-gcc-dep-gen = -MMD -MT $@ -MF $(basename $@)$(HDEPEXT)
-
-# Command wrapper that adds dependency generation functionality to given compile command
-ifndef NO_INC_BUILD
-dep-gen-wrapper = $(if $(filter $(TOOLCHAIN), MSVC), \
-	$(call msvc-dep-gen, $(1)), \
-	$(1) $(gcc-dep-gen))
-else
-dep-gen-wrapper = $(1)
-endif
 
 #
 # Compile rules
