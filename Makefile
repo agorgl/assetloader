@@ -95,12 +95,19 @@ define \n
 
 endef
 
+#---------------------------------------------------------------
+# Global constants
+#---------------------------------------------------------------
 # Os executable extension
 ifeq ($(OS), Windows_NT)
 	EXECEXT = .exe
 else
 	EXECEXT = .out
 endif
+# Object file extension
+OBJEXT = .o
+# Headers dependency file extension
+HDEPEXT = .d
 
 #---------------------------------------------------------------
 # Per project configuration
@@ -206,10 +213,8 @@ CPPFLAGS = $(strip $(foreach define, $(DEFINES), $(DEFINEFLAG)$(define)))
 # Generated values
 #---------------------------------------------------------------
 # Objects
-OBJEXT = .o
 OBJ = $(foreach obj, $(SRC:=$(OBJEXT)), $(BUILDDIR)/$(VARIANT)/$(obj))
 # Header dependencies
-HDEPEXT = .d
 HDEPS = $(OBJ:$(OBJEXT)=$(HDEPEXT))
 
 # Output
