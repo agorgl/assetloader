@@ -137,6 +137,21 @@ dep-gen-wrapper = $(1)
 endif
 
 #---------------------------------------------------------------
+# Colors
+#---------------------------------------------------------------
+ifneq ($(OS), Windows_NT)
+	ESC = $(shell echo -e -n '\x1b')
+endif
+NO_COLOR=$(ESC)[0m
+LGREEN_COLOR=$(ESC)[92m
+LYELLOW_COLOR=$(ESC)[93m
+LMAGENTA_COLOR=$(ESC)[95m
+LRED_COLOR=$(ESC)[91m
+DGREEN_COLOR=$(ESC)[32m
+DYELLOW_COLOR=$(ESC)[33m
+DCYAN_COLOR=$(ESC)[36m
+
+#---------------------------------------------------------------
 # Per project configuration
 #---------------------------------------------------------------
 # Should at least define:
@@ -281,21 +296,6 @@ ccompile = $(CC) $$(CFLAGS) $$(CPPFLAGS) $$(INCDIR) $$< $(COUTFLAG) $$@
 cxxcompile = $(CXX) $$(CFLAGS) $$(CXXFLAGS) $$(CPPFLAGS) $$(INCDIR) $$< $(COUTFLAG) $$@
 link = $(LD) $(LDFLAGS) $(LIBSDIR) $(LOUTFLAG)$@ $^ $(LIBFLAGS)
 archive = $(AR) $(ARFLAGS) $(AROUTFLAG)$@ $?
-
-#---------------------------------------------------------------
-# Colors
-#---------------------------------------------------------------
-ifneq ($(OS), Windows_NT)
-	ESC = $(shell echo -e -n '\x1b')
-endif
-NO_COLOR=$(ESC)[0m
-LGREEN_COLOR=$(ESC)[92m
-LYELLOW_COLOR=$(ESC)[93m
-LMAGENTA_COLOR=$(ESC)[95m
-LRED_COLOR=$(ESC)[91m
-DGREEN_COLOR=$(ESC)[32m
-DYELLOW_COLOR=$(ESC)[33m
-DCYAN_COLOR=$(ESC)[36m
 
 #---------------------------------------------------------------
 # Rules
