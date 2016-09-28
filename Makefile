@@ -1,13 +1,4 @@
 #=- Makefile -=#
-# CreateProcess NULL bug
-ifeq ($(OS), Windows_NT)
-	SHELL = cmd.exe
-endif
-
-# Set current makefile location
-MKLOC ?= $(CURDIR)/$(firstword $(MAKEFILE_LIST))
-export MKLOC
-
 #---------------------------------------------------------------
 # Usage
 #---------------------------------------------------------------
@@ -35,6 +26,15 @@ export MKLOC
 #  [5] contains binary results of the linking process (executables, dynamic libraries)
 #  [6] contains archive results of the archiving process (static libraries)
 #  [7] contains intermediate object files of compiling processes
+
+# CreateProcess NULL bug
+ifeq ($(OS), Windows_NT)
+	SHELL = cmd.exe
+endif
+
+# Set current makefile location
+MKLOC ?= $(CURDIR)/$(firstword $(MAKEFILE_LIST))
+export MKLOC
 
 #---------------------------------------------------------------
 # Build variable parameters
