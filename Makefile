@@ -152,37 +152,6 @@ DYELLOW_COLOR=$(ESC)[33m
 DCYAN_COLOR=$(ESC)[36m
 
 #---------------------------------------------------------------
-# Per project configuration
-#---------------------------------------------------------------
-# Should at least define:
-# - PRJTYPE variable (Executable|StaticLib|DynLib)
-# - LIBS variable (optional, Executable type only)
-# Can optionally define:
-# - TARGETNAME variable (project name, defaults to name of the root folder)
-# - SRCDIR variable (source directory)
-# - BUILDDIR variable (intermediate build directory)
-# - SRC variable (list of the source files, defaults to every code file in SRCDIR)
-# - SRCEXT variable (list of extensions used to match source files)
-# - DEFINES variable (list defines in form of PROPERTY || PROPERTY=VALUE)
-# - ADDINCS variable (list with additional include dirs)
-# - MOREDEPS variable (list with additional dep dirs)
--include config.mk
-
-# Defaults
-TARGETNAME ?= $(notdir $(CURDIR))
-SRCDIR ?= src
-BUILDDIR ?= tmp
-SRCEXT = *.c *.cpp *.cc *.cxx
-SRC ?= $(call rwildcard, $(SRCDIR), $(SRCEXT))
-
-# Target directory
-ifeq ($(PRJTYPE), StaticLib)
-	TARGETDIR = lib
-else
-	TARGETDIR = bin
-endif
-
-#---------------------------------------------------------------
 # Toolchain dependent values
 #---------------------------------------------------------------
 ifeq ($(TOOLCHAIN), MSVC)
@@ -246,6 +215,37 @@ else
 	else
 		CFLAGS += -O2
 	endif
+endif
+
+#---------------------------------------------------------------
+# Per project configuration
+#---------------------------------------------------------------
+# Should at least define:
+# - PRJTYPE variable (Executable|StaticLib|DynLib)
+# - LIBS variable (optional, Executable type only)
+# Can optionally define:
+# - TARGETNAME variable (project name, defaults to name of the root folder)
+# - SRCDIR variable (source directory)
+# - BUILDDIR variable (intermediate build directory)
+# - SRC variable (list of the source files, defaults to every code file in SRCDIR)
+# - SRCEXT variable (list of extensions used to match source files)
+# - DEFINES variable (list defines in form of PROPERTY || PROPERTY=VALUE)
+# - ADDINCS variable (list with additional include dirs)
+# - MOREDEPS variable (list with additional dep dirs)
+-include config.mk
+
+# Defaults
+TARGETNAME ?= $(notdir $(CURDIR))
+SRCDIR ?= src
+BUILDDIR ?= tmp
+SRCEXT = *.c *.cpp *.cc *.cxx
+SRC ?= $(call rwildcard, $(SRCDIR), $(SRCEXT))
+
+# Target directory
+ifeq ($(PRJTYPE), StaticLib)
+	TARGETDIR = lib
+else
+	TARGETDIR = bin
 endif
 
 #---------------------------------------------------------------
