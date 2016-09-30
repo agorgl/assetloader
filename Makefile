@@ -272,10 +272,14 @@ ifdef PRJTYPE
 	MASTEROUT = $(TARGETDIR)/$(VARIANT)/$(TARGET)
 endif
 
-# Dependencies
+# Implicit dependencies directory
 DEPSDIR = deps
+# Implicit dependencies
 depsgather = $(foreach d, $(wildcard $1/*), $d $(call depsgather, $d/$(strip $2), $2))
-DEPS = $(strip $(sort $(call depsgather, $(DEPSDIR), $(DEPSDIR)))) $(MOREDEPS)
+DEPS = $(strip $(sort $(call depsgather, $(DEPSDIR), $(DEPSDIR))))
+# Explicit dependencies
+DEPS += $(MOREDEPS)
+# Dependency names
 DEPNAMES = $(strip $(foreach d, $(DEPS), $(lastword $(subst /, , $d))))
 
 # Preprocessor flags
