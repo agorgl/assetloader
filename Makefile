@@ -96,8 +96,8 @@ define \n
 endef
 
 # Canonical path (1 = base, 2 = path)
-canonical_path = $(filter-out $(1), $(patsubst $(1)/%,%,$(abspath $(2))))
-canonical_path_cur = $(call canonical_path, $(CURPATH), $(1))
+canonical_path = $(filter-out $(1), $(patsubst $(strip $(1))/%,%,$(abspath $(2))))
+canonical_path_cur = $(call canonical_path, $(CURDIR), $(1))
 
 #---------------------------------------------------------------
 # Global constants
