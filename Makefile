@@ -222,6 +222,14 @@ else
 endif
 
 #---------------------------------------------------------------
+# Command generator functions
+#---------------------------------------------------------------
+ccompile = $(CC) $$(CFLAGS) $$(CPPFLAGS) $$(INCDIR) $$< $(COUTFLAG) $$@
+cxxcompile = $(CXX) $$(CFLAGS) $$(CXXFLAGS) $$(CPPFLAGS) $$(INCDIR) $$< $(COUTFLAG) $$@
+link = $(LD) $(LDFLAGS) $(LIBSDIR) $(LOUTFLAG)$@ $^ $(LIBFLAGS)
+archive = $(AR) $(ARFLAGS) $(AROUTFLAG)$@ $?
+
+#---------------------------------------------------------------
 # Per project configuration
 #---------------------------------------------------------------
 # Should at least define:
@@ -296,14 +304,6 @@ LIBSDIR = $(strip $(foreach libdir,\
 			$(LIBSDIRFLAG)$(libdir)/$(strip $(VARIANT))))
 # Library flags
 LIBFLAGS = $(strip $(foreach lib, $(LIBS), $(LIBFLAG)$(lib)$(if $(filter $(TOOLCHAIN), MSVC),.lib,)))
-
-#---------------------------------------------------------------
-# Command generator functions
-#---------------------------------------------------------------
-ccompile = $(CC) $$(CFLAGS) $$(CPPFLAGS) $$(INCDIR) $$< $(COUTFLAG) $$@
-cxxcompile = $(CXX) $$(CFLAGS) $$(CXXFLAGS) $$(CPPFLAGS) $$(INCDIR) $$< $(COUTFLAG) $$@
-link = $(LD) $(LDFLAGS) $(LIBSDIR) $(LOUTFLAG)$@ $^ $(LIBFLAGS)
-archive = $(AR) $(ARFLAGS) $(AROUTFLAG)$@ $?
 
 #---------------------------------------------------------------
 # Rules
