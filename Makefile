@@ -230,6 +230,17 @@ link = $(LD) $(LDFLAGS) $(LIBSDIR) $(LOUTFLAG)$@ $^ $(LIBFLAGS)
 archive = $(AR) $(ARFLAGS) $(AROUTFLAG)$@ $?
 
 #---------------------------------------------------------------
+# Rule generators
+#---------------------------------------------------------------
+# Compile rules
+define compile-rule
+$(BUILDDIR)/$(VARIANT)/%.$(strip $(1))$(OBJEXT): %.$(strip $(1))
+	@$$(info $(LGREEN_COLOR)[>] Compiling$(NO_COLOR) $(LYELLOW_COLOR)$$<$(NO_COLOR))
+	@$$(call mkdir, $$(@D))
+	@$$(call dep-gen-wrapper, $(2)) $(quiet)
+endef
+
+#---------------------------------------------------------------
 # Per project configuration
 #---------------------------------------------------------------
 # Should at least define:
@@ -348,16 +359,6 @@ showvars: variables
 	@$(call mkdir, $(@D))
 	$(eval lcommand = $(archive))
 	@$(lcommand)
-
-#
-# Compile rules
-#
-define compile-rule
-$(BUILDDIR)/$(VARIANT)/%.$(strip $(1))$(OBJEXT): %.$(strip $(1))
-	@$$(info $(LGREEN_COLOR)[>] Compiling$(NO_COLOR) $(LYELLOW_COLOR)$$<$(NO_COLOR))
-	@$$(call mkdir, $$(@D))
-	@$$(call dep-gen-wrapper, $(2)) $(quiet)
-endef
 
 # Generate compile rules
 $(eval $(call compile-rule, c, $(ccompile)))
