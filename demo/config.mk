@@ -15,3 +15,4 @@ ADDLIBDIR = ../lib \
 			../deps/Ogg/lib \
 			../deps/Macu/lib \
 			../deps/Freetype/lib
+MOREDEPS = ..

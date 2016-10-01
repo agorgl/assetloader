@@ -99,6 +99,16 @@ endef
 canonical_path = $(filter-out $(1), $(patsubst $(strip $(1))/%,%,$(abspath $(2))))
 canonical_path_cur = $(call canonical_path, $(CURDIR), $(1))
 
+# Gather given file from all subdirectories (1 = base, 2 = file)
+findfile = $(foreach d, $(wildcard $1/*), $(filter %$(strip $2), $d))
+# Gather given file from all subdirectories recursively (1 = base, 2 = file)
+rfindfile = $(foreach d, $(wildcard $1/*), $(filter %$(strip $2), $d) $(call rfindfile, $d, $2))
+# Gather all project configs
+gatherprojs = $(strip $(patsubst ./%, %, $(patsubst %/config.mk, %, $(sort $(call rfindfile, $1, config.mk)))))
+
+# Search for library in given paths
+searchlibrary = $(foreach sd, $2, $(call findfile, $(sd), $1))
+
 #---------------------------------------------------------------
 # Global constants
 #---------------------------------------------------------------
@@ -112,6 +122,8 @@ endif
 OBJEXT = .o
 # Headers dependency file extension
 HDEPEXT = .d
+# Intermediate build directory
+BUILDDIR := tmp
 
 #---------------------------------------------------------------
 # Header dependency generation helpers
@@ -224,17 +236,19 @@ endif
 #---------------------------------------------------------------
 # Command generator functions
 #---------------------------------------------------------------
-ccompile = $(CC) $$(CFLAGS) $$(CPPFLAGS) $$(INCDIR) $$< $(COUTFLAG) $$@
-cxxcompile = $(CXX) $$(CFLAGS) $$(CXXFLAGS) $$(CPPFLAGS) $$(INCDIR) $$< $(COUTFLAG) $$@
-link = $(LD) $(LDFLAGS) $(LIBSDIR) $(LOUTFLAG)$@ $^ $(LIBFLAGS)
+# 1 = CPPFLAGS, 2 = INCDIR
+ccompile = $(CC) $(CFLAGS) $(1) $(2) $< $(COUTFLAG) $@
+cxxcompile = $(CXX) $(CFLAGS) $(CXXFLAGS) $(1) $(2) $< $(COUTFLAG) $@
+# 1 = LIBSDIR, 2 = LIBFLAGS
+link = $(LD) $(LDFLAGS) $(1) $(LOUTFLAG)$@ $^ $(2)
 archive = $(AR) $(ARFLAGS) $(AROUTFLAG)$@ $?
 
 #---------------------------------------------------------------
 # Rule generators
 #---------------------------------------------------------------
-# Compile rules
+# Compile rules (1 = extension, 2 = command generator, 3 = subproject path)
 define compile-rule
-$(BUILDDIR)/$(VARIANT)/%.$(strip $(1))$(OBJEXT): %.$(strip $(1))
+$(BUILDDIR)/$(VARIANT)/$(strip $(3))%.$(strip $(1))$(OBJEXT): $(strip $(3))%.$(strip $(1))
 	@$$(info $(LGREEN_COLOR)[>] Compiling$(NO_COLOR) $(LYELLOW_COLOR)$$<$(NO_COLOR))
 	@$$(call mkdir, $$(@D))
 	@$$(call dep-gen-wrapper, $(2)) $(quiet)
@@ -255,142 +269,193 @@ endef
 # - DEFINES variable (list defines in form of PROPERTY || PROPERTY=VALUE)
 # - ADDINCS variable (list with additional include dirs)
 # - MOREDEPS variable (list with additional dep dirs)
--include config.mk
 
-# Defaults
-TARGETNAME ?= $(notdir $(CURDIR))
-SRCDIR ?= src
-BUILDDIR ?= tmp
-SRCEXT = *.c *.cpp *.cc *.cxx
-SRC ?= $(call rwildcard, $(SRCDIR), $(SRCEXT))
+define gen-build-rules
+# Subproject name
+$(eval D = $(strip $(1)))
+# Subproject path
+$(eval DP = $(if $(filter $(D),.),,$(D)/))
+
+# Clear previous variables
+$(foreach v, PRJTYPE LIBS SRCDIR SRC DEFINES ADDINCS MOREDEPS, undefine $(v)${\n})
+
+# Include configuration
+-include $(DP)config.mk
+
+# Gather variables from config
+PRJTYPE_$(D) := $$(PRJTYPE)
+SRCDIR_$(D) := $$(foreach d, $$(SRCDIR), $(DP)$$(d))
+SRC_$(D) := $$(foreach s, $$(SRC), $(DP)$$(s))
+DEFINES_$(D) := $$(DEFINES)
+ADDINCS_$(D) := $$(foreach ai, $$(ADDINCS), $(DP)$$(ai))
+LIBS_$(D) := $$(foreach l, $$(LIBS), $$(l))
+MOREDEPS_$(D) := $$(MOREDEPS)
+
+# Set defaults on unset variables
+TARGETNAME_$(D) := $$(or $$(TARGETNAME_$(D)), $$(notdir $$(if $$(filter $(D),.), $$(CURDIR), $(D))))
+SRCDIR_$(D) := $$(or $$(SRCDIR_$(D)), $(DP)src)
+SRCEXT_$(D) := *.c *.cpp *.cc *.cxx
+SRC_$(D) := $$(or $$(SRC_$(D)), $$(call rwildcard, $$(SRCDIR_$(D)), $$(SRCEXT_$(D))))
 
 # Target directory
-ifeq ($(PRJTYPE), StaticLib)
-	TARGETDIR = lib
+ifeq ($$(PRJTYPE_$(D)), StaticLib)
+	TARGETDIR_$(D) := $(DP)lib
 else
-	TARGETDIR = bin
+	TARGETDIR_$(D) := $(DP)bin
 endif
 
 #---------------------------------------------------------------
 # Generated values
 #---------------------------------------------------------------
 # Objects
-OBJ = $(foreach obj, $(SRC:=$(OBJEXT)), $(BUILDDIR)/$(VARIANT)/$(obj))
+OBJ_$(D) := $$(foreach obj, $$(SRC_$(D):=$(OBJEXT)), $(BUILDDIR)/$(VARIANT)/$$(obj))
 # Header dependencies
-HDEPS = $(OBJ:$(OBJEXT)=$(HDEPEXT))
+HDEPS_$(D) := $$(OBJ_$(D):$(OBJEXT)=$(HDEPEXT))
 
 # Output
-ifeq ($(PRJTYPE), StaticLib)
-	TARGET = $(SLIBPREF)$(strip $(call lc,$(TARGETNAME)))$(SLIBEXT)
+ifeq ($$(PRJTYPE_$(D)), StaticLib)
+	TARGET_$(D) := $(SLIBPREF)$$(strip $$(call lc,$$(TARGETNAME_$(D))))$(SLIBEXT)
 else
-	TARGET = $(TARGETNAME)$(EXECEXT)
+	TARGET_$(D) := $$(TARGETNAME_$(D))$(EXECEXT)
 endif
 
 # Master output
-ifdef PRJTYPE
-	MASTEROUT = $(TARGETDIR)/$(VARIANT)/$(TARGET)
+ifdef PRJTYPE_$(D)
+	MASTEROUT_$(D) := $$(TARGETDIR_$(D))/$(VARIANT)/$$(TARGET_$(D))
 endif
 
 # Implicit dependencies directory
-DEPSDIR = deps
+DEPSDIR_$(D) := $(DP)deps
 # Implicit dependencies
-depsgather = $(foreach d, $(wildcard $1/*), $d $(call depsgather, $d/$(strip $2), $2))
-DEPS = $(strip $(sort $(call depsgather, $(DEPSDIR), $(DEPSDIR))))
+DEPS_$(D) := $$(call gatherprojs, $$(DEPSDIR_$(D)))
 # Explicit dependencies
-DEPS += $(MOREDEPS)
-# Dependency names
-DEPNAMES = $(strip $(foreach d, $(DEPS), $(lastword $(subst /, , $d))))
+DEPS_$(D) += $$(foreach md, $$(MOREDEPS_$(D)), $$(or $$(call canonical_path_cur, $(DP)/$$(md)), .))
 
 # Preprocessor flags
-CPPFLAGS = $(strip $(foreach define, $(DEFINES), $(DEFINEFLAG)$(define)))
+CPPFLAGS_$(D) := $$(strip $$(foreach define, $$(DEFINES_$(D)), $(DEFINEFLAG)$$(define)))
 
 # Include directories (implicit)
-INCDIR = $(strip $(INCFLAG)include $(foreach dep, $(DEPS), $(INCFLAG)$(dep)/include))
+INCDIR_$(D) := $$(strip $(INCFLAG)$(DP)include \
+						$$(foreach dep, $$(DEPS_$(D)) \
+										$$(filter-out $$(DEPS_$(D)), $$(wildcard $$(DEPSDIR_$(D))/*)), \
+										$(INCFLAG)$$(dep)/include))
 # Include directories (explicit)
-INCDIR += $(strip $(foreach addinc, $(ADDINCS), $(INCFLAG)$(addinc)))
+INCDIR_$(D) += $$(strip $$(foreach addinc, $$(ADDINCS_$(D)), $(INCFLAG)$$(addinc)))
 
 # Library search directories
-LIBSDIR = $(strip $(foreach libdir,\
-			$(foreach dep, $(DEPS), $(dep)/lib) $(ADDLIBDIR),\
-			$(LIBSDIRFLAG)$(libdir)/$(strip $(VARIANT))))
+LIBSDIR_$(D) := $$(strip $$(foreach libdir,\
+									$$(foreach dep, $$(DEPS_$(D)), $$(dep)/lib) \
+									$$(foreach ald, $$(ADDLIBDIR), $(DP)$$(ald)),\
+								$(LIBSDIRFLAG)$$(libdir)/$(strip $(VARIANT))))
 # Library flags
-LIBFLAGS = $(strip $(foreach lib, $(LIBS), $(LIBFLAG)$(lib)$(if $(filter $(TOOLCHAIN), MSVC),.lib,)))
+LIBFLAGS_$(D) := $$(strip $$(foreach lib, $$(LIBS_$(D)), $(LIBFLAG)$$(lib)$(if $(filter $(TOOLCHAIN), MSVC),.lib,)))
+
+# Build rule dependencies
+BUILDDEPS_$(D) := $$(foreach dep, $$(DEPS_$(D)), build_$$(strip $$(dep)))
+
+# Link rule dependencies
+LIBDEPS_$(D) := $$(foreach cfp, \
+						$$(foreach f, \
+							$$(foreach l, $$(LIBS_$(D)), $$(patsubst %, $(SLIBPREF)%$(SLIBEXT), $$(l))), \
+							$$(call searchlibrary, $$(f), $$(patsubst -L%, %, $$(LIBSDIR_$(D))))), \
+						$$(call canonical_path_cur, $$(cfp)))
 
 #---------------------------------------------------------------
 # Rules
 #---------------------------------------------------------------
-# Disable builtin rules
-.SUFFIXES:
-
 # Main build rule
-build: variables $(OBJ) $(MASTEROUT)
-
-# Full build rule
-all: deps build
+build_$(D): $$(BUILDDEPS_$(D)) variables_$(D) $$(OBJ_$(D)) $$(MASTEROUT_$(D))
 
 # Executes target
-run: build
-	$(eval exec = $(MASTEROUT))
-	@echo Executing $(exec) ...
-	@$(exec)
+run_$(D): build_$(D)
+	$$(eval exec = $$(MASTEROUT_$(D)))
+	@echo Executing $$(exec) ...
+	@cd $(D) && $$(call canonical_path, $$(abspath $$(CURDIR)/$(D)), $$(exec))
 
 # Set variables for current build execution
-variables:
-	$(info $(LRED_COLOR)[o] Building$(NO_COLOR) $(LMAGENTA_COLOR)$(TARGETNAME)$(NO_COLOR))
+variables_$(D):
+	$$(info $(LRED_COLOR)[o] Building$(NO_COLOR) $(LMAGENTA_COLOR)$$(TARGETNAME_$(D))$(NO_COLOR))
 
 # Print build debug info
-showvars: variables
-	@echo DEPS: $(DEPS)
-	@echo DEPNAMES: $(DEPNAMES)
-	@echo CFLAGS: $(CFLAGS)
-	@echo LIBDIR: $(LIBDIR)
-	@echo HDEPS: $(HDEPS)
+showvars_$(D): variables_$(D)
+	@echo MASTEROUT: $$(MASTEROUT_$(D))
+	@echo SRCDIR: $$(SRCDIR_$(D))
+	@echo SRC: $$(SRC_$(D))
+	@echo DEPS: $$(DEPS_$(D))
+	@echo BUILDDEPS: $$(BUILDDEPS_$(D))
+	@echo CFLAGS: $$(CFLAGS)
+	@echo CPPFLAGS: $$(CPPFLAGS_$(D))
+	@echo INCDIR: $$(INCDIR_$(D))
+	@echo LIBSDIR: $$(LIBSDIR_$(D))
+	@echo LIBFLAGS: $$(LIBFLAGS_$(D))
+	@echo LIBDEPS: $$(LIBDEPS_$(D))
+	@echo HDEPS: $$(HDEPS_$(D))
 
 # Link rule
-%$(EXECEXT): $(OBJ)
-	@$(info $(DGREEN_COLOR)[+] Linking$(NO_COLOR) $(DYELLOW_COLOR)$@$(NO_COLOR))
-	@$(call mkdir, $(@D))
-	$(eval lcommand = $(link))
-	@$(lcommand)
+$(DP)%$(EXECEXT): $$(LIBDEPS_$(D)) $$(OBJ_$(D))
+	@$$(info $(DGREEN_COLOR)[+] Linking$(NO_COLOR) $(DYELLOW_COLOR)$$@$(NO_COLOR))
+	@$$(call mkdir, $$(@D))
+	$$(eval lcommand = $$(call link, $$(LIBSDIR_$(D)), $$(LIBFLAGS_$(D))))
+	@$$(lcommand)
 
 # Archive rule
-%$(SLIBEXT): $(OBJ)
-	@$(info $(DCYAN_COLOR)[+] Archiving$(NO_COLOR) $(DYELLOW_COLOR)$@$(NO_COLOR))
-	@$(call mkdir, $(@D))
-	$(eval lcommand = $(archive))
-	@$(lcommand)
+$(DP)%$(SLIBEXT): $$(OBJ_$(D))
+	@$$(info $(DCYAN_COLOR)[+] Archiving$(NO_COLOR) $(DYELLOW_COLOR)$$@$(NO_COLOR))
+	@$$(call mkdir, $$(@D))
+	$$(eval lcommand = $$(archive))
+	@$$(lcommand)
 
 # Generate compile rules
-$(eval $(call compile-rule, c, $(ccompile)))
-$(foreach ext, cpp cxx cc, $(eval $(call compile-rule, $(ext), $(cxxcompile))))
+$(call compile-rule, c, $$(call ccompile, $$(CPPFLAGS_$(D)), $$(INCDIR_$(D))), $(DP))
+$(foreach ext, cpp cxx cc, $(call compile-rule, $(ext), $$(call cxxcompile, $$(CPPFLAGS_$(D)), $$(INCDIR_$(D))), $(DP))${\n})
+
+endef
+
+#---------------------------------------------------------------
+# Generation
+#---------------------------------------------------------------
+# Scan all directories for subprojects
+SUBPROJS := $(call gatherprojs, .)
+# Create sublists with dependency and main projects
+SILENT_SUBPROJS = $(foreach subproj, $(SUBPROJS), $(if $(findstring deps, $(subproj)), $(subproj)))
+NONSILENT_SUBPROJS = $(filter-out $(SILENT_SUBPROJS), $(SUBPROJS))
+# Generate subproject variables and rules
+SILENT := 1
+$(foreach subproj, $(SILENT_SUBPROJS), $(eval $(call gen-build-rules, $(subproj))))
+undefine SILENT
+$(foreach subproj, $(NONSILENT_SUBPROJS), $(eval $(call gen-build-rules, $(subproj))))
+
+# Aliases
+build: build_.
+run: run_.
+showvars: showvars_.
+showvars_all: $(foreach subproj, $(SUBPROJS), showvars_$(subproj))
 
 # Cleanup rule
 clean:
-	@echo Cleaning $(TARGETNAME)...
+	@echo Cleaning...
 	@$(call rmdir, $(BUILDDIR))
 
-# Dependencies build rule
-deps:
-	$(eval export SILENT=1)
-	$(foreach dep, $(DEPS), @$(MAKE) -C $(dep) -f $(MKLOC) all${\n})
-
-# Depencencies clean rule
-depsclean:
-	$(foreach dep, $(DEPS), @$(MAKE) -C $(dep) -f $(MKLOC) clean${\n})
-
 # Don't create dependencies when we're cleaning
-NOHDEPSGEN = clean $(foreach dep, $(DEPNAMES), clean-$(dep))
+NOHDEPSGEN = clean
 ifeq (0, $(words $(findstring $(MAKECMDGOALS), $(NOHDEPSGEN))))
 	# GNU Make attempts to (re)build the file it includes
+	HDEPS = $(foreach subproj, $(SUBPROJS), $(HDEPS_$(subproj)))
 	-include $(HDEPS)
 endif
 
+# Set default goal
+.DEFAULT_GOAL := build
+
+# Disable builtin rules
+.SUFFIXES:
+
 # Non file targets
-.PHONY: all \
+RULETYPES := build run variables showvars
+.PHONY: $(foreach subproj, $(SUBPROJS), $(foreach ruletype, $(RULETYPES), $(subproj)_$(ruletype))) \
 		build \
 		run \
 		variables \
 		showvars \
-		clean \
-		depsclean \
-		deps
+		showvars_all \
+		clean
