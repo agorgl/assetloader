@@ -131,7 +131,7 @@ BUILDDIR := tmp
 # Command chunks that help generate dependency files in each toolchain
 sed-escape = $(subst /,\/,$(subst \,\\,$(1)))
 msvc-dep-gen = $(1) /showIncludes >$(basename $@)$(HDEPEXT) & \
-	$(if $(SILENT),,sed -e "/^Note: including file:/d" $(basename $@)$(HDEPEXT) &&) \
+	$(if $(strip $(2)),,sed -e "/^Note: including file:/d" $(basename $@)$(HDEPEXT) &&) \
 	sed -i \
 		-e "/: error /q1" \
 		-e "/^Note: including file:/!d" \
@@ -146,7 +146,7 @@ gcc-dep-gen = -MMD -MT $@ -MF $(basename $@)$(HDEPEXT)
 # Command wrapper that adds dependency generation functionality to given compile command
 ifndef NO_INC_BUILD
 dep-gen-wrapper = $(if $(filter $(TOOLCHAIN), MSVC), \
-	$(call msvc-dep-gen, $(1)), \
+	$(call msvc-dep-gen, $(1), $(2)), \
 	$(1) $(gcc-dep-gen))
 else
 dep-gen-wrapper = $(1)
@@ -251,7 +251,7 @@ define compile-rule
 $(BUILDDIR)/$(VARIANT)/$(strip $(3))%.$(strip $(1))$(OBJEXT): $(strip $(3))%.$(strip $(1))
 	@$$(info $(LGREEN_COLOR)[>] Compiling$(NO_COLOR) $(LYELLOW_COLOR)$$<$(NO_COLOR))
 	@$$(call mkdir, $$(@D))
-	@$$(call dep-gen-wrapper, $(2)) $(quiet)
+	@$$(call dep-gen-wrapper, $(2), $(SILENT)) $(quiet)
 endef
 
 #---------------------------------------------------------------
