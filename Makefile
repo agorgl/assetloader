@@ -239,8 +239,8 @@ endif
 # 1 = CPPFLAGS, 2 = INCDIR
 ccompile = $(CC) $(CFLAGS) $(1) $(2) $< $(COUTFLAG) $@
 cxxcompile = $(CXX) $(CFLAGS) $(CXXFLAGS) $(1) $(2) $< $(COUTFLAG) $@
-# 1 = LIBSDIR, 2 = LIBFLAGS
-link = $(LD) $(LDFLAGS) $(1) $(LOUTFLAG)$@ $^ $(2)
+# 1 = LIBSDIR, 2 = LIBFLAGS 3 = $^
+link = $(LD) $(LDFLAGS) $(1) $(LOUTFLAG)$@ $(3) $(2)
 archive = $(AR) $(ARFLAGS) $(AROUTFLAG)$@ $?
 
 #---------------------------------------------------------------
@@ -354,11 +354,11 @@ LIBFLAGS_$(D) := $$(strip $$(foreach lib, $$(LIBS_$(D)), $(LIBFLAG)$$(lib)$(if $
 BUILDDEPS_$(D) := $$(foreach dep, $$(DEPS_$(D)), build_$$(strip $$(dep)))
 
 # Link rule dependencies
-LIBDEPS_$(D) := $$(foreach cfp, \
-						$$(foreach f, \
-							$$(foreach l, $$(LIBS_$(D)), $$(patsubst %, $(SLIBPREF)%$(SLIBEXT), $$(l))), \
-							$$(call searchlibrary, $$(f), $$(patsubst -L%, %, $$(LIBSDIR_$(D))))), \
-						$$(call canonical_path_cur, $$(cfp)))
+ifneq ($$(PRJTYPE_$(D)), StaticLib)
+LIBDEPS_$(D) := $$(foreach dep, $$(DEPS_$(D)), \
+					$$(if $$(filter $$(PRJTYPE_$$(strip $$(dep))), StaticLib), \
+						$$(MASTEROUT_$$(strip $$(dep)))))
+endif
 
 #---------------------------------------------------------------
 # Rules
@@ -395,7 +395,7 @@ showvars_$(D): variables_$(D)
 $(DP)%$(EXECEXT): $$(LIBDEPS_$(D)) $$(OBJ_$(D))
 	@$$(info $(DGREEN_COLOR)[+] Linking$(NO_COLOR) $(DYELLOW_COLOR)$$@$(NO_COLOR))
 	@$$(call mkdir, $$(@D))
-	$$(eval lcommand = $$(call link, $$(LIBSDIR_$(D)), $$(LIBFLAGS_$(D))))
+	$$(eval lcommand = $$(call link, $$(LIBSDIR_$(D)), $$(LIBFLAGS_$(D)), $$(OBJ_$(D))))
 	@$$(lcommand)
 
 # Archive rule
