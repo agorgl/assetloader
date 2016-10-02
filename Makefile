@@ -370,7 +370,7 @@ build_$(D): $$(BUILDDEPS_$(D)) variables_$(D) $$(OBJ_$(D)) $$(MASTEROUT_$(D))
 run_$(D): build_$(D)
 	$$(eval exec = $$(MASTEROUT_$(D)))
 	@echo Executing $$(exec) ...
-	@cd $(D) && $$(call canonical_path, $$(abspath $$(CURDIR)/$(D)), $$(exec))
+	@cd $(D) && $$(call native_path, $$(call canonical_path, $$(abspath $$(CURDIR)/$(D)), $$(exec)))
 
 # Set variables for current build execution
 variables_$(D):
