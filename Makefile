@@ -241,7 +241,7 @@ ccompile = $(CC) $(CFLAGS) $(1) $(2) $< $(COUTFLAG) $@
 cxxcompile = $(CXX) $(CFLAGS) $(CXXFLAGS) $(1) $(2) $< $(COUTFLAG) $@
 # 1 = LIBSDIR, 2 = LIBFLAGS 3 = $^
 link = $(LD) $(LDFLAGS) $(1) $(LOUTFLAG)$@ $(3) $(2)
-archive = $(AR) $(ARFLAGS) $(AROUTFLAG)$@ $?
+archive = $(AR) $(ARFLAGS) $(AROUTFLAG)$@ $^
 
 #---------------------------------------------------------------
 # Rule generators
