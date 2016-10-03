@@ -38,6 +38,7 @@ extern "C" {
 #include "image/imageload.h"
 #include "sound/soundload.h"
 #include "model/modelload.h"
+#include "shader/shaderload.h"
 #include "error.h"
 
 #ifdef __cplusplus

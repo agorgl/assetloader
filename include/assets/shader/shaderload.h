@@ -28,11 +28,32 @@
 /*   ' ') '( (/                                                                                                      */
 /*     '   '  `                                                                                                      */
 /*********************************************************************************************************************/
-#ifndef _STATIC_DATA_H
-#define _STATIC_DATA_H
+#ifndef _SHADERLOAD_H_
+#define _SHADERLOAD_H_
 
-extern const float CUBE_VERTEX_DATA[144];
-extern const float CUBE_UVS[96];
-extern const unsigned int CUBE_ELEM_DATA[36];
+#define SHADER_LOAD_FILE   1
+#define SHADER_LOAD_CUSTOM 2
 
-#endif /* ! _STATIC_DATA_H */
+/* Custom load function type */
+typedef int(*shader_load_custom_fn)(void* userdata, const char* uri, unsigned char** buf);
+
+/* Error callback function type */
+typedef void(*shader_load_error_fn)(void* userdata, const char* err);
+
+/* Settings that parametrize the shader loading operation */
+struct shader_load_settings {
+    /* Can be either SHADER_LOAD_FILE indicating normal filesystem load or SHADER_LOAD_CUSTOM
+     * indicating custom load in witch the given resolver functions are used */
+    int load_type;
+    /* Custom load function */
+    shader_load_custom_fn load_fn;
+    /* Error callback */
+    shader_load_error_fn error_cb;
+    /* User data passed to custom load function */
+    void* userdata;
+};
+
+/* Main load fn */
+const char* shader_load(const char* uri, struct shader_load_settings* settings);
+
+#endif /* ! _SHADERLOAD_H_ */

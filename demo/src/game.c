@@ -25,6 +25,59 @@ static void APIENTRY gl_debug_proc(GLenum source, GLenum type, GLuint id, GLenum
     }
 }
 
+static void shader_load_err(void* userdata, const char* err)
+{
+    (void) userdata;
+    fprintf(stderr, "%s\n", err);
+}
+
+static GLuint load_shader_from_files(const char* vsp, const char* gsp, const char* fsp)
+{
+    /* Load settings */
+    struct shader_load_settings settings;
+    memset(&settings, 0, sizeof(settings));
+    settings.load_type = SHADER_LOAD_FILE;
+    settings.error_cb = shader_load_err;
+    /* Vertex */
+    GLuint vs = glCreateShader(GL_VERTEX_SHADER);
+    const char* vs_src = shader_load(vsp, &settings);
+    glShaderSource(vs, 1, &vs_src, 0);
+    free((void*)vs_src);
+    glCompileShader(vs);
+    gl_check_last_compile_error(vs);
+    /* Geometry */
+    GLuint gs = 0;
+    if (gsp) {
+        gs = glCreateShader(GL_GEOMETRY_SHADER);
+        const char* gs_src = shader_load(gsp, &settings);
+        glShaderSource(gs, 1, &gs_src, 0);
+        free((void*)gs_src);
+        glCompileShader(gs);
+        gl_check_last_compile_error(gs);
+    }
+    /* Fragment */
+    GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
+    const char* fs_src = shader_load(fsp, &settings);
+    glShaderSource(fs, 1, &fs_src, 0);
+    free((void*)fs_src);
+    glCompileShader(fs);
+    gl_check_last_compile_error(fs);
+    /* Create program */
+    GLuint prog = glCreateProgram();
+    glAttachShader(prog, vs);
+    if (gsp)
+        glAttachShader(prog, gs);
+    glAttachShader(prog, fs);
+    glLinkProgram(prog);
+    gl_check_last_link_error(prog);
+    /* Free unnecessary resources */
+    glDeleteShader(vs);
+    if (gsp)
+        glDeleteShader(gs);
+    glDeleteShader(fs);
+    return prog;
+}
+
 static void on_key(struct window* wnd, int key, int scancode, int action, int mods)
 {
     (void)scancode; (void)mods;
@@ -294,57 +347,21 @@ static void setup_data(struct game_context* ctx)
 static void game_visualize_normals_setup(struct game_context* ctx)
 {
     ctx->visualizing_normals = 0;
-    /* Load shaders */
-    GLuint vs = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vs, 1, &NV_VS_SRC, 0);
-    glCompileShader(vs);
-    gl_check_last_compile_error(vs);
-    GLuint gs = glCreateShader(GL_GEOMETRY_SHADER);
-    glShaderSource(gs, 1, &NV_GS_SRC, 0);
-    glCompileShader(gs);
-    gl_check_last_compile_error(gs);
-    GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fs, 1, &NV_FS_SRC, 0);
-    glCompileShader(fs);
-    gl_check_last_compile_error(fs);
-    /* Create program */
-    ctx->vis_nrm_prog = glCreateProgram();
-    glAttachShader(ctx->vis_nrm_prog, vs);
-    glAttachShader(ctx->vis_nrm_prog, gs);
-    glAttachShader(ctx->vis_nrm_prog, fs);
-    glLinkProgram(ctx->vis_nrm_prog);
-    gl_check_last_link_error(ctx->vis_nrm_prog);
-    glDeleteShader(vs);
-    glDeleteShader(gs);
-    glDeleteShader(fs);
+    ctx->vis_nrm_prog = load_shader_from_files(
+        "ext/shaders/nm_vis_vs.glsl",
+        "ext/shaders/nm_vis_gs.glsl",
+        "ext/shaders/nm_vis_fs.glsl"
+    );
 }
 
 static void game_visualize_skeleton_setup(struct game_context* ctx)
 {
     ctx->visualizing_skeleton = 0;
-    /* Load shaders */
-    GLuint vs = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vs, 1, &SV_VS_SRC, 0);
-    glCompileShader(vs);
-    gl_check_last_compile_error(vs);
-    GLuint gs = glCreateShader(GL_GEOMETRY_SHADER);
-    glShaderSource(gs, 1, &SV_GS_SRC, 0);
-    glCompileShader(gs);
-    gl_check_last_compile_error(gs);
-    GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fs, 1, &SV_FS_SRC, 0);
-    glCompileShader(fs);
-    gl_check_last_compile_error(fs);
-    /* Create program */
-    ctx->vis_skel_prog = glCreateProgram();
-    glAttachShader(ctx->vis_skel_prog, vs);
-    glAttachShader(ctx->vis_skel_prog, gs);
-    glAttachShader(ctx->vis_skel_prog, fs);
-    glLinkProgram(ctx->vis_skel_prog);
-    gl_check_last_link_error(ctx->vis_skel_prog);
-    glDeleteShader(vs);
-    glDeleteShader(gs);
-    glDeleteShader(fs);
+    ctx->vis_skel_prog = load_shader_from_files(
+        "ext/shaders/sv_vis_vs.glsl",
+        "ext/shaders/sv_vis_gs.glsl",
+        "ext/shaders/sv_vis_fs.glsl"
+    );
 }
 
 void game_init(struct game_context* ctx)
@@ -376,23 +393,11 @@ void game_init(struct game_context* ctx)
     setup_data(ctx);
 
     /* Load shaders */
-    GLuint vs = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vs, 1, &VS_SRC, 0);
-    glCompileShader(vs);
-    gl_check_last_compile_error(vs);
-    GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fs, 1, &FS_SRC, 0);
-    glCompileShader(fs);
-    gl_check_last_compile_error(fs);
-
-    /* Create program */
-    ctx->prog = glCreateProgram();
-    glAttachShader(ctx->prog, vs);
-    glAttachShader(ctx->prog, fs);
-    glLinkProgram(ctx->prog);
-    gl_check_last_link_error(ctx->prog);
-    glDeleteShader(fs);
-    glDeleteShader(vs);
+    ctx->prog = load_shader_from_files(
+        "ext/shaders/main_vs.glsl",
+        0,
+        "ext/shaders/main_fs.glsl"
+    );
 
     /* Setup camera */
     camera_defaults(&ctx->cam);
