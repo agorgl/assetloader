@@ -236,13 +236,14 @@ else
 endif
 
 ifdef CROSS_COMPILE
-	CC := $(CROSS_COMPILE)-$(CC)
+	CC  := $(CROSS_COMPILE)-$(CC)
 	CXX := $(CROSS_COMPILE)-$(CXX)
-	AR := $(CROSS_COMPILE)-$(AR)
-	LD := $(CROSS_COMPILE)-$(LD)
-	CFLAGS += $(SYSROOT)
-	CXXFLAGS += $(SYSROOT)
-	CPPFLAGS += $(SYSROOT)
+	AR  := $(CROSS_COMPILE)-$(AR)
+	LD  := $(CROSS_COMPILE)-$(LD)
+	CFLAGS   += --sysroot=$(SYSROOT)
+	CXXFLAGS += --sysroot=$(SYSROOT)
+	CPPFLAGS += --sysroot=$(SYSROOT)
+	LDFLAGS  += --sysroot=$(SYSROOT)
 endif
 
 #---------------------------------------------------------------
