@@ -49,7 +49,7 @@ SRC = \
 	src/Alc/backends/loopback.c \
 	src/Alc/backends/null.c \
 	src/Alc/backends/wave.c
-ifeq ($(OS), Windows_NT)
+ifeq ($(TARGET_OS), Windows_NT)
 	SRC += \
 		src/Alc/backends/winmm.c \
 		src/Alc/backends/mmdevapi.c

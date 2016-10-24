@@ -43,7 +43,7 @@ extern "C" {
     #endif
     #define _WIN32_WINNT 0x0601
     #include <winsock2.h>
-    #include <Ws2tcpip.h>
+    #include <ws2tcpip.h>
 #else
   /* Assume that any non-Windows platform uses POSIX-style sockets instead. */
   #include <sys/socket.h>

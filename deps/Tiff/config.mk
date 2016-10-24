@@ -39,7 +39,7 @@ SRC = \
 	src/tif_write.c \
 	src/tif_zip.c \
 	src/tif_stream.cxx
-ifeq ($(OS), Windows_NT)
+ifeq ($(TARGET_OS), Windows_NT)
 	SRC += src/tif_win32.c
 else
 	SRC += src/tif_unix.c

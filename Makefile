@@ -43,6 +43,8 @@ export MKLOC
 VARIANT ?= Debug
 SILENT ?=
 TOOLCHAIN ?= GCC
+# Default target OS is host if not provided
+TARGET_OS ?= $(OS)
 
 #---------------------------------------------------------------
 # Helpers
@@ -113,7 +115,7 @@ searchlibrary = $(foreach sd, $2, $(call findfile, $(sd), $1))
 # Global constants
 #---------------------------------------------------------------
 # Os executable extension
-ifeq ($(OS), Windows_NT)
+ifeq ($(TARGET_OS), Windows_NT)
 	EXECEXT = .exe
 else
 	EXECEXT = .out
@@ -219,7 +221,7 @@ else
 	# Linker
 	LD = g++
 	LDFLAGS =
-	ifeq ($(OS), Windows_NT)
+	ifeq ($(TARGET_OS), Windows_NT)
 		LDFLAGS += -static -static-libgcc -static-libstdc++
 	endif
 	LIBFLAG = -l
@@ -231,6 +233,16 @@ else
 	else
 		CFLAGS += -O2
 	endif
+endif
+
+ifdef CROSS_COMPILE
+	CC := $(CROSS_COMPILE)-$(CC)
+	CXX := $(CROSS_COMPILE)-$(CXX)
+	AR := $(CROSS_COMPILE)-$(AR)
+	LD := $(CROSS_COMPILE)-$(LD)
+	CFLAGS += $(SYSROOT)
+	CXXFLAGS += $(SYSROOT)
+	CPPFLAGS += $(SYSROOT)
 endif
 
 #---------------------------------------------------------------

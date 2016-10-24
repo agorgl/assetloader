@@ -5,7 +5,7 @@ SRC = \
 	src/input.c   \
 	src/monitor.c \
 	src/window.c
-ifeq ($(OS), Windows_NT)
+ifeq ($(TARGET_OS), Windows_NT)
 	SRC += \
 		src/win32_init.c     \
 		src/win32_monitor.c  \
@@ -27,7 +27,7 @@ else
 endif
 
 DEFINES = _GLFW_USE_OPENGL
-ifeq ($(OS), Windows_NT)
+ifeq ($(TARGET_OS), Windows_NT)
 	DEFINES += \
 		_GLFW_WIN32 \
 		_GLFW_WGL
