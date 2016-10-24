@@ -301,6 +301,7 @@ SRCDIR_$(D) := $$(foreach d, $$(SRCDIR), $(DP)$$(d))
 SRC_$(D) := $$(foreach s, $$(SRC), $(DP)$$(s))
 DEFINES_$(D) := $$(DEFINES)
 ADDINCS_$(D) := $$(foreach ai, $$(ADDINCS), $(DP)$$(ai))
+ADDLIBDIR_$(D) := $$(foreach ald, $$(ADDLIBDIR), $(DP)$$(ald))
 LIBS_$(D) := $$(foreach l, $$(LIBS), $$(l))
 MOREDEPS_$(D) := $$(MOREDEPS)
 
@@ -358,7 +359,7 @@ INCDIR_$(D) += $$(strip $$(foreach addinc, $$(ADDINCS_$(D)), $(INCFLAG)$$(addinc
 # Library search directories
 LIBSDIR_$(D) := $$(strip $$(foreach libdir,\
 									$$(foreach dep, $$(DEPS_$(D)), $$(dep)/lib) \
-									$$(foreach ald, $$(ADDLIBDIR), $(DP)$$(ald)),\
+									$$(ADDLIBDIR_$(D)),\
 								$(LIBSDIRFLAG)$$(libdir)/$(strip $(VARIANT))))
 # Library flags
 LIBFLAGS_$(D) := $$(strip $$(foreach lib, $$(LIBS_$(D)), $(LIBFLAG)$$(lib)$(if $(filter $(TOOLCHAIN), MSVC),.lib,)))
