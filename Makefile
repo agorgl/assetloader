@@ -265,16 +265,6 @@ ifdef CROSS_COMPILE
 endif
 
 #---------------------------------------------------------------
-# Command generator functions
-#---------------------------------------------------------------
-# 1 = CPPFLAGS, 2 = INCDIR, 3 = MOREFLAGS
-ccompile = $(CC) $(CFLAGS) $(1) $(2) $< $(COUTFLAG) $@ $(3)
-cxxcompile = $(CXX) $(CFLAGS) $(CXXFLAGS) $(1) $(2) $< $(COUTFLAG) $@ $(3)
-# 1 = LIBSDIR, 2 = LIBFLAGS, 3 = $^, 4 = MOREFLAGS
-link = $(LD) $(LDFLAGS) $(1) $(LOUTFLAG)$@ $(3) $(2) $(4)
-archive = $(AR) $(ARFLAGS) $(AROUTFLAG)$@ $^
-
-#---------------------------------------------------------------
 # Rule generators
 #---------------------------------------------------------------
 # Compile rules (1 = extension, 2 = command generator, 3 = subproject path)
@@ -456,17 +446,21 @@ LINKEXT := $$(if $$(filter $$(PRJTYPE_$(D)), DynLib), $(DLEXT), $(EXECEXT))
 $(DP)%$$(strip $$(LINKEXT)): $$(LIBDEPS_$(D)) $$(OBJ_$(D))
 	@$$(info $(DGREEN_COLOR)[+] Linking$(NO_COLOR) $(DYELLOW_COLOR)$$@$(NO_COLOR))
 	@$$(call mkdir, $$(@D))
-	@$$(call link, $$(LIBSDIR_$(D)), $$(LIBFLAGS_$(D)), $$(OBJ_$(D)), $$(MORELFLAGS_$(D)))
+	@$(LD) $(LDFLAGS) $$(LIBSDIR_$(D)) $(LOUTFLAG)$$@ $$(OBJ_$(D)) $$(LIBFLAGS_$(D)) $$(MORELFLAGS_$(D))
 
 # Archive rule
 $(DP)%$(SLIBEXT): $$(OBJ_$(D))
 	@$$(info $(DCYAN_COLOR)[+] Archiving$(NO_COLOR) $(DYELLOW_COLOR)$$@$(NO_COLOR))
 	@$$(call mkdir, $$(@D))
-	@$$(archive)
+	@$(AR) $(ARFLAGS) $(AROUTFLAG)$$@ $$^
+
+# Compile commands
+CCOMPILE_$(D)   = $(CC) $(CFLAGS) $$(CPPFLAGS_$(D)) $$(INCDIR_$(D)) $$< $(COUTFLAG) $$@ $$(MORECFLAGS_$(D))
+CXXCOMPILE_$(D) = $(CXX) $(CFLAGS) $(CXXFLAGS) $$(CPPFLAGS_$(D)) $$(INCDIR_$(D)) $$< $(COUTFLAG) $$@ $$(MORECFLAGS_$(D))
 
 # Generate compile rules
-$(call compile-rule, c, $$(call ccompile, $$(CPPFLAGS_$(D)), $$(INCDIR_$(D)), $$(MORECFLAGS_$(D))), $(DP))
-$(foreach ext, cpp cxx cc, $(call compile-rule, $(ext), $$(call cxxcompile, $$(CPPFLAGS_$(D)), $$(INCDIR_$(D)), $$(MORECFLAGS_$(D))), $(DP))${\n})
+$(call compile-rule, c, $$(CCOMPILE_$(D)), $(DP))
+$(foreach ext, cpp cxx cc, $(call compile-rule, $(ext), $$(CXXCOMPILE_$(D)), $(DP))${\n})
 
 endef
 
