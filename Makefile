@@ -52,11 +52,18 @@ TARGET_OS ?= $(OS)
 # Recursive wildcard func
 rwildcard = $(foreach d, $(wildcard $1*), $(call rwildcard, $d/, $2) $(filter $(subst *, %, $2), $d))
 
-# Suppress command errors
+# Suppress full command output
 ifeq ($(OS), Windows_NT)
-	suppress_out = > nul 2>&1 || (exit 0)
+	suppress_out = > nul 2>&1
 else
-	suppress_out = > /dev/null 2>&1 || true
+	suppress_out = > /dev/null 2>&1
+endif
+
+# Ignore command error
+ifeq ($(OS), Windows_NT)
+	ignore_err = || (exit 0)
+else
+	ignore_err = || true
 endif
 
 # Native paths
@@ -72,7 +79,7 @@ ifeq ($(OS), Windows_NT)
 else
 	MKDIR_CMD = mkdir -p
 endif
-mkdir = -$(if $(wildcard $(1)/.*), , $(MKDIR_CMD) $(call native_path, $(1)) $(suppress_out))
+mkdir = -$(if $(wildcard $(1)/.*), , $(MKDIR_CMD) $(call native_path, $(1)) $(suppress_out)$(ignore_err))
 
 # Rmdir command
 ifeq ($(OS), Windows_NT)
