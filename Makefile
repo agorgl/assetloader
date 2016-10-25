@@ -400,7 +400,7 @@ ifneq ($(TARGET_OS), Windows_NT)
 	# Library paths relative to the executable
 	LIBRELPATHS_$(D) := $$(strip $$(foreach p, $$(LIBPATHS_$(D)), $$(RELPPREFIX_$(D))$$(p)))
 	# Add rpath param to search for dependent shared libraries relative to the executable location
-	MORELFLAGS_$(D) := '-Wl$$(comma)-rpath$$(comma)$$(subst $$(space),:,$$(addprefix $$$$$$$$ORIGIN/, $$(LIBRELPATHS_$(D))))'
+	MORELFLAGS_$(D) := '-Wl$$(comma)-rpath$$(comma)$$(subst $$(space),:,$$(addprefix $$$$ORIGIN/, $$(LIBRELPATHS_$(D))))'
 endif
 endif
 
@@ -423,9 +423,8 @@ build_$(D): $$(BUILDDEPS_$(D)) variables_$(D) $$(OBJ_$(D)) $$(MASTEROUT_$(D))
 
 # Executes target
 run_$(D): build_$(D)
-	$$(eval exec = $$(MASTEROUT_$(D)))
-	@echo Executing $$(exec) ...
-	@cd $(D) && $$(call native_path, $$(call canonical_path, $$(abspath $$(CURDIR)/$(D)), $$(exec)))
+	@echo Executing $$(MASTEROUT_$(D)) ...
+	@cd $(D) && $$(call native_path, $$(call canonical_path, $$(abspath $$(CURDIR)/$(D)), $$(MASTEROUT_$(D))))
 
 # Set variables for current build execution
 variables_$(D):
@@ -453,15 +452,13 @@ LINKEXT := $$(if $$(filter $$(PRJTYPE_$(D)), DynLib), $(DLEXT), $(EXECEXT))
 $(DP)%$$(strip $$(LINKEXT)): $$(LIBDEPS_$(D)) $$(OBJ_$(D))
 	@$$(info $(DGREEN_COLOR)[+] Linking$(NO_COLOR) $(DYELLOW_COLOR)$$@$(NO_COLOR))
 	@$$(call mkdir, $$(@D))
-	$$(eval lcommand = $$(call link, $$(LIBSDIR_$(D)), $$(LIBFLAGS_$(D)), $$(OBJ_$(D)), $$(MORELFLAGS_$(D))))
-	@$$(lcommand)
+	@$$(call link, $$(LIBSDIR_$(D)), $$(LIBFLAGS_$(D)), $$(OBJ_$(D)), $$(MORELFLAGS_$(D)))
 
 # Archive rule
 $(DP)%$(SLIBEXT): $$(OBJ_$(D))
 	@$$(info $(DCYAN_COLOR)[+] Archiving$(NO_COLOR) $(DYELLOW_COLOR)$$@$(NO_COLOR))
 	@$$(call mkdir, $$(@D))
-	$$(eval lcommand = $$(archive))
-	@$$(lcommand)
+	@$$(archive)
 
 # Generate compile rules
 $(call compile-rule, c, $$(call ccompile, $$(CPPFLAGS_$(D)), $$(INCDIR_$(D)), $$(MORECFLAGS_$(D))), $(DP))
