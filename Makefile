@@ -82,6 +82,9 @@ else
 endif
 rmdir = $(if $(wildcard $(1)/.*), $(RMDIR_CMD) $(call native_path, $(1)),)
 
+# Path separator
+pathsep = $(strip $(if $(filter $(OS), Windows_NT), ;, :))
+
 # Lowercase
 lc = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(subst G,g,\
 	$(subst H,h,$(subst I,i,$(subst J,j,$(subst K,k,$(subst L,l,$(subst M,m,$(subst N,n,\
@@ -202,7 +205,7 @@ ifeq ($(TOOLCHAIN), MSVC)
 	AROUTFLAG   := /OUT:
 	# Linker
 	LD          := link
-	LDFLAGS     := /nologo /manifest /entry:mainCRTStartup
+	LDFLAGS     := /nologo /manifest
 	LIBFLAG     :=
 	LIBSDIRFLAG := /LIBPATH:
 	LOUTFLAG    := /OUT:
@@ -236,7 +239,7 @@ else
 	LD          := g++
 	LDFLAGS     :=
 	ifeq ($(TARGET_OS), Windows_NT)
-		LDFLAGS += -static -static-libgcc -static-libstdc++
+		LDFLAGS += -static-libgcc -static-libstdc++
 	endif
 	LIBFLAG     := -l
 	LIBSDIRFLAG := -L
@@ -424,6 +427,7 @@ build_$(D): $$(BUILDDEPS_$(D)) variables_$(D) $$(OBJ_$(D)) $$(MASTEROUT_$(D))
 # Executes target
 run_$(D): build_$(D)
 	@echo Executing $$(MASTEROUT_$(D)) ...
+	@$$(eval export PATH := $(PATH)$(pathsep)$$(subst $$(space),$(pathsep),$$(addprefix $$(CURDIR)/, $$(LIBPATHS_$(D)))))
 	@cd $(D) && $$(call native_path, $$(call canonical_path, $$(abspath $$(CURDIR)/$(D)), $$(MASTEROUT_$(D))))
 
 # Set variables for current build execution
