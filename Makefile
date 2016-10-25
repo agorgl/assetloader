@@ -41,8 +41,9 @@ export MKLOC
 #---------------------------------------------------------------
 # Variant = (Debug|Release)
 VARIANT ?= Debug
-SILENT ?=
 TOOLCHAIN ?= GCC
+SILENT ?=
+VERBOSE ?=
 # Default target OS is host if not provided
 TARGET_OS ?= $(OS)
 
@@ -100,6 +101,9 @@ lc = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(s
 
 # Quiet execution of command
 quiet = $(if $(SILENT), $(suppress_out),)
+
+# Command shown when executed
+showcmd = $(if $(VERBOSE),,@)
 
 # Newline macro
 define \n
@@ -279,7 +283,7 @@ define compile-rule
 $(BUILDDIR)/$(VARIANT)/$(strip $(3))%.$(strip $(1))$(OBJEXT): $(strip $(3))%.$(strip $(1))
 	@$$(info $(LGREEN_COLOR)[>] Compiling$(NO_COLOR) $(LYELLOW_COLOR)$$<$(NO_COLOR))
 	@$$(call mkdir, $$(@D))
-	@$$(call dep-gen-wrapper, $(2), $(SILENT)) $(quiet)
+	$(showcmd)$$(call dep-gen-wrapper, $(2), $(SILENT)) $(quiet)
 endef
 
 #---------------------------------------------------------------
@@ -453,13 +457,13 @@ LINKEXT := $$(if $$(filter $$(PRJTYPE_$(D)), DynLib), $(DLEXT), $(EXECEXT))
 $(DP)%$$(strip $$(LINKEXT)): $$(LIBDEPS_$(D)) $$(OBJ_$(D))
 	@$$(info $(DGREEN_COLOR)[+] Linking$(NO_COLOR) $(DYELLOW_COLOR)$$@$(NO_COLOR))
 	@$$(call mkdir, $$(@D))
-	@$(LD) $(LDFLAGS) $$(LIBSDIR_$(D)) $(LOUTFLAG)$$@ $$(OBJ_$(D)) $$(LIBFLAGS_$(D)) $$(MORELFLAGS_$(D))
+	$(showcmd)$(LD) $(LDFLAGS) $$(LIBSDIR_$(D)) $(LOUTFLAG)$$@ $$(OBJ_$(D)) $$(LIBFLAGS_$(D)) $$(MORELFLAGS_$(D))
 
 # Archive rule
 $(DP)%$(SLIBEXT): $$(OBJ_$(D))
 	@$$(info $(DCYAN_COLOR)[+] Archiving$(NO_COLOR) $(DYELLOW_COLOR)$$@$(NO_COLOR))
 	@$$(call mkdir, $$(@D))
-	@$(AR) $(ARFLAGS) $(AROUTFLAG)$$@ $$^
+	$(showcmd)$(AR) $(ARFLAGS) $(AROUTFLAG)$$@ $$^
 
 # Compile commands
 CCOMPILE_$(D)   = $(CC) $(CFLAGS) $$(CPPFLAGS_$(D)) $$(INCDIR_$(D)) $$< $(COUTFLAG) $$@ $$(MORECFLAGS_$(D))
