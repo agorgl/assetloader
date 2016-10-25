@@ -170,83 +170,83 @@ endif
 # Colors
 #---------------------------------------------------------------
 ifneq ($(OS), Windows_NT)
-	ESC = $(shell echo -e -n '\x1b')
+	ESC := $(shell echo -e -n '\x1b')
 endif
-NO_COLOR=$(ESC)[0m
-LGREEN_COLOR=$(ESC)[92m
-LYELLOW_COLOR=$(ESC)[93m
-LMAGENTA_COLOR=$(ESC)[95m
-LRED_COLOR=$(ESC)[91m
-DGREEN_COLOR=$(ESC)[32m
-DYELLOW_COLOR=$(ESC)[33m
-DCYAN_COLOR=$(ESC)[36m
+NO_COLOR       := $(ESC)[0m
+LGREEN_COLOR   := $(ESC)[92m
+LYELLOW_COLOR  := $(ESC)[93m
+LMAGENTA_COLOR := $(ESC)[95m
+LRED_COLOR     := $(ESC)[91m
+DGREEN_COLOR   := $(ESC)[32m
+DYELLOW_COLOR  := $(ESC)[33m
+DCYAN_COLOR    := $(ESC)[36m
 
 #---------------------------------------------------------------
 # Toolchain dependent values
 #---------------------------------------------------------------
 ifeq ($(TOOLCHAIN), MSVC)
 	# Compiler
-	CC = cl
-	CXX = cl
-	CFLAGS = /nologo /EHsc /W4 /c
-	CXXFLAGS =
-	COUTFLAG = /Fo:
+	CC          := cl
+	CXX         := cl
+	CFLAGS      := /nologo /EHsc /W4 /c
+	CXXFLAGS    :=
+	COUTFLAG    := /Fo:
 	# Preprocessor
-	INCFLAG = /I
-	DEFINEFLAG = /D
+	INCFLAG     := /I
+	DEFINEFLAG  := /D
 	# Archiver
-	AR = lib
-	ARFLAGS = /nologo
-	SLIBEXT = .lib
-	SLIBPREF =
-	AROUTFLAG = /OUT:
+	AR          := lib
+	ARFLAGS     := /nologo
+	SLIBEXT     := .lib
+	SLIBPREF    :=
+	AROUTFLAG   := /OUT:
 	# Linker
-	LD = link
-	LDFLAGS = /nologo /manifest /entry:mainCRTStartup
-	LIBFLAG =
-	LIBSDIRFLAG = /LIBPATH:
-	LOUTFLAG = /OUT:
-	LSOFLAGS = /DLL
+	LD          := link
+	LDFLAGS     := /nologo /manifest /entry:mainCRTStartup
+	LIBFLAG     :=
+	LIBSDIRFLAG := /LIBPATH:
+	LOUTFLAG    := /OUT:
+	LSOFLAGS    := /DLL
 	# Variant specific flags
 	ifeq ($(VARIANT), Debug)
-		CFLAGS += /MTd /Zi /Od /FS /Fd:$(BUILDDIR)/$(TARGETNAME).pdb
+		CFLAGS  += /MTd /Zi /Od /FS /Fd:$(BUILDDIR)/$(TARGETNAME).pdb
 		LDFLAGS += /debug
 	else
-		CFLAGS += /MT /O2
+		CFLAGS  += /MT /O2
 		LDFLAGS += /incremental:NO
 	endif
 else
 	# Compiler
-	CC = gcc
-	CXX = g++
-	CFLAGS = -Wall -Wextra -c
-	CXXFLAGS = -std=c++14
-	COUTFLAG = -o
-	CSOFLAGS = -fPIC
+	CC          := gcc
+	CXX         := g++
+	CFLAGS      := -Wall -Wextra -c
+	CXXFLAGS    := -std=c++14
+	COUTFLAG    := -o
+	CSOFLAGS    := -fPIC
 	# Preprocessor
-	INCFLAG = -I
-	DEFINEFLAG = -D
+	INCFLAG     := -I
+	DEFINEFLAG  := -D
 	# Archiver
-	AR = ar
-	ARFLAGS = rcs
-	SLIBEXT = .a
-	SLIBPREF = lib
-	AROUTFLAG =
+	AR          := ar
+	ARFLAGS     := rcs
+	SLIBEXT     := .a
+	SLIBPREF    := lib
+	AROUTFLAG   :=
 	# Linker
-	LD = g++
-	LDFLAGS =
+	LD          := g++
+	LDFLAGS     :=
 	ifeq ($(TARGET_OS), Windows_NT)
 		LDFLAGS += -static -static-libgcc -static-libstdc++
 	endif
-	LIBFLAG = -l
-	LIBSDIRFLAG = -L
-	LOUTFLAG = -o
-	LSOFLAGS = -shared -fPIC
+	LIBFLAG     := -l
+	LIBSDIRFLAG := -L
+	LOUTFLAG    := -o
+	LSOFLAGS    := -shared -fPIC
 	# Variant specific flags
 	ifeq ($(VARIANT), Debug)
-		CFLAGS += -g -O0
+		CFLAGS  += -g -O0
 	else
-		CFLAGS += -O2
+		CFLAGS  += -O2
 	endif
 endif
 
@@ -311,20 +311,20 @@ $(foreach v, PRJTYPE LIBS SRCDIR SRC DEFINES ADDINCS MOREDEPS, undefine $(v)${\n
 -include $(DP)config.mk
 
 # Gather variables from config
-PRJTYPE_$(D) := $$(PRJTYPE)
-SRCDIR_$(D) := $$(foreach d, $$(SRCDIR), $(DP)$$(d))
-SRC_$(D) := $$(foreach s, $$(SRC), $(DP)$$(s))
-DEFINES_$(D) := $$(DEFINES)
-ADDINCS_$(D) := $$(foreach ai, $$(ADDINCS), $(DP)$$(ai))
+PRJTYPE_$(D)   := $$(PRJTYPE)
+SRCDIR_$(D)    := $$(foreach d, $$(SRCDIR), $(DP)$$(d))
+SRC_$(D)       := $$(foreach s, $$(SRC), $(DP)$$(s))
+DEFINES_$(D)   := $$(DEFINES)
+ADDINCS_$(D)   := $$(foreach ai, $$(ADDINCS), $(DP)$$(ai))
 ADDLIBDIR_$(D) := $$(foreach ald, $$(ADDLIBDIR), $(DP)$$(ald))
-LIBS_$(D) := $$(foreach l, $$(LIBS), $$(l))
-MOREDEPS_$(D) := $$(MOREDEPS)
+LIBS_$(D)      := $$(foreach l, $$(LIBS), $$(l))
+MOREDEPS_$(D)  := $$(MOREDEPS)
 
 # Set defaults on unset variables
 TARGETNAME_$(D) := $$(or $$(TARGETNAME_$(D)), $$(notdir $$(if $$(filter $(D),.), $$(CURDIR), $(D))))
-SRCDIR_$(D) := $$(or $$(SRCDIR_$(D)), $(DP)src)
-SRCEXT_$(D) := *.c *.cpp *.cc *.cxx
-SRC_$(D) := $$(or $$(SRC_$(D)), $$(call rwildcard, $$(SRCDIR_$(D)), $$(SRCEXT_$(D))))
+SRCDIR_$(D)     := $$(or $$(SRCDIR_$(D)), $(DP)src)
+SRCEXT_$(D)     := *.c *.cpp *.cc *.cxx
+SRC_$(D)        := $$(or $$(SRC_$(D)), $$(call rwildcard, $$(SRCDIR_$(D)), $$(SRCEXT_$(D))))
 
 # Target directory
 ifeq ($$(PRJTYPE_$(D)), Executable)
@@ -434,17 +434,17 @@ variables_$(D):
 # Print build debug info
 showvars_$(D): variables_$(D)
 	@echo MASTEROUT: $$(MASTEROUT_$(D))
-	@echo SRCDIR: $$(SRCDIR_$(D))
-	@echo SRC: $$(SRC_$(D))
-	@echo DEPS: $$(DEPS_$(D))
+	@echo SRCDIR:    $$(SRCDIR_$(D))
+	@echo SRC:       $$(SRC_$(D))
+	@echo DEPS:      $$(DEPS_$(D))
 	@echo BUILDDEPS: $$(BUILDDEPS_$(D))
-	@echo CFLAGS: $$(CFLAGS)
-	@echo CPPFLAGS: $$(CPPFLAGS_$(D))
-	@echo INCDIR: $$(INCDIR_$(D))
-	@echo LIBSDIR: $$(LIBSDIR_$(D))
-	@echo LIBFLAGS: $$(LIBFLAGS_$(D))
-	@echo LIBDEPS: $$(LIBDEPS_$(D))
-	@echo HDEPS: $$(HDEPS_$(D))
+	@echo CFLAGS:    $$(CFLAGS)
+	@echo CPPFLAGS:  $$(CPPFLAGS_$(D))
+	@echo INCDIR:    $$(INCDIR_$(D))
+	@echo LIBSDIR:   $$(LIBSDIR_$(D))
+	@echo LIBFLAGS:  $$(LIBFLAGS_$(D))
+	@echo LIBDEPS:   $$(LIBDEPS_$(D))
+	@echo HDEPS:     $$(HDEPS_$(D))
 
 # Current link target extension
 LINKEXT := $$(if $$(filter $$(PRJTYPE_$(D)), DynLib), $(DLEXT), $(EXECEXT))
