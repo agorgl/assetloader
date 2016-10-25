@@ -23,8 +23,8 @@
 #   - lib [6]
 #   - tmp [7]
 # Where:
-#  [5] contains binary results of the linking process (executables, dynamic libraries)
-#  [6] contains archive results of the archiving process (static libraries)
+#  [5] contains executable results
+#  [6] contains library results (static or shared)
 #  [7] contains intermediate object files of compiling processes
 
 # CreateProcess NULL bug
@@ -97,6 +97,12 @@ define \n
 
 endef
 
+# Space variable
+space := $(subst ,, )
+
+# Comma variable
+comma := ,
+
 # Canonical path (1 = base, 2 = path)
 canonical_path = $(filter-out $(1), $(patsubst $(strip $(1))/%,%,$(abspath $(2))))
 canonical_path_cur = $(call canonical_path, $(CURDIR), $(1))
@@ -119,6 +125,12 @@ ifeq ($(TARGET_OS), Windows_NT)
 	EXECEXT = .exe
 else
 	EXECEXT = .out
+endif
+# Os dynamic library extension
+ifeq ($(TARGET_OS), Windows_NT)
+	DLEXT = .dll
+else
+	DLEXT = .so
 endif
 # Object file extension
 OBJEXT = .o
@@ -194,6 +206,7 @@ ifeq ($(TOOLCHAIN), MSVC)
 	LIBFLAG =
 	LIBSDIRFLAG = /LIBPATH:
 	LOUTFLAG = /OUT:
+	LSOFLAGS = /DLL
 	# Variant specific flags
 	ifeq ($(VARIANT), Debug)
 		CFLAGS += /MTd /Zi /Od /FS /Fd:$(BUILDDIR)/$(TARGETNAME).pdb
@@ -209,6 +222,7 @@ else
 	CFLAGS = -Wall -Wextra -c
 	CXXFLAGS = -std=c++14
 	COUTFLAG = -o
+	CSOFLAGS = -fPIC
 	# Preprocessor
 	INCFLAG = -I
 	DEFINEFLAG = -D
@@ -227,6 +241,7 @@ else
 	LIBFLAG = -l
 	LIBSDIRFLAG = -L
 	LOUTFLAG = -o
+	LSOFLAGS = -shared -fPIC
 	# Variant specific flags
 	ifeq ($(VARIANT), Debug)
 		CFLAGS += -g -O0
@@ -249,11 +264,11 @@ endif
 #---------------------------------------------------------------
 # Command generator functions
 #---------------------------------------------------------------
-# 1 = CPPFLAGS, 2 = INCDIR
-ccompile = $(CC) $(CFLAGS) $(1) $(2) $< $(COUTFLAG) $@
-cxxcompile = $(CXX) $(CFLAGS) $(CXXFLAGS) $(1) $(2) $< $(COUTFLAG) $@
-# 1 = LIBSDIR, 2 = LIBFLAGS 3 = $^
-link = $(LD) $(LDFLAGS) $(1) $(LOUTFLAG)$@ $(3) $(2)
+# 1 = CPPFLAGS, 2 = INCDIR, 3 = MOREFLAGS
+ccompile = $(CC) $(CFLAGS) $(1) $(2) $< $(COUTFLAG) $@ $(3)
+cxxcompile = $(CXX) $(CFLAGS) $(CXXFLAGS) $(1) $(2) $< $(COUTFLAG) $@ $(3)
+# 1 = LIBSDIR, 2 = LIBFLAGS, 3 = $^, 4 = MOREFLAGS
+link = $(LD) $(LDFLAGS) $(1) $(LOUTFLAG)$@ $(3) $(2) $(4)
 archive = $(AR) $(ARFLAGS) $(AROUTFLAG)$@ $^
 
 #---------------------------------------------------------------
@@ -312,10 +327,10 @@ SRCEXT_$(D) := *.c *.cpp *.cc *.cxx
 SRC_$(D) := $$(or $$(SRC_$(D)), $$(call rwildcard, $$(SRCDIR_$(D)), $$(SRCEXT_$(D))))
 
 # Target directory
-ifeq ($$(PRJTYPE_$(D)), StaticLib)
-	TARGETDIR_$(D) := $(DP)lib
-else
+ifeq ($$(PRJTYPE_$(D)), Executable)
 	TARGETDIR_$(D) := $(DP)bin
+else
+	TARGETDIR_$(D) := $(DP)lib
 endif
 
 #---------------------------------------------------------------
@@ -329,6 +344,8 @@ HDEPS_$(D) := $$(OBJ_$(D):$(OBJEXT)=$(HDEPEXT))
 # Output
 ifeq ($$(PRJTYPE_$(D)), StaticLib)
 	TARGET_$(D) := $(SLIBPREF)$$(strip $$(call lc,$$(TARGETNAME_$(D))))$(SLIBEXT)
+else ifeq ($$(PRJTYPE_$(D)), DynLib)
+	TARGET_$(D) := $(SLIBPREF)$$(strip $$(call lc,$$(TARGETNAME_$(D))))$(DLEXT)
 else
 	TARGET_$(D) := $$(TARGETNAME_$(D))$(EXECEXT)
 endif
@@ -353,24 +370,48 @@ INCDIR_$(D) := $$(strip $(INCFLAG)$(DP)include \
 						$$(foreach dep, $$(DEPS_$(D)) \
 										$$(filter-out $$(DEPS_$(D)), $$(wildcard $$(DEPSDIR_$(D))/*)), \
 										$(INCFLAG)$$(dep)/include))
+
 # Include directories (explicit)
 INCDIR_$(D) += $$(strip $$(foreach addinc, $$(ADDINCS_$(D)), $(INCFLAG)$$(addinc)))
 
-# Library search directories
-LIBSDIR_$(D) := $$(strip $$(foreach libdir,\
+# Library search paths
+LIBPATHS_$(D) := $$(strip $$(foreach libdir,\
 									$$(foreach dep, $$(DEPS_$(D)), $$(dep)/lib) \
 									$$(ADDLIBDIR_$(D)),\
-								$(LIBSDIRFLAG)$$(libdir)/$(strip $(VARIANT))))
+								$$(libdir)/$(strip $(VARIANT))))
+
+# Library path flags
+LIBSDIR_$(D) := $$(strip $$(foreach lp, $$(LIBPATHS_$(D)), $(LIBSDIRFLAG)$$(lp)))
+
 # Library flags
 LIBFLAGS_$(D) := $$(strip $$(foreach lib, $$(LIBS_$(D)), $(LIBFLAG)$$(lib)$(if $(filter $(TOOLCHAIN), MSVC),.lib,)))
+
+# Extra link flags when building shared libraries
+ifeq ($$(PRJTYPE_$(D)), DynLib)
+	# Add shared library toggle
+	MORELFLAGS_$(D) := $(LSOFLAGS)
+endif
+
+# Setup rpath flag parameter for linux systems
+ifeq ($$(PRJTYPE_$(D)), Executable)
+ifneq ($(TARGET_OS), Windows_NT)
+	# Path from executable location to project root
+	RELPPREFIX_$(D) := $$(subst $$(space),,$$(foreach dir, $$(subst /,$$(space),$$(dir $$(MASTEROUT_$(D)))),../))
+	# Library paths relative to the executable
+	LIBRELPATHS_$(D) := $$(strip $$(foreach p, $$(LIBPATHS_$(D)), $$(RELPPREFIX_$(D))$$(p)))
+	# Add rpath param to search for dependent shared libraries relative to the executable location
+	MORELFLAGS_$(D) := '-Wl$$(comma)-rpath$$(comma)$$(subst $$(space),:,$$(addprefix $$$$$$$$ORIGIN/, $$(LIBRELPATHS_$(D))))'
+endif
+endif
 
 # Build rule dependencies
 BUILDDEPS_$(D) := $$(foreach dep, $$(DEPS_$(D)), build_$$(strip $$(dep)))
 
 # Link rule dependencies
 ifneq ($$(PRJTYPE_$(D)), StaticLib)
-LIBDEPS_$(D) := $$(foreach dep, $$(DEPS_$(D)), \
-					$$(if $$(filter $$(PRJTYPE_$$(strip $$(dep))), StaticLib), \
+LIBDEPS_$(D) = $$(foreach dep, $$(DEPS_$(D)), \
+					$$(if $$(or $$(filter $$(PRJTYPE_$$(strip $$(dep))), StaticLib), \
+								$$(filter $$(PRJTYPE_$$(strip $$(dep))), DynLib)), \
 						$$(MASTEROUT_$$(strip $$(dep)))))
 endif
 
@@ -405,11 +446,14 @@ showvars_$(D): variables_$(D)
 	@echo LIBDEPS: $$(LIBDEPS_$(D))
 	@echo HDEPS: $$(HDEPS_$(D))
 
+# Current link target extension
+LINKEXT := $$(if $$(filter $$(PRJTYPE_$(D)), DynLib), $(DLEXT), $(EXECEXT))
+
 # Link rule
-$(DP)%$(EXECEXT): $$(LIBDEPS_$(D)) $$(OBJ_$(D))
+$(DP)%$$(strip $$(LINKEXT)): $$(LIBDEPS_$(D)) $$(OBJ_$(D))
 	@$$(info $(DGREEN_COLOR)[+] Linking$(NO_COLOR) $(DYELLOW_COLOR)$$@$(NO_COLOR))
 	@$$(call mkdir, $$(@D))
-	$$(eval lcommand = $$(call link, $$(LIBSDIR_$(D)), $$(LIBFLAGS_$(D)), $$(OBJ_$(D))))
+	$$(eval lcommand = $$(call link, $$(LIBSDIR_$(D)), $$(LIBFLAGS_$(D)), $$(OBJ_$(D)), $$(MORELFLAGS_$(D))))
 	@$$(lcommand)
 
 # Archive rule
@@ -420,8 +464,8 @@ $(DP)%$(SLIBEXT): $$(OBJ_$(D))
 	@$$(lcommand)
 
 # Generate compile rules
-$(call compile-rule, c, $$(call ccompile, $$(CPPFLAGS_$(D)), $$(INCDIR_$(D))), $(DP))
-$(foreach ext, cpp cxx cc, $(call compile-rule, $(ext), $$(call cxxcompile, $$(CPPFLAGS_$(D)), $$(INCDIR_$(D))), $(DP))${\n})
+$(call compile-rule, c, $$(call ccompile, $$(CPPFLAGS_$(D)), $$(INCDIR_$(D)), $$(MORECFLAGS_$(D))), $(DP))
+$(foreach ext, cpp cxx cc, $(call compile-rule, $(ext), $$(call cxxcompile, $$(CPPFLAGS_$(D)), $$(INCDIR_$(D)), $$(MORECFLAGS_$(D))), $(DP))${\n})
 
 endef
 
@@ -444,6 +488,12 @@ build: build_.
 run: run_.
 showvars: showvars_.
 showvars_all: $(foreach subproj, $(SUBPROJS), showvars_$(subproj))
+
+# Track down Dynamic Library projects and find their dependencies
+SO_PROJS := $(strip $(foreach subproj, $(SUBPROJS), $(if $(filter $(PRJTYPE_$(subproj)), DynLib), $(subproj),)))
+SO_DEPS  := $(strip $(sort $(foreach sop, $(SO_PROJS), $(foreach dep, $(DEPS_$(sop)), $(if $(filter $(PRJTYPE_$(dep)), StaticLib), $(dep),)))))
+# Make these projects have position independent code
+$(foreach pic, $(SO_PROJS) $(SO_DEPS), $(eval MORECFLAGS_$(pic) += $(CSOFLAGS)))
 
 # Cleanup rule
 clean:
