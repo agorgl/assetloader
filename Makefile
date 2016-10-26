@@ -423,7 +423,7 @@ endif
 # Rules
 #---------------------------------------------------------------
 # Main build rule
-build_$(D): $$(BUILDDEPS_$(D)) variables_$(D) $$(OBJ_$(D)) $$(MASTEROUT_$(D))
+build_$(D): $$(MASTEROUT_$(D))
 
 # Executes target
 run_$(D): build_$(D)
@@ -431,12 +431,15 @@ run_$(D): build_$(D)
 	@$$(eval export PATH := $(PATH)$(pathsep)$$(subst $$(space),$(pathsep),$$(addprefix $$(CURDIR)/, $$(LIBPATHS_$(D)))))
 	@cd $(D) && $$(call native_path, $$(call canonical_path, $$(abspath $$(CURDIR)/$(D)), $$(MASTEROUT_$(D))))
 
-# Set variables for current build execution
-variables_$(D):
+# Show banner for current build execution
+banner_$(D):
 	$$(info $(LRED_COLOR)[o] Building$(NO_COLOR) $(LMAGENTA_COLOR)$$(TARGETNAME_$(D))$(NO_COLOR))
 
+# Build objects for target
+objects_$(D): $$(OBJ_$(D))
+
 # Print build debug info
-showvars_$(D): variables_$(D)
+showvars_$(D): banner_$(D)
 	@echo MASTEROUT: $$(MASTEROUT_$(D))
 	@echo SRCDIR:    $$(SRCDIR_$(D))
 	@echo SRC:       $$(SRC_$(D))
@@ -450,20 +453,18 @@ showvars_$(D): variables_$(D)
 	@echo LIBDEPS:   $$(LIBDEPS_$(D))
 	@echo HDEPS:     $$(HDEPS_$(D))
 
-# Current link target extension
-LINKEXT := $$(if $$(filter $$(PRJTYPE_$(D)), DynLib), $(DLEXT), $(EXECEXT))
-
+$$(MASTEROUT_$(D)): $$(BUILDDEPS_$(D)) banner_$(D) objects_$(D)
+ifneq ($$(PRJTYPE_$(D)), StaticLib)
 # Link rule
-$(DP)%$$(strip $$(LINKEXT)): $$(LIBDEPS_$(D)) $$(OBJ_$(D))
 	@$$(info $(DGREEN_COLOR)[+] Linking$(NO_COLOR) $(DYELLOW_COLOR)$$@$(NO_COLOR))
 	@$$(call mkdir, $$(@D))
 	$(showcmd)$(LD) $(LDFLAGS) $$(LIBSDIR_$(D)) $(LOUTFLAG)$$@ $$(OBJ_$(D)) $$(LIBFLAGS_$(D)) $$(MORELFLAGS_$(D))
-
+else
 # Archive rule
-$(DP)%$(SLIBEXT): $$(OBJ_$(D))
 	@$$(info $(DCYAN_COLOR)[+] Archiving$(NO_COLOR) $(DYELLOW_COLOR)$$@$(NO_COLOR))
 	@$$(call mkdir, $$(@D))
-	$(showcmd)$(AR) $(ARFLAGS) $(AROUTFLAG)$$@ $$^
+	$(showcmd)$(AR) $(ARFLAGS) $(AROUTFLAG)$$@ $$(OBJ_$(D))
+endif
 
 # Compile commands
 CCOMPILE_$(D)   = $(CC) $(CFLAGS) $$(CPPFLAGS_$(D)) $$(INCDIR_$(D)) $$< $(COUTFLAG) $$@ $$(MORECFLAGS_$(D))
@@ -521,11 +522,11 @@ endif
 .SUFFIXES:
 
 # Non file targets
-RULETYPES := build run variables showvars
-.PHONY: $(foreach subproj, $(SUBPROJS), $(foreach ruletype, $(RULETYPES), $(subproj)_$(ruletype))) \
-		build \
+PHONYRULETYPES := run showvars
+PHONYPREREQS := $(foreach ruletype, $(PHONYRULETYPES), $(foreach subproj, $(SUBPROJS), $(ruletype)_$(subproj))) \
 		run \
-		variables \
 		showvars \
 		showvars_all \
 		clean
+.PHONY: $(PHONYPREREQS)
+.SECONDARY:
