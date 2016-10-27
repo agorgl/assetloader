@@ -474,6 +474,9 @@ CXXCOMPILE_$(D) = $(CXX) $(CFLAGS) $(CXXFLAGS) $$(CPPFLAGS_$(D)) $$(INCDIR_$(D))
 $(call compile-rule, c, $$(CCOMPILE_$(D)), $(DP))
 $(foreach ext, cpp cxx cc, $(call compile-rule, $(ext), $$(CXXCOMPILE_$(D)), $(DP))${\n})
 
+# Include extra rules
+-include $(DP)rules.mk
+
 endef
 
 #---------------------------------------------------------------
