@@ -369,21 +369,20 @@ DEPS_$(D) += $$(foreach md, $$(MOREDEPS_$(D)), $$(or $$(call canonical_path_cur,
 # Preprocessor flags
 CPPFLAGS_$(D) := $$(strip $$(foreach define, $$(DEFINES_$(D)), $(DEFINEFLAG)$$(define)))
 
-# Include directories (implicit)
-INCDIR_$(D) := $$(strip $(INCFLAG)$(DP)include \
+# Include search directories
+INCPATHS_$(D) := $$(strip $(DP)include \
 						$$(foreach dep, $$(DEPS_$(D)) \
 										$$(filter-out $$(DEPS_$(D)), $$(wildcard $$(DEPSDIR_$(D))/*)), \
-										$(INCFLAG)$$(dep)/include))
-
-# Include directories (explicit)
-INCDIR_$(D) += $$(strip $$(foreach addinc, $$(ADDINCS_$(D)), $(INCFLAG)$$(addinc)))
+											$$(dep)/include) \
+						$$(ADDINCS_$(D)))
+# Include path flags
+INCDIR_$(D) := $$(strip $$(foreach inc, $$(INCPATHS_$(D)), $(INCFLAG)$$(inc)))
 
 # Library search paths
 LIBPATHS_$(D) := $$(strip $$(foreach libdir,\
 									$$(foreach dep, $$(DEPS_$(D)), $$(dep)/lib) \
 									$$(ADDLIBDIR_$(D)),\
 								$$(libdir)/$(strip $(VARIANT))))
-
 # Library path flags
 LIBSDIR_$(D) := $$(strip $$(foreach lp, $$(LIBPATHS_$(D)), $(LIBSDIRFLAG)$$(lp)))
 
