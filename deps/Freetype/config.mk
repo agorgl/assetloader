@@ -1,4 +1,5 @@
 PRJTYPE = StaticLib
+ADDINCS = src
 SRC = \
 	src/autofit/autofit.c \
 	src/base/ftbase.c \
