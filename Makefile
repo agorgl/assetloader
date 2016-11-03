@@ -46,6 +46,8 @@ SILENT ?=
 VERBOSE ?=
 # Default target OS is host if not provided
 TARGET_OS ?= $(OS)
+# Install location
+LOCAL_REPO ?= $(HOME)/.local
 
 #---------------------------------------------------------------
 # Helpers
@@ -89,6 +91,13 @@ else
 	RMDIR_CMD = rm -rf
 endif
 rmdir = $(if $(wildcard $(1)/.*), $(RMDIR_CMD) $(call native_path, $(1)),)
+
+# Copy command
+ifeq ($(OS), Windows_NT)
+	copy = robocopy $(call native_path, $(1)) $(call native_path, $(2)) /s /e
+else
+	copy = cp -r $(call native_path, $(1)) $(call native_path, $(2))
+endif
 
 # Path separator
 pathsep = $(strip $(if $(filter $(OS), Windows_NT), ;, :))
@@ -374,7 +383,8 @@ INCPATHS_$(D) := $$(strip $(DP)include \
 						$$(foreach dep, $$(DEPS_$(D)) \
 										$$(filter-out $$(DEPS_$(D)), $$(wildcard $$(DEPSDIR_$(D))/*)), \
 											$$(dep)/include) \
-						$$(ADDINCS_$(D)))
+						$$(ADDINCS_$(D)) \
+						$(LOCAL_REPO)/include)
 # Include path flags
 INCDIR_$(D) := $$(strip $$(foreach inc, $$(INCPATHS_$(D)), $(INCFLAG)$$(inc)))
 
@@ -382,7 +392,8 @@ INCDIR_$(D) := $$(strip $$(foreach inc, $$(INCPATHS_$(D)), $(INCFLAG)$$(inc)))
 LIBPATHS_$(D) := $$(strip $$(foreach libdir,\
 									$$(foreach dep, $$(DEPS_$(D)), $$(dep)/lib) \
 									$$(ADDLIBDIR_$(D)),\
-								$$(libdir)/$(strip $(VARIANT))))
+								$$(libdir)/$(strip $(VARIANT))) \
+								$(LOCAL_REPO)/lib)
 # Library path flags
 LIBSDIR_$(D) := $$(strip $$(foreach lp, $$(LIBPATHS_$(D)), $(LIBSDIRFLAG)$$(lp)))
 
@@ -418,6 +429,11 @@ LIBDEPS_$(D) = $$(foreach dep, $$(DEPS_$(D)), \
 						$$(MASTEROUT_$$(strip $$(dep)))))
 endif
 
+# Install dependencies for static library
+ifeq ($$(PRJTYPE_$(D)), StaticLib)
+INSTDEPS_$(D) := $$(foreach dep, $$(DEPS_$(D)), install_$$(strip $$(dep)))
+endif
+
 #---------------------------------------------------------------
 # Rules
 #---------------------------------------------------------------
@@ -429,6 +445,16 @@ run_$(D): build_$(D)
 	@echo Executing $$(MASTEROUT_$(D)) ...
 	@$$(eval export PATH := $(PATH)$(pathsep)$$(subst $$(space),$(pathsep),$$(addprefix $$(CURDIR)/, $$(LIBPATHS_$(D)))))
 	@cd $(D) && $$(call native_path, $$(call canonical_path, $$(abspath $$(CURDIR)/$(D)), $$(MASTEROUT_$(D))))
+
+ifneq ($$(PRJTYPE_$(D)), Executable)
+# Installs target to repository
+install_$(D): $$(INSTDEPS_$(D)) $$(MASTEROUT_$(D))
+	$$(info $(LGREEN_COLOR)[>] Installing$(NO_COLOR) $(LYELLOW_COLOR)$$(TARGETNAME_$(D)) to $(LOCAL_REPO)$(NO_COLOR))
+	$(showcmd)$$(call mkdir, $$(LOCAL_REPO)/lib)
+	$(showcmd)$$(call mkdir, $$(LOCAL_REPO)/include)
+	$(showcmd)$$(call copy, $(DP)include/*, $$(LOCAL_REPO)/include)
+	$(showcmd)$$(call copy, $$(MASTEROUT_$(D)), $$(LOCAL_REPO)/lib)
+endif
 
 # Show banner for current build execution
 banner_$(D):
@@ -495,6 +521,7 @@ $(foreach subproj, $(NONSILENT_SUBPROJS), $(eval $(call gen-build-rules, $(subpr
 # Aliases
 build: build_.
 run: run_.
+install: install_.
 showvars: showvars_.
 showvars_all: $(foreach subproj, $(SUBPROJS), showvars_$(subproj))
 
