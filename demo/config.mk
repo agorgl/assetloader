@@ -1,6 +1,6 @@
 PRJTYPE = Executable
 ADDINCS = ../include ../deps/Macu/include
-LIBS = assetloader macu openal vorbis ogg freetype png jpeg tiff zlib glfw glad
+LIBS = assetloader macu openal vorbis ogg freetype png jpeg tiff zlib gfxwnd glfw glad
 ifeq ($(TARGET_OS), Windows_NT)
 	LIBS += glu32 opengl32 gdi32 winmm ole32 shell32 user32
 else
@@ -16,4 +16,4 @@ ADDLIBDIR = ../lib \
 			../deps/Macu/lib \
 			../deps/Freetype/lib
 MOREDEPS = ..
-EXTDEPS = macu::0.0.1dev
+EXTDEPS = macu::0.0.1dev gfxwnd::0.0.0dev glfw::3.2.1 glad::0.1.12a0

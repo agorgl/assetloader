@@ -3,8 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
-#include "window.h"
-#include "input.h"
+#include <gfxwnd/window.h>
 #include <glad/glad.h>
 #include "shader.h"
 #include "static_data.h"
