@@ -143,7 +143,11 @@ searchlibrary = $(foreach sd, $2, $(call findfile, $(sd), $1))
 lib-from-extlib-pair = $(firstword $(subst ::, , $(1)))
 ver-from-extlib-pair = $(strip $(or $(lastword $(subst ::, , $(1))), dev))
 # Construct base path to repo dependency
-extdep-path = $(LOCAL_REPO)/builds/$(strip $(call lc,$(1)))/$(strip $(2))
+extdep-pair = $(strip $(call lc,$(1)))::$(strip $(2))
+extdep-path = $(LOCAL_REPO)/builds/$(subst ::,/,$(call extdep-pair, $(1), $(2)))
+extdep-conf = $(call extdep-path, \
+					$(call lib-from-extlib-pair, $(1)), \
+					$(call ver-from-extlib-pair, $(1)))/pkg.mk
 
 #---------------------------------------------------------------
 # Global constants
@@ -301,6 +305,14 @@ $(BUILDDIR)/$(VARIANT)/$(strip $(3))%.$(strip $(1))$(OBJEXT): $(strip $(3))%.$(s
 endef
 
 #---------------------------------------------------------------
+# External dependency resolution
+#---------------------------------------------------------------
+define read-ext
+-include $$(call extdep-conf, $(1))
+PKGS += $$(PKGDEPS)
+endef
+
+#---------------------------------------------------------------
 # Per project configuration
 #---------------------------------------------------------------
 # Should at least define:
@@ -378,6 +390,8 @@ endif
 
 # Install location
 INSTALL_PREFIX_$(D) := $$(call extdep-path, $$(TARGETNAME_$(D)), $$(VERSION_$(D)))
+# Install pair
+INSTALL_PAIR_$(D) := $$(call extdep-pair, $$(TARGETNAME_$(D)), $$(VERSION_$(D)))
 
 # Implicit dependencies directory
 DEPSDIR_$(D) := $(DP)deps
@@ -388,6 +402,12 @@ DEPS_$(D) += $$(foreach md, $$(MOREDEPS_$(D)), $$(or $$(call canonical_path_cur,
 
 # Preprocessor flags
 CPPFLAGS_$(D) := $$(strip $$(foreach define, $$(DEFINES_$(D)), $(DEFINEFLAG)$$(define)))
+
+# Append dependency pairs from local dependencies
+undefine PKGS
+PKGS :=
+$$(foreach dep, $$(EXTDEPS_$(D)), $$(eval $$(call read-ext, $$(dep))))
+EXTDEPS_$(D) += $$(PKGS)
 
 # External (repo installed) dependency directories
 EXTDEPPATHS_$(D) := $$(foreach ed, $$(EXTDEPS_$(D)), $$(call extdep-path, \
@@ -463,6 +483,11 @@ run_$(D): build_$(D)
 	@cd $(D) && $$(call native_path, $$(call canonical_path, $$(abspath $$(CURDIR)/$(D)), $$(MASTEROUT_$(D))))
 
 ifneq ($$(PRJTYPE_$(D)), Executable)
+# Pkg.mk file contents
+define PCFG_$(D)
+PKGDEPS := $$(strip $$(EXTDEPS_$(D)) $$(foreach dep, $$(DEPS_$(D)), $$(INSTALL_PAIR_$$(dep))))
+endef
+
 # Installs target to repository
 install_$(D): $$(INSTDEPS_$(D)) $$(MASTEROUT_$(D))
 	$$(info $(LGREEN_COLOR)[>] Installing$(NO_COLOR) $(LYELLOW_COLOR)$$(TARGETNAME_$(D)) to $$(INSTALL_PREFIX_$(D))$(NO_COLOR))
@@ -470,6 +495,7 @@ install_$(D): $$(INSTDEPS_$(D)) $$(MASTEROUT_$(D))
 	$(showcmd)$$(call mkdir, $$(INSTALL_PREFIX_$(D))/include)
 	$(showcmd)$$(call copy, $(DP)include/*, $$(INSTALL_PREFIX_$(D))/include)
 	$(showcmd)$$(call copy, $$(MASTEROUT_$(D)), $$(INSTALL_PREFIX_$(D))/lib)
+	$(showcmd)echo "$$(PCFG_$(D))" > $$(call extdep-conf, $$(INSTALL_PAIR_$(D)))
 endif
 
 # Show banner for current build execution

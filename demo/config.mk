@@ -16,4 +16,4 @@ ADDLIBDIR = ../lib \
 			../deps/Macu/lib \
 			../deps/Freetype/lib
 MOREDEPS = ..
-EXTDEPS = macu::0.0.1dev gfxwnd::0.0.0dev glfw::3.2.1 glad::0.1.12a0
+EXTDEPS = macu::0.0.1dev gfxwnd::0.0.0dev
