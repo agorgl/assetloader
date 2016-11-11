@@ -626,7 +626,7 @@ endif
 .SUFFIXES:
 
 # Non file targets
-PHONYRULETYPES := run showvars
+PHONYRULETYPES := build run install showvars
 PHONYPREREQS := $(foreach ruletype, $(PHONYRULETYPES), $(addprefix $(ruletype)_, $(SUBPROJS))) \
 		run \
 		showvars \
