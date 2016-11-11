@@ -308,9 +308,21 @@ endef
 #---------------------------------------------------------------
 # External dependency resolution
 #---------------------------------------------------------------
+# Read external pkg file for given dependency
 define read-ext
 -include $$(call extdep-conf, $(1))
 PKGS += $$(PKGDEPS)
+endef
+
+#---------------------------------------------------------------
+# Meta
+#---------------------------------------------------------------
+# Used by project generators to make $(D) and $(DP) variables available
+define subproj-template-prologue
+# Subproject name
+$(eval D = $(strip $(1)))
+# Subproject path
+$(eval DP = $(if $(filter $(D),.),,$(D)/))
 endef
 
 #---------------------------------------------------------------
@@ -329,12 +341,10 @@ endef
 # - ADDINCS variable (list with additional include dirs)
 # - MOREDEPS variable (list with additional dep dirs)
 
-define gen-build-rules
-# Subproject name
-$(eval D = $(strip $(1)))
-# Subproject path
-$(eval DP = $(if $(filter $(D),.),,$(D)/))
-
+# Parses given subproject configuration to _$(subproj) postfixed variables.
+# Fills in with defaults on some values if not given.
+define parse-subproject-config
+${subproj-template-prologue}
 # Clear previous variables
 $(foreach v, PRJTYPE VERSION LIBS SRCDIR SRC DEFINES ADDINCS MOREDEPS EXTDEPS, undefine $(v)${\n})
 
@@ -344,14 +354,16 @@ $(foreach v, PRJTYPE VERSION LIBS SRCDIR SRC DEFINES ADDINCS MOREDEPS EXTDEPS, u
 # Gather variables from config
 PRJTYPE_$(D)   := $$(PRJTYPE)
 VERSION_$(D)   := $$(VERSION)
-SRCDIR_$(D)    := $$(addprefix $(DP), $$(SRCDIR))
-SRC_$(D)       := $$(addprefix $(DP), $$(SRC))
-ADDINCS_$(D)   := $$(addprefix $(DP), $$(ADDINCS))
-ADDLIBDIR_$(D) := $$(addprefix $(DP), $$(ADDLIBDIR))
 DEFINES_$(D)   := $$(DEFINES)
 LIBS_$(D)      := $$(LIBS)
 MOREDEPS_$(D)  := $$(MOREDEPS)
 EXTDEPS_$(D)   := $$(EXTDEPS)
+# Variables refering to local project paths,
+# must be prefixed with subproject path
+SRCDIR_$(D)    := $$(addprefix $(DP), $$(SRCDIR))
+SRC_$(D)       := $$(addprefix $(DP), $$(SRC))
+ADDINCS_$(D)   := $$(addprefix $(DP), $$(ADDINCS))
+ADDLIBDIR_$(D) := $$(addprefix $(DP), $$(ADDLIBDIR))
 
 # Set defaults on unset variables
 VERSION_$(D)    := $$(strip $$(or $$(VERSION_$(D)), dev))
@@ -359,7 +371,14 @@ TARGETNAME_$(D) := $$(or $$(TARGETNAME_$(D)), $$(notdir $$(if $$(filter $(D),.),
 SRCDIR_$(D)     := $$(or $$(SRCDIR_$(D)), $(DP)src)
 SRCEXT_$(D)     := *.c *.cpp *.cc *.cxx
 SRC_$(D)        := $$(or $$(SRC_$(D)), $$(call rwildcard, $$(SRCDIR_$(D)), $$(SRCEXT_$(D))))
+endef
 
+#---------------------------------------------------------------
+# Populated values
+#---------------------------------------------------------------
+# Fill in various subproject specific values
+define populate-subproject-values
+${subproj-template-prologue}
 # Target directory
 ifeq ($$(PRJTYPE_$(D)), Executable)
 	TARGETDIR_$(D) := $(DP)bin
@@ -367,9 +386,6 @@ else
 	TARGETDIR_$(D) := $(DP)lib
 endif
 
-#---------------------------------------------------------------
-# Generated values
-#---------------------------------------------------------------
 # Objects
 OBJ_$(D) := $$(addprefix $(BUILDDIR)/$(VARIANT)/, $$(SRC_$(D):=$(OBJEXT)))
 # Header dependencies
@@ -467,10 +483,14 @@ endif
 ifeq ($$(PRJTYPE_$(D)), StaticLib)
 INSTDEPS_$(D) := $$(addprefix install_, $$(DEPS_$(D)))
 endif
+endef
 
 #---------------------------------------------------------------
 # Rules
 #---------------------------------------------------------------
+# Generate rules for the given project
+define gen-build-rules
+${subproj-template-prologue}
 # Main build rule
 build_$(D): $$(MASTEROUT_$(D))
 
@@ -544,7 +564,6 @@ $(foreach ext, cpp cxx cc, $(call compile-rule, $(ext), $$(CXXCOMPILE_$(D)), $(D
 
 # Include extra rules
 -include $(DP)rules.mk
-
 endef
 
 #---------------------------------------------------------------
@@ -552,10 +571,14 @@ endef
 #---------------------------------------------------------------
 # Scan all directories for subprojects
 SUBPROJS := $(call gatherprojs, .)
+# Parse subproject configs
+$(foreach subproj, $(SUBPROJS), $(eval $(call parse-subproject-config, $(subproj))))
+# Generate subproject values
+$(foreach subproj, $(SUBPROJS), $(eval $(call populate-subproject-values, $(subproj))))
 # Create sublists with dependency and main projects
 SILENT_SUBPROJS    := $(foreach subproj, $(SUBPROJS), $(if $(findstring deps, $(subproj)), $(subproj)))
 NONSILENT_SUBPROJS := $(filter-out $(SILENT_SUBPROJS), $(SUBPROJS))
-# Generate subproject variables and rules
+# Generate subproject rules
 SILENT := 1
 $(foreach subproj, $(SILENT_SUBPROJS), $(eval $(call gen-build-rules, $(subproj))))
 undefine SILENT
