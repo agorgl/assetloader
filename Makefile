@@ -392,7 +392,7 @@ endif
 # Install location
 INSTALL_PREFIX_$(D) := $$(call extdep-path, $$(TARGETNAME_$(D)), $$(VERSION_$(D)))
 # Install pair
-INSTALL_PAIR_$(D) := $$(call extdep-pair, $$(TARGETNAME_$(D)), $$(VERSION_$(D)))
+INSTALL_PAIR_$(D)   := $$(call extdep-pair, $$(TARGETNAME_$(D)), $$(VERSION_$(D)))
 
 # Implicit dependencies directory
 DEPSDIR_$(D) := $(DP)deps
@@ -400,9 +400,6 @@ DEPSDIR_$(D) := $(DP)deps
 DEPS_$(D) := $$(call gatherprojs, $$(DEPSDIR_$(D)))
 # Explicit dependencies
 DEPS_$(D) += $$(foreach md, $$(MOREDEPS_$(D)), $$(or $$(call canonical_path_cur, $(DP)/$$(md)), .))
-
-# Preprocessor flags
-CPPFLAGS_$(D) := $$(addprefix $(DEFINEFLAG), $$(DEFINES_$(D)))
 
 # Append dependency pairs from local dependencies
 undefine PKGS
@@ -414,26 +411,26 @@ EXTDEPS_$(D) += $$(PKGS)
 EXTDEPPATHS_$(D) := $$(foreach ed, $$(EXTDEPS_$(D)), $$(call extdep-path, \
 						$$(call lib-from-extlib-pair, $$(ed)), \
 						$$(call ver-from-extlib-pair, $$(ed))))
-
-# Include search directories
-INCPATHS_$(D) := $$(strip $(DP)include \
+# Include search paths
+INCPATHS_$(D)    := $$(strip $(DP)include \
 						$$(foreach dep, $$(DEPS_$(D)) \
 										$$(filter-out $$(DEPS_$(D)), $$(wildcard $$(DEPSDIR_$(D))/*)), \
 											$$(dep)/include) \
 						$$(ADDINCS_$(D)) \
 						$$(foreach extdep, $$(EXTDEPPATHS_$(D)), $$(extdep)/include))
-# Include path flags
-INCDIR_$(D) := $$(addprefix $(INCFLAG), $$(INCPATHS_$(D)))
-
 # Library search paths
-LIBPATHS_$(D) := $$(strip $$(foreach libdir,\
+LIBPATHS_$(D)    := $$(strip $$(foreach libdir,\
 									$$(foreach dep, $$(DEPS_$(D)), $$(dep)/lib) \
 									$$(ADDLIBDIR_$(D)),\
 								$$(libdir)/$(strip $(VARIANT))) \
 								$$(foreach extdep, $$(EXTDEPPATHS_$(D)), $$(extdep)/lib))
-# Library path flags
-LIBSDIR_$(D) := $$(addprefix $(LIBSDIRFLAG), $$(LIBPATHS_$(D)))
 
+# Preprocessor flags
+CPPFLAGS_$(D) := $$(addprefix $(DEFINEFLAG), $$(DEFINES_$(D)))
+# Include path flags
+INCDIR_$(D)   := $$(addprefix $(INCFLAG), $$(INCPATHS_$(D)))
+# Library path flags
+LIBSDIR_$(D)  := $$(addprefix $(LIBSDIRFLAG), $$(LIBPATHS_$(D)))
 # Library flags
 LIBFLAGS_$(D) := $$(strip $$(foreach lib, $$(LIBS_$(D)), $(LIBFLAG)$$(lib)$(if $(filter $(TOOLCHAIN), MSVC),.lib,)))
 
@@ -447,11 +444,11 @@ endif
 ifeq ($$(PRJTYPE_$(D)), Executable)
 ifneq ($(TARGET_OS), Windows_NT)
 	# Path from executable location to project root
-	RELPPREFIX_$(D) := $$(subst $$(space),,$$(foreach dir, $$(subst /,$$(space),$$(dir $$(MASTEROUT_$(D)))),../))
+	RELPPREFIX_$(D)  := $$(subst $$(space),,$$(foreach dir, $$(subst /,$$(space),$$(dir $$(MASTEROUT_$(D)))),../))
 	# Library paths relative to the executable
 	LIBRELPATHS_$(D) := $$(addprefix $$(RELPPREFIX_$(D)), $$(LIBPATHS_$(D)))
 	# Add rpath param to search for dependent shared libraries relative to the executable location
-	MORELFLAGS_$(D) := '-Wl$$(comma)-rpath$$(comma)$$(subst $$(space),:,$$(addprefix $$$$ORIGIN/, $$(LIBRELPATHS_$(D))))'
+	MORELFLAGS_$(D)  := '-Wl$$(comma)-rpath$$(comma)$$(subst $$(space),:,$$(addprefix $$$$ORIGIN/, $$(LIBRELPATHS_$(D))))'
 endif
 endif
 
@@ -556,8 +553,8 @@ endef
 # Scan all directories for subprojects
 SUBPROJS := $(call gatherprojs, .)
 # Create sublists with dependency and main projects
-SILENT_SUBPROJS = $(foreach subproj, $(SUBPROJS), $(if $(findstring deps, $(subproj)), $(subproj)))
-NONSILENT_SUBPROJS = $(filter-out $(SILENT_SUBPROJS), $(SUBPROJS))
+SILENT_SUBPROJS    := $(foreach subproj, $(SUBPROJS), $(if $(findstring deps, $(subproj)), $(subproj)))
+NONSILENT_SUBPROJS := $(filter-out $(SILENT_SUBPROJS), $(SUBPROJS))
 # Generate subproject variables and rules
 SILENT := 1
 $(foreach subproj, $(SILENT_SUBPROJS), $(eval $(call gen-build-rules, $(subproj))))
