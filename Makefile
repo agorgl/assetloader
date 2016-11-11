@@ -306,15 +306,6 @@ $(BUILDDIR)/$(VARIANT)/$(strip $(3))%.$(strip $(1))$(OBJEXT): $(strip $(3))%.$(s
 endef
 
 #---------------------------------------------------------------
-# External dependency resolution
-#---------------------------------------------------------------
-# Read external pkg file for given dependency
-define read-ext
--include $$(call extdep-conf, $(1))
-PKGS += $$(PKGDEPS)
-endef
-
-#---------------------------------------------------------------
 # Meta
 #---------------------------------------------------------------
 # Used by project generators to make $(D) and $(DP) variables available
@@ -346,7 +337,7 @@ endef
 define parse-subproject-config
 ${subproj-template-prologue}
 # Clear previous variables
-$(foreach v, PRJTYPE VERSION LIBS SRCDIR SRC DEFINES ADDINCS MOREDEPS EXTDEPS, undefine $(v)${\n})
+$(foreach v, PRJTYPE VERSION DEFINES LIBS MOREDEPS EXTDEPS SRCDIR SRC ADDINCS ADDLIBDIR, undefine $(v)${\n})
 
 # Include configuration
 -include $(DP)config.mk
@@ -376,8 +367,8 @@ endef
 #---------------------------------------------------------------
 # Populated values
 #---------------------------------------------------------------
-# Fill in various subproject specific values
-define populate-subproject-values
+#=- Populate core project target values
+define populate-target-values
 ${subproj-template-prologue}
 # Target directory
 ifeq ($$(PRJTYPE_$(D)), Executable)
@@ -385,12 +376,6 @@ ifeq ($$(PRJTYPE_$(D)), Executable)
 else
 	TARGETDIR_$(D) := $(DP)lib
 endif
-
-# Objects
-OBJ_$(D) := $$(addprefix $(BUILDDIR)/$(VARIANT)/, $$(SRC_$(D):=$(OBJEXT)))
-# Header dependencies
-HDEPS_$(D) := $$(OBJ_$(D):$(OBJEXT)=$(HDEPEXT))
-
 # Output
 ifeq ($$(PRJTYPE_$(D)), StaticLib)
 	TARGET_$(D) := $(SLIBPREF)$$(strip $$(call lc,$$(TARGETNAME_$(D))))$(SLIBEXT)
@@ -399,30 +384,45 @@ else ifeq ($$(PRJTYPE_$(D)), DynLib)
 else
 	TARGET_$(D) := $$(TARGETNAME_$(D))$(EXECEXT)
 endif
-
-# Master output
-ifdef PRJTYPE_$(D)
-	MASTEROUT_$(D) := $$(TARGETDIR_$(D))/$(VARIANT)/$$(TARGET_$(D))
-endif
-
+# Master output full path
+MASTEROUT_$(D) := $$(TARGETDIR_$(D))/$(VARIANT)/$$(TARGET_$(D))
+# Objects
+OBJ_$(D) := $$(addprefix $(BUILDDIR)/$(VARIANT)/, $$(SRC_$(D):=$(OBJEXT)))
+# Header dependencies
+HDEPS_$(D) := $$(OBJ_$(D):$(OBJEXT)=$(HDEPEXT))
 # Install location
 INSTALL_PREFIX_$(D) := $$(call extdep-path, $$(TARGETNAME_$(D)), $$(VERSION_$(D)))
 # Install pair
 INSTALL_PAIR_$(D)   := $$(call extdep-pair, $$(TARGETNAME_$(D)), $$(VERSION_$(D)))
+endef
 
+#--------------------------------------------------
+#- Read external pkg file for given dependency
+define read-ext
+-include $$(call extdep-conf, $(1))
+PKGS += $$(PKGDEPS)
+endef
+
+#=- Populate project dependency values
+define populate-dep-values
+${subproj-template-prologue}
 # Implicit dependencies directory
 DEPSDIR_$(D) := $(DP)deps
 # Implicit dependencies
 DEPS_$(D) := $$(call gatherprojs, $$(DEPSDIR_$(D)))
 # Explicit dependencies
 DEPS_$(D) += $$(foreach md, $$(MOREDEPS_$(D)), $$(or $$(call canonical_path_cur, $(DP)/$$(md)), .))
-
 # Append dependency pairs from local dependencies
 undefine PKGS
 PKGS :=
 $$(foreach dep, $$(EXTDEPS_$(D)), $$(eval $$(call read-ext, $$(dep))))
 EXTDEPS_$(D) += $$(PKGS)
+endef
 
+#--------------------------------------------------
+#=- Populate project path values
+define populate-path-values
+${subproj-template-prologue}
 # External (repo installed) dependency directories
 EXTDEPPATHS_$(D) := $$(foreach ed, $$(EXTDEPS_$(D)), $$(call extdep-path, \
 						$$(call lib-from-extlib-pair, $$(ed)), \
@@ -440,7 +440,12 @@ LIBPATHS_$(D)    := $$(strip $$(foreach libdir,\
 									$$(ADDLIBDIR_$(D)),\
 								$$(libdir)/$(strip $(VARIANT))) \
 								$$(foreach extdep, $$(EXTDEPPATHS_$(D)), $$(extdep)/lib))
+endef
 
+#--------------------------------------------------
+#=- Populate project flag values
+define populate-flag-values
+${subproj-template-prologue}
 # Preprocessor flags
 CPPFLAGS_$(D) := $$(addprefix $(DEFINEFLAG), $$(DEFINES_$(D)))
 # Include path flags
@@ -449,13 +454,11 @@ INCDIR_$(D)   := $$(addprefix $(INCFLAG), $$(INCPATHS_$(D)))
 LIBSDIR_$(D)  := $$(addprefix $(LIBSDIRFLAG), $$(LIBPATHS_$(D)))
 # Library flags
 LIBFLAGS_$(D) := $$(strip $$(foreach lib, $$(LIBS_$(D)), $(LIBFLAG)$$(lib)$(if $(filter $(TOOLCHAIN), MSVC),.lib,)))
-
 # Extra link flags when building shared libraries
 ifeq ($$(PRJTYPE_$(D)), DynLib)
 	# Add shared library toggle
 	MORELFLAGS_$(D) := $(LSOFLAGS)
 endif
-
 # Setup rpath flag parameter for linux systems
 ifeq ($$(PRJTYPE_$(D)), Executable)
 ifneq ($(TARGET_OS), Windows_NT)
@@ -467,10 +470,14 @@ ifneq ($(TARGET_OS), Windows_NT)
 	MORELFLAGS_$(D)  := '-Wl$$(comma)-rpath$$(comma)$$(subst $$(space),:,$$(addprefix $$$$ORIGIN/, $$(LIBRELPATHS_$(D))))'
 endif
 endif
+endef
 
+#--------------------------------------------------
+#=- Populate project rule dependency values
+define populate-rule-dep-values
+${subproj-template-prologue}
 # Build rule dependencies
 BUILDDEPS_$(D) := $$(addprefix build_, $$(DEPS_$(D)))
-
 # Link rule dependencies
 ifneq ($$(PRJTYPE_$(D)), StaticLib)
 LIBDEPS_$(D) = $$(foreach dep, $$(DEPS_$(D)), \
@@ -478,7 +485,6 @@ LIBDEPS_$(D) = $$(foreach dep, $$(DEPS_$(D)), \
 								$$(filter $$(PRJTYPE_$$(strip $$(dep))), DynLib)), \
 						$$(MASTEROUT_$$(strip $$(dep)))))
 endif
-
 # Install dependencies for static library
 ifeq ($$(PRJTYPE_$(D)), StaticLib)
 INSTDEPS_$(D) := $$(addprefix install_, $$(DEPS_$(D)))
@@ -574,7 +580,13 @@ SUBPROJS := $(call gatherprojs, .)
 # Parse subproject configs
 $(foreach subproj, $(SUBPROJS), $(eval $(call parse-subproject-config, $(subproj))))
 # Generate subproject values
-$(foreach subproj, $(SUBPROJS), $(eval $(call populate-subproject-values, $(subproj))))
+$(foreach generator, \
+			populate-target-values    \
+			populate-dep-values       \
+			populate-path-values      \
+			populate-flag-values      \
+			populate-rule-dep-values, \
+		$(foreach subproj, $(SUBPROJS), $(eval $(call $(generator), $(subproj)))))
 # Create sublists with dependency and main projects
 SILENT_SUBPROJS    := $(foreach subproj, $(SUBPROJS), $(if $(findstring deps, $(subproj)), $(subproj)))
 NONSILENT_SUBPROJS := $(filter-out $(SILENT_SUBPROJS), $(SUBPROJS))
