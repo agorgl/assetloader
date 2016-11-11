@@ -95,10 +95,19 @@ rmdir = $(if $(wildcard $(1)/.*), $(RMDIR_CMD) $(call native_path, $(1)),)
 
 # Copy command
 ifeq ($(OS), Windows_NT)
-	copy = robocopy $(call native_path, $(1)) $(call native_path, $(2)) /s /e
+	COPY_CMD = copy /Y
 else
-	copy = cp -r $(call native_path, $(1)) $(call native_path, $(2))
+	COPY_CMD = cp
 endif
+copy = $(COPY_CMD) $(call native_path, $(1)) $(call native_path, $(2)) $(suppress_out)
+
+# Recursive folder copy command
+ifeq ($(OS), Windows_NT)
+	RCOPY_CMD = robocopy /S /E $(call native_path, $(1)) $(call native_path, $(2)) $(suppress_out)$(ignore_err)
+else
+	RCOPY_CMD = cp -r $(call native_path, $(1))/* $(call native_path, $(2))
+endif
+rcopy = $(RCOPY_CMD)
 
 # Path separator
 pathsep = $(strip $(if $(filter $(OS), Windows_NT), ;, :))
@@ -513,7 +522,7 @@ install_$(D): $$(INSTDEPS_$(D)) $$(MASTEROUT_$(D))
 	$$(info $(LGREEN_COLOR)[>] Installing$(NO_COLOR) $(LYELLOW_COLOR)$$(TARGETNAME_$(D)) to $$(INSTALL_PREFIX_$(D))$(NO_COLOR))
 	$(showcmd)$$(call mkdir, $$(INSTALL_PREFIX_$(D))/lib)
 	$(showcmd)$$(call mkdir, $$(INSTALL_PREFIX_$(D))/include)
-	$(showcmd)$$(call copy, $(DP)include/*, $$(INSTALL_PREFIX_$(D))/include)
+	$(showcmd)$$(call rcopy, $(DP)include, $$(INSTALL_PREFIX_$(D))/include)
 	$(showcmd)$$(call copy, $$(MASTEROUT_$(D)), $$(INSTALL_PREFIX_$(D))/lib)
 	$(showcmd)echo "$$(PCFG_$(D))" > $$(call extdep-conf, $$(INSTALL_PAIR_$(D)))
 endif
