@@ -477,14 +477,7 @@ endef
 define populate-rule-dep-values
 ${subproj-template-prologue}
 # Build rule dependencies
-BUILDDEPS_$(D) := $$(addprefix build_, $$(DEPS_$(D)))
-# Link rule dependencies
-ifneq ($$(PRJTYPE_$(D)), StaticLib)
-LIBDEPS_$(D) = $$(foreach dep, $$(DEPS_$(D)), \
-					$$(if $$(or $$(filter $$(PRJTYPE_$$(strip $$(dep))), StaticLib), \
-								$$(filter $$(PRJTYPE_$$(strip $$(dep))), DynLib)), \
-						$$(MASTEROUT_$$(strip $$(dep)))))
-endif
+BUILDDEPS_$(D) := $$(foreach dep, $$(DEPS_$(D)), $$(MASTEROUT_$$(dep)))
 # Install dependencies for static library
 ifeq ($$(PRJTYPE_$(D)), StaticLib)
 INSTDEPS_$(D) := $$(addprefix install_, $$(DEPS_$(D)))
@@ -497,6 +490,9 @@ endef
 # Generate rules for the given project
 define gen-build-rules
 ${subproj-template-prologue}
+# Dummy banner file for current project build
+BANNERFILE_$(D) := $(BUILDDIR)/banners/banner_$(subst /,_,$(D))
+
 # Main build rule
 build_$(D): $$(MASTEROUT_$(D))
 
@@ -523,14 +519,16 @@ install_$(D): $$(INSTDEPS_$(D)) $$(MASTEROUT_$(D))
 endif
 
 # Show banner for current build execution
-banner_$(D):
+$$(BANNERFILE_$(D)):
+	@$$(call mkdir, $$(@D))
 	$$(info $(LRED_COLOR)[o] Building$(NO_COLOR) $(LMAGENTA_COLOR)$$(TARGETNAME_$(D))$(NO_COLOR))
+	@echo Bum. > $$@
 
-# Build objects for target
-objects_$(D): $$(OBJ_$(D))
+# Show banner if not shown
+$$(OBJ_$(D)): | $$(BANNERFILE_$(D))
 
 # Print build debug info
-showvars_$(D): banner_$(D)
+showvars_$(D): $$(BANNERFILE_$(D))
 	@echo MASTEROUT: $$(MASTEROUT_$(D))
 	@echo SRCDIR:    $$(SRCDIR_$(D))
 	@echo SRC:       $$(SRC_$(D))
@@ -541,13 +539,12 @@ showvars_$(D): banner_$(D)
 	@echo INCDIR:    $$(INCDIR_$(D))
 	@echo LIBSDIR:   $$(LIBSDIR_$(D))
 	@echo LIBFLAGS:  $$(LIBFLAGS_$(D))
-	@echo LIBDEPS:   $$(LIBDEPS_$(D))
 	@echo HDEPS:     $$(HDEPS_$(D))
 	@echo INSTALL:   $$(INSTALL_PREFIX_$(D))
 	@echo EXTDEPS:   $$(EXTDEPS_$(D))
 	@echo EXTPATHS:  $$(EXTDEPPATHS_$(D))
 
-$$(MASTEROUT_$(D)): $$(BUILDDEPS_$(D)) banner_$(D) objects_$(D)
+$$(MASTEROUT_$(D)): $$(BUILDDEPS_$(D)) $$(OBJ_$(D))
 ifneq ($$(PRJTYPE_$(D)), StaticLib)
 # Link rule
 	@$$(info $(DGREEN_COLOR)[+] Linking$(NO_COLOR) $(DYELLOW_COLOR)$$@$(NO_COLOR))
@@ -636,4 +633,3 @@ PHONYPREREQS := $(foreach ruletype, $(PHONYRULETYPES), $(addprefix $(ruletype)_,
 		showvars_all \
 		clean
 .PHONY: $(PHONYPREREQS)
-.SECONDARY:
