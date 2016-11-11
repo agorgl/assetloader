@@ -519,7 +519,7 @@ endef
 
 # Installs target to repository
 install_$(D): $$(INSTDEPS_$(D)) $$(MASTEROUT_$(D))
-	$$(info $(LGREEN_COLOR)[>] Installing$(NO_COLOR) $(LYELLOW_COLOR)$$(TARGETNAME_$(D)) to $$(INSTALL_PREFIX_$(D))$(NO_COLOR))
+	$$(info $(LGREEN_COLOR)[>] Installing$(NO_COLOR) $(LYELLOW_COLOR)$$(TARGETNAME_$(D)) to $$(subst \,/,$$(INSTALL_PREFIX_$(D)))$(NO_COLOR))
 	$(showcmd)$$(call mkdir, $$(INSTALL_PREFIX_$(D))/lib)
 	$(showcmd)$$(call mkdir, $$(INSTALL_PREFIX_$(D))/include)
 	$(showcmd)$$(call rcopy, $(DP)include, $$(INSTALL_PREFIX_$(D))/include)
