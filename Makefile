@@ -524,7 +524,7 @@ install_$(D): $$(INSTDEPS_$(D)) $$(MASTEROUT_$(D))
 	$(showcmd)$$(call mkdir, $$(INSTALL_PREFIX_$(D))/include)
 	$(showcmd)$$(call rcopy, $(DP)include, $$(INSTALL_PREFIX_$(D))/include)
 	$(showcmd)$$(call copy, $$(MASTEROUT_$(D)), $$(INSTALL_PREFIX_$(D))/lib)
-	$(showcmd)echo "$$(PCFG_$(D))" > $$(call extdep-conf, $$(INSTALL_PAIR_$(D)))
+	$(showcmd)echo $$(PCFG_$(D)) > $$(call extdep-conf, $$(INSTALL_PAIR_$(D)))
 endif
 
 # Show banner for current build execution
