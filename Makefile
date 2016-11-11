@@ -344,12 +344,12 @@ $(foreach v, PRJTYPE VERSION LIBS SRCDIR SRC DEFINES ADDINCS MOREDEPS EXTDEPS, u
 # Gather variables from config
 PRJTYPE_$(D)   := $$(PRJTYPE)
 VERSION_$(D)   := $$(VERSION)
-SRCDIR_$(D)    := $$(foreach d, $$(SRCDIR), $(DP)$$(d))
-SRC_$(D)       := $$(foreach s, $$(SRC), $(DP)$$(s))
+SRCDIR_$(D)    := $$(addprefix $(DP), $$(SRCDIR))
+SRC_$(D)       := $$(addprefix $(DP), $$(SRC))
+ADDINCS_$(D)   := $$(addprefix $(DP), $$(ADDINCS))
+ADDLIBDIR_$(D) := $$(addprefix $(DP), $$(ADDLIBDIR))
 DEFINES_$(D)   := $$(DEFINES)
-ADDINCS_$(D)   := $$(foreach ai, $$(ADDINCS), $(DP)$$(ai))
-ADDLIBDIR_$(D) := $$(foreach ald, $$(ADDLIBDIR), $(DP)$$(ald))
-LIBS_$(D)      := $$(foreach l, $$(LIBS), $$(l))
+LIBS_$(D)      := $$(LIBS)
 MOREDEPS_$(D)  := $$(MOREDEPS)
 EXTDEPS_$(D)   := $$(EXTDEPS)
 
@@ -371,7 +371,7 @@ endif
 # Generated values
 #---------------------------------------------------------------
 # Objects
-OBJ_$(D) := $$(foreach obj, $$(SRC_$(D):=$(OBJEXT)), $(BUILDDIR)/$(VARIANT)/$$(obj))
+OBJ_$(D) := $$(addprefix $(BUILDDIR)/$(VARIANT)/, $$(SRC_$(D):=$(OBJEXT)))
 # Header dependencies
 HDEPS_$(D) := $$(OBJ_$(D):$(OBJEXT)=$(HDEPEXT))
 
@@ -402,7 +402,7 @@ DEPS_$(D) := $$(call gatherprojs, $$(DEPSDIR_$(D)))
 DEPS_$(D) += $$(foreach md, $$(MOREDEPS_$(D)), $$(or $$(call canonical_path_cur, $(DP)/$$(md)), .))
 
 # Preprocessor flags
-CPPFLAGS_$(D) := $$(strip $$(foreach define, $$(DEFINES_$(D)), $(DEFINEFLAG)$$(define)))
+CPPFLAGS_$(D) := $$(addprefix $(DEFINEFLAG), $$(DEFINES_$(D)))
 
 # Append dependency pairs from local dependencies
 undefine PKGS
@@ -423,7 +423,7 @@ INCPATHS_$(D) := $$(strip $(DP)include \
 						$$(ADDINCS_$(D)) \
 						$$(foreach extdep, $$(EXTDEPPATHS_$(D)), $$(extdep)/include))
 # Include path flags
-INCDIR_$(D) := $$(strip $$(foreach inc, $$(INCPATHS_$(D)), $(INCFLAG)$$(inc)))
+INCDIR_$(D) := $$(addprefix $(INCFLAG), $$(INCPATHS_$(D)))
 
 # Library search paths
 LIBPATHS_$(D) := $$(strip $$(foreach libdir,\
@@ -432,7 +432,7 @@ LIBPATHS_$(D) := $$(strip $$(foreach libdir,\
 								$$(libdir)/$(strip $(VARIANT))) \
 								$$(foreach extdep, $$(EXTDEPPATHS_$(D)), $$(extdep)/lib))
 # Library path flags
-LIBSDIR_$(D) := $$(strip $$(foreach lp, $$(LIBPATHS_$(D)), $(LIBSDIRFLAG)$$(lp)))
+LIBSDIR_$(D) := $$(addprefix $(LIBSDIRFLAG), $$(LIBPATHS_$(D)))
 
 # Library flags
 LIBFLAGS_$(D) := $$(strip $$(foreach lib, $$(LIBS_$(D)), $(LIBFLAG)$$(lib)$(if $(filter $(TOOLCHAIN), MSVC),.lib,)))
@@ -449,14 +449,14 @@ ifneq ($(TARGET_OS), Windows_NT)
 	# Path from executable location to project root
 	RELPPREFIX_$(D) := $$(subst $$(space),,$$(foreach dir, $$(subst /,$$(space),$$(dir $$(MASTEROUT_$(D)))),../))
 	# Library paths relative to the executable
-	LIBRELPATHS_$(D) := $$(strip $$(foreach p, $$(LIBPATHS_$(D)), $$(RELPPREFIX_$(D))$$(p)))
+	LIBRELPATHS_$(D) := $$(addprefix $$(RELPPREFIX_$(D)), $$(LIBPATHS_$(D)))
 	# Add rpath param to search for dependent shared libraries relative to the executable location
 	MORELFLAGS_$(D) := '-Wl$$(comma)-rpath$$(comma)$$(subst $$(space),:,$$(addprefix $$$$ORIGIN/, $$(LIBRELPATHS_$(D))))'
 endif
 endif
 
 # Build rule dependencies
-BUILDDEPS_$(D) := $$(foreach dep, $$(DEPS_$(D)), build_$$(strip $$(dep)))
+BUILDDEPS_$(D) := $$(addprefix build_, $$(DEPS_$(D)))
 
 # Link rule dependencies
 ifneq ($$(PRJTYPE_$(D)), StaticLib)
@@ -468,7 +468,7 @@ endif
 
 # Install dependencies for static library
 ifeq ($$(PRJTYPE_$(D)), StaticLib)
-INSTDEPS_$(D) := $$(foreach dep, $$(DEPS_$(D)), install_$$(strip $$(dep)))
+INSTDEPS_$(D) := $$(addprefix install_, $$(DEPS_$(D)))
 endif
 
 #---------------------------------------------------------------
@@ -569,7 +569,7 @@ build: build_.
 run: run_.
 install: install_.
 showvars: showvars_.
-showvars_all: $(foreach subproj, $(SUBPROJS), showvars_$(subproj))
+showvars_all: $(addprefix showvars_, $(SUBPROJS))
 
 # Track down Dynamic Library projects and find their dependencies
 SO_PROJS := $(strip $(foreach subproj, $(SUBPROJS), $(if $(filter $(PRJTYPE_$(subproj)), DynLib), $(subproj),)))
@@ -598,7 +598,7 @@ endif
 
 # Non file targets
 PHONYRULETYPES := run showvars
-PHONYPREREQS := $(foreach ruletype, $(PHONYRULETYPES), $(foreach subproj, $(SUBPROJS), $(ruletype)_$(subproj))) \
+PHONYPREREQS := $(foreach ruletype, $(PHONYRULETYPES), $(addprefix $(ruletype)_, $(SUBPROJS))) \
 		run \
 		showvars \
 		showvars_all \
