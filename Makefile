@@ -26,6 +26,7 @@
 #  [5] contains executable results
 #  [6] contains library results (static or shared)
 #  [7] contains intermediate object files of compiling processes
+MAKEFLAGS += --no-builtin-rules
 
 # CreateProcess NULL bug
 ifeq ($(OS), Windows_NT)
