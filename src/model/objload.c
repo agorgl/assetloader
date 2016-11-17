@@ -3,6 +3,7 @@
 #include <string.h>
 #include <vector.h>
 #include <hashmap.h>
+#include "assets/model/postprocess.h"
 
 /* Custom version of standard isspace, to avoid MSVC checks */
 static int is_space(const char c)
@@ -76,6 +77,7 @@ struct parser_state {
     struct vector faces;     /* Array of face indice triplets */
     struct hashmap found_materials; /* Hashmap of already found materials */
     int cur_mat_idx; /* Current material index set to meshes when being flushed */
+    int has_normals; /* Set if normals found for current mesh */
 };
 
 static size_t indice_hash(hm_ptr key)
@@ -160,6 +162,12 @@ static void flush_mesh(struct parser_state* ps, struct model* m)
     m->meshes = realloc(m->meshes, m->num_meshes * sizeof(struct mesh*));
     m->meshes[m->num_meshes - 1] = mesh_from_parser_state(ps);
 
+    /* Generate normals if needed */
+    if (!ps->has_normals)
+        mesh_generate_normals(m->meshes[m->num_meshes - 1]);
+    /* Reset mesh specific flags */
+    ps->has_normals = 0;
+
     /* Clear gathered faces */
     vector_destroy(&ps->faces);
     vector_init(&ps->faces, 9 * sizeof(int32_t));
@@ -235,6 +243,7 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
 
         /* Store data */
         vector_append(&ps->normals, vn);
+        ps->has_normals = 1; /* Set normal found flag */
     } else if (strncmp("vt", (const char*) cur, next_word_sz) == 0) {
         /* Texture coordinates */
         /*
