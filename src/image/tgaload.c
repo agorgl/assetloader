@@ -143,7 +143,7 @@ struct image* image_from_tga(const unsigned char* data, size_t sz) {
     /* Get screen origin bit (0 = lower left, 1 = upper left) */
     unsigned char screen_origin = header.image_descriptor & (1 << 5);
     /* Flip image on y axis */
-    if (!screen_origin) {
+    if (screen_origin) {
         image_flip(im);
     }
 
