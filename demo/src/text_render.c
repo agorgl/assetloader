@@ -208,7 +208,6 @@ void text_render_print(text_renderer_t* tr, const char* text, vec2 pos, vec4 col
     mat4 view = mat4_id();
     mat4 proj = mat4_orthographic(0, 800, 0, 600, -1, 1);
     mat4 mvp = mat4_mul_mat4(mat4_mul_mat4(proj, view), model);
-    mvp = mat4_transpose(mvp);
     glUniformMatrix4fv(glGetUniformLocation(tr->shader, "mvp"), 1, GL_FALSE, (void*)&mvp);
 
     glBindVertexArray(vao);

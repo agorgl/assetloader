@@ -400,7 +400,7 @@ void game_init(struct game_context* ctx)
 
     /* Setup camera */
     camera_defaults(&ctx->cam);
-    ctx->cam.pos = vec3_new(0.0, 1.0, 2.0);
+    ctx->cam.pos = vec3_new(0.0, 1.4, 3.0);
     ctx->cam.front = vec3_normalize(vec3_mul(ctx->cam.pos, -1));
 
     /* Normal visualization */
@@ -491,7 +491,7 @@ static void game_upload_bones(struct game_context* ctx, GLuint prog)
             strcat(uname, "]");
             /* Upload */
             GLuint bone_loc = glGetUniformLocation(prog, uname);
-            glUniformMatrix4fv(bone_loc, 1, GL_TRUE, (GLfloat*)&bones[i]);
+            glUniformMatrix4fv(bone_loc, 1, GL_FALSE, bones[i].m);
             free(uname);
         }
         free(bones);
@@ -506,9 +506,9 @@ static void game_visualize_normals_render(struct game_context* ctx, mat4* view, 
 
     /* Upload MVP matrix */
     glUseProgram(ctx->vis_nrm_prog);
-    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "projection"), 1, GL_TRUE, (GLfloat*)proj);
-    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "view"), 1, GL_TRUE, (GLfloat*)view);
-    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "model"), 1, GL_TRUE, (GLfloat*)&gobj->transform);
+    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "projection"), 1, GL_FALSE, proj->m);
+    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "view"), 1, GL_FALSE, view->m);
+    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_nrm_prog, "model"), 1, GL_FALSE, gobj->transform.m);
     /* Upload animated flag */
     glUniform1i(glGetUniformLocation(ctx->vis_nrm_prog, "animated"), gobj->model.fset != 0);
     /* Upload bones */
@@ -579,9 +579,9 @@ static void game_visualize_skeleton_render(struct game_context* ctx, mat4* view,
     glVertexAttribPointer(pos_attrib, 3, GL_FLOAT, GL_FALSE, 0, 0);
 
     glUseProgram(ctx->vis_skel_prog);
-    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_skel_prog, "projection"), 1, GL_TRUE, (GLfloat*)proj);
-    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_skel_prog, "view"), 1, GL_TRUE, (GLfloat*)view);
-    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_skel_prog, "model"), 1, GL_TRUE, (GLfloat*)model);
+    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_skel_prog, "projection"), 1, GL_FALSE, proj->m);
+    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_skel_prog, "view"), 1, GL_FALSE, view->m);
+    glUniformMatrix4fv(glGetUniformLocation(ctx->vis_skel_prog, "model"), 1, GL_FALSE, model->m);
 
     glDrawArrays(GL_LINES, 0, num_pts);
     glUseProgram(0);
@@ -606,17 +606,17 @@ void game_render(void* userdata, float interpolation)
     /* Create view and projection matrices */
     mat4 view;
     if (ctx->is_rotating) {
-        float cam_pos_x = 2.0 * cos(rotation_interpolated);
-        float cam_pos_y = 2.0 * sin(rotation_interpolated);
+        float cam_pos_x = 3.0 * cos(rotation_interpolated);
+        float cam_pos_y = 3.0 * sin(rotation_interpolated);
         view = mat4_view_look_at(
-            vec3_new(cam_pos_x, 1.0f, cam_pos_y),  /* Position */
+            vec3_new(cam_pos_x, 1.4f, cam_pos_y),  /* Position */
             vec3_zero(),                           /* Target */
             vec3_new(0.0f, 1.0f, 0.0f));           /* Up */
     } else {
         //nview = camera_interpolated_view(&ctx->cam, interpolation);
         view = ctx->cam.view_mat;
     }
-    mat4 proj = mat4_perspective(radians(45.0f), 0.1f, 300.0f, 1.0f / (800.0f / 600.0f));
+    mat4 proj = mat4_perspective(radians(45.0f), 0.1f, 300.0f, (800.0f / 600.0f));
 
     /* Render */
     glUseProgram(ctx->prog);
@@ -636,8 +636,7 @@ void game_render(void* userdata, float interpolation)
         /* Upload MVP matrix */
         mat4 mvp = mat4_mul_mat4(mat4_mul_mat4(proj, view), gobj->transform);
         GLuint mvp_loc = glGetUniformLocation(ctx->prog, "MVP");
-        mvp = mat4_transpose(mvp);
-        glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, (GLfloat*)&mvp);
+        glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, mvp.m);
         /* Upload animated flag */
         glUniform1i(glGetUniformLocation(ctx->prog, "animated"), gobj->model.fset != 0);
         /* Upload bones */
