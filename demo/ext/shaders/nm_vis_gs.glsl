@@ -23,4 +23,4 @@ void main()
     GenerateLine(0); // First vertex normal
     GenerateLine(1); // Second vertex normal
     GenerateLine(2); // Third vertex normal
-};
+}

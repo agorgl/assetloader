@@ -8,4 +8,4 @@ void main()
 {
     vec3 Color = texture(diffTex, UV).rgb;
     out_color = vec4(Color, 1.0);
-};
+}
