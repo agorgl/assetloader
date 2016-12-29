@@ -54,6 +54,17 @@ static struct fbx_property* fbx_find_layer_property(struct fbx_record* geom, con
     struct fbx_record* r1 = fbx_find_subrecord_with_name(geom, layer);
     if (!r1)
         return 0;
+
+    /* Try to find Layer number 0 */
+    struct fbx_record* nr = r1;
+    while (nr) {
+        if (nr->properties[0].data.i == 0) {
+            r1 = nr;
+            break;
+        }
+        nr = fbx_find_sibling_with_name(nr, layer);
+    }
+
     struct fbx_record* r2 = fbx_find_subrecord_with_name(r1, subrec);
     if (!r2)
         return 0;
