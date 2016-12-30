@@ -1330,7 +1330,6 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
         fprintf(stderr, "Not a fbx file!\n");
         return 0;
     }
-    printf("Version: %d\n", fbx.version);
 
     /* Parse fbx file */
     struct fbx_record* r = fbx_read_root_record(&ps);
@@ -1346,9 +1345,6 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
     struct fbx_record* gsettings = fbx_find_subrecord_with_name(fbx.root, "GlobalSettings");
     struct fbx_transform_orientation gorient;
     fbx_global_orientation(gsettings, gorient.signs, gorient.indexes);
-    printf("Orientation: Sign(%.1f, %.1f, %.1f) Idx(%lu, %lu, %lu)\n",
-            gorient.signs[0], gorient.signs[1], gorient.signs[2],
-            gorient.indexes[0], gorient.indexes[1], gorient.indexes[2]);
 
     /* Gather model data from parsed tree  */
     struct model* m = fbx_read_model(objs, &indexes);
@@ -1358,7 +1354,6 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
 
     /* Retrieve animation framerate */
     float fr = fbx_framerate(gsettings);
-    printf("Framerate: %f\n", fr);
 
     /* Read frameset */
     if (m->skeleton)
