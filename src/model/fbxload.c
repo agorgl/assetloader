@@ -221,10 +221,10 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, i
          * splits polygons to triangle fans
          */
         if (fc >= 3) {
-            int ci = mesh->indices[mesh->num_indices];
-            mesh->indices[mesh->num_indices + 0] = ci;
+            uint32_t ci = mesh->indices[mesh->num_indices];
+            mesh->indices[mesh->num_indices + 0] = mesh->indices[mesh->num_indices - 3];
             mesh->indices[mesh->num_indices + 1] = mesh->indices[mesh->num_indices - 1];
-            mesh->indices[mesh->num_indices + 2] = mesh->indices[mesh->num_indices - fc];
+            mesh->indices[mesh->num_indices + 2] = ci;
             mesh->num_indices += 2;
         }
 
