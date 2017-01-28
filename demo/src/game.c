@@ -279,9 +279,9 @@ static struct {
     },
     {
         /* Cube */
-        .model_loc     = "ext/cube.obj",
+        .model_loc     = "ext/models/cube.obj",
         .diff_tex_locs = {
-            "ext/floor.tga"
+            "ext/textures/floor.tga"
         },
         .translation   = {0.0f, 0.1f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
@@ -289,9 +289,9 @@ static struct {
     },
     {
         /* Cube2 */
-        .model_loc     = "ext/cube.fbx",
+        .model_loc     = "ext/models/cube.fbx",
         .diff_tex_locs = {
-            "ext/Bark2.tif"
+            "ext/textures/Bark2.tif"
         },
         .translation   = {0.0f, 0.1f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
