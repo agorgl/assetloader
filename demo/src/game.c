@@ -9,6 +9,7 @@
 #include "static_data.h"
 #include <stdio.h>
 #include <assets/assetload.h>
+#include <assets/abstractfs.h>
 
 static void APIENTRY gl_debug_proc(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* user_param)
 {
@@ -225,9 +226,9 @@ static struct {
 } scene_objects[] = {
     {
         /* Podium */
-        .model_loc     = "ext/models/podium/podium.obj",
+        .model_loc     = "models/podium/podium.obj",
         .diff_tex_locs = {
-            "ext/models/podium/podium.png"
+            "models/podium/podium.png"
         },
         .translation   = {0.0f, -0.5f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
@@ -235,11 +236,11 @@ static struct {
     },
     {
         /* Warrior Woman */
-        .model_loc     = "ext/models/warrior_woman/Medieval_character_01.fbx",
+        .model_loc     = "models/warrior_woman/Medieval_character_01.fbx",
         .diff_tex_locs = {
-            "ext/models/warrior_woman/Armor_01.png",
-            "ext/models/warrior_woman/Head.png",
-            "ext/models/warrior_woman/Kiem.png"
+            "models/warrior_woman/Armor_01.png",
+            "models/warrior_woman/Head.png",
+            "models/warrior_woman/Kiem.png"
         },
         .translation   = {0.0f, -0.4f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
@@ -247,9 +248,9 @@ static struct {
     },
     {
         /* Artorias Sword */
-        .model_loc     = "ext/models/artorias_sword/Artorias_Sword.fbx",
+        .model_loc     = "models/artorias_sword/Artorias_Sword.fbx",
         .diff_tex_locs = {
-            "ext/models/artorias_sword/Sword_albedo.jpg"
+            "models/artorias_sword/Sword_albedo.jpg"
         },
         .translation   = {0.0f, -0.4f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
@@ -257,10 +258,10 @@ static struct {
     },
     {
         /* Alduin */
-        .model_loc     = "ext/models/alduin/alduin.obj",
+        .model_loc     = "models/alduin/alduin.obj",
         .diff_tex_locs = {
-            "ext/models/alduin/tex/alduin.jpg",
-            "ext/models/alduin/tex/alduineyes.jpg"
+            "models/alduin/tex/alduin.jpg",
+            "models/alduin/tex/alduineyes.jpg"
         },
         .translation   = {0.4f, -0.4f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
@@ -268,10 +269,10 @@ static struct {
     },
     {
         /* Mr Fixit */
-        .model_loc     = "ext/models/mrfixit/mrfixit.iqm",
+        .model_loc     = "models/mrfixit/mrfixit.iqm",
         .diff_tex_locs = {
-            "ext/models/mrfixit/Body.tga",
-            "ext/models/mrfixit/Head.tga"
+            "models/mrfixit/Body.tga",
+            "models/mrfixit/Head.tga"
         },
         .translation   = {0.0f, -0.4f, 0.0f},
         .rotation      = {90.0f, 0.0f, 0.0f},
@@ -279,9 +280,9 @@ static struct {
     },
     {
         /* Cube */
-        .model_loc     = "ext/models/cube.obj",
+        .model_loc     = "models/cube.obj",
         .diff_tex_locs = {
-            "ext/textures/floor.tga"
+            "textures/floor.tga"
         },
         .translation   = {0.0f, 0.1f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
@@ -289,9 +290,9 @@ static struct {
     },
     {
         /* Cube2 */
-        .model_loc     = "ext/models/cube.fbx",
+        .model_loc     = "models/cube.fbx",
         .diff_tex_locs = {
-            "ext/textures/Bark2.tif"
+            "textures/Bark2.tif"
         },
         .translation   = {0.0f, 0.1f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
@@ -299,9 +300,9 @@ static struct {
     },
     {
         /* Barrel */
-        .model_loc     = "ext/models/barrel/barrel.fbx",
+        .model_loc     = "models/barrel/barrel.fbx",
         .diff_tex_locs = {
-            "ext/models/barrel/barrel.tif"
+            "models/barrel/barrel.tif"
         },
         .translation   = {0.0f, -0.4f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
@@ -347,9 +348,9 @@ static void game_visualize_normals_setup(struct game_context* ctx)
 {
     ctx->visualizing_normals = 0;
     ctx->vis_nrm_prog = load_shader_from_files(
-        "ext/shaders/nm_vis_vs.glsl",
-        "ext/shaders/nm_vis_gs.glsl",
-        "ext/shaders/nm_vis_fs.glsl"
+        "shaders/nm_vis_vs.glsl",
+        "shaders/nm_vis_gs.glsl",
+        "shaders/nm_vis_fs.glsl"
     );
 }
 
@@ -357,9 +358,9 @@ static void game_visualize_skeleton_setup(struct game_context* ctx)
 {
     ctx->visualizing_skeleton = 0;
     ctx->vis_skel_prog = load_shader_from_files(
-        "ext/shaders/sv_vis_vs.glsl",
-        "ext/shaders/sv_vis_gs.glsl",
-        "ext/shaders/sv_vis_fs.glsl"
+        "shaders/sv_vis_vs.glsl",
+        "shaders/sv_vis_gs.glsl",
+        "shaders/sv_vis_fs.glsl"
     );
 }
 
@@ -383,6 +384,13 @@ void game_init(struct game_context* ctx)
     /* Setup OpenGL debug handler */
     glDebugMessageCallback(gl_debug_proc, ctx);
 
+    /* Initialize abstract file system */
+    afs_init();
+    /* Mount "ext" as root data directory */
+    afs_mount("ext", "/", 0);
+    /* Mount "ext/models.dat" zip file to "models" folder */
+    afs_mount("ext/models.dat", "/models", 0);
+
     /* Initialize game state data */
     ctx->rotation = 0.0f;
     ctx->is_rotating = 1;
@@ -393,9 +401,9 @@ void game_init(struct game_context* ctx)
 
     /* Load shaders */
     ctx->prog = load_shader_from_files(
-        "ext/shaders/main_vs.glsl",
+        "shaders/main_vs.glsl",
         0,
-        "ext/shaders/main_fs.glsl"
+        "shaders/main_fs.glsl"
     );
 
     /* Setup camera */
@@ -729,6 +737,9 @@ void game_shutdown(struct game_context* ctx)
 
     /* Delete main shader */
     glDeleteProgram(ctx->prog);
+
+    /* Deinit abstract file system */
+    afs_deinit();
 
     /* Close window */
     window_destroy(ctx->wnd);

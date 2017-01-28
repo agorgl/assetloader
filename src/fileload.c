@@ -1,7 +1,8 @@
 #include "assets/fileload.h"
 #include <stdio.h>
+#include <assets/abstractfs.h>
 
-long filesize(const char* filepath)
+static long stdio_filesize(const char* filepath)
 {
     /* Filesize in bytes */
     long int size = -1;
@@ -23,7 +24,7 @@ long filesize(const char* filepath)
     return size;
 }
 
-int read_file_to_mem(const char* filename, unsigned char* buf, size_t buf_sz)
+static int stdio_read_file_to_mem(const char* filename, unsigned char* buf, size_t buf_sz)
 {
     /* Try open the file */
     FILE* f = 0;
@@ -37,4 +38,20 @@ int read_file_to_mem(const char* filename, unsigned char* buf, size_t buf_sz)
     /* Close the file handle and return success code */
     fclose(f);
     return 1;
+}
+
+long filesize(const char* fname)
+{
+    if (afs_initialized())
+        return afs_file_length(fname);
+    else
+        return stdio_filesize(fname);
+}
+
+int read_file_to_mem(const char* fname, unsigned char* buf, size_t buf_sz)
+{
+    if (afs_initialized())
+        return afs_read_file_to_mem(fname, buf, buf_sz);
+    else
+        return stdio_read_file_to_mem(fname, buf, buf_sz);
 }
