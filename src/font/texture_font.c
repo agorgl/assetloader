@@ -7,6 +7,7 @@
 #include <string.h>
 #include "utf8_utils.h"
 #include "ttf_font.h"
+#include "pcf_font.h"
 
 #ifdef HAS_DISTANCE_FIELD
 #include "distance_field.h"
@@ -65,6 +66,7 @@ static int texture_font_init(texture_font_t* self)
         case TEXTURE_FONT_TYPE_TRUETYPE:
             return ttf_font_init(self);
         case TEXTURE_FONT_TYPE_BITMAP:
+            return pcf_font_init(self);
         default:
             assert(0 && "Invalid font type");
             break;
@@ -178,6 +180,7 @@ int texture_font_load_glyph(texture_font_t* self, const char* codepoint)
         case TEXTURE_FONT_TYPE_TRUETYPE:
             return ttf_font_load_glyph(self, codepoint);
         case TEXTURE_FONT_TYPE_BITMAP:
+            return pcf_font_load_glyph(self, codepoint);
         default:
             break;
     }
