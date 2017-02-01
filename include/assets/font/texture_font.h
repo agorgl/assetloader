@@ -150,6 +150,11 @@ typedef struct texture_font_t {
     struct vector glyphs;
     /** Atlas structure to store glyphs data. */
     texture_atlas_t* atlas;
+    /** Font type */
+    enum {
+        TEXTURE_FONT_TYPE_TRUETYPE = 0,
+        TEXTURE_FONT_TYPE_BITMAP
+    } type;
     /** Font location */
     enum {
         TEXTURE_FONT_FILE = 0,
@@ -239,7 +244,8 @@ texture_font_t* texture_font_new_from_file(
 texture_font_t* texture_font_new_from_memory(texture_atlas_t* atlas,
                                              float pt_size,
                                              const void* memory_base,
-                                             size_t memory_size);
+                                             size_t memory_size,
+                                             int font_type);
 
 /**
  * Delete a texture font. Note that this does not delete the glyph from the
@@ -254,6 +260,15 @@ void texture_font_delete(texture_font_t* self);
  */
 texture_glyph_t* texture_font_get_glyph(texture_font_t* self,
                                         const char* codepoint);
+
+/**
+ * Search for a loaded glyph in the font.
+ * Codepoint character to searched should be in UTF-8 encoding.
+ * Returns 0 if the glyph is not loaded in the atlas
+ */
+texture_glyph_t* texture_font_find_glyph(texture_font_t* self,
+                                         const char* codepoint);
+
 /**
  * Request the loading of a given glyph.
  * Returns 1 if the glyph could be loaded, 0 if not.
