@@ -550,7 +550,7 @@ static int fbx_read_transform(struct fbx_indexes* indexes, int64_t mdl_id, mat4*
             /* Local Transforms */
             float s[3] = {1.0f, 1.0f, 1.0f}, r[3] = {0.0f, 0.0f, 0.0f}, t[3] = {0.0f, 0.0f, 0.0f};
             /* Pre/Post rotations */
-            int rot_active = 0; float pre_rot[3];
+            int rot_active = 0; float pre_rot[3] = {0.0f, 0.0f, 0.0f};;
             if (fbx_read_local_transform(mdl_node, t, r, s, &rot_active, pre_rot)) {
                 mat4 cur;
                 fbx_compose_local_transform(&cur, t, r, s, rot_active, pre_rot);
