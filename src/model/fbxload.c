@@ -934,7 +934,7 @@ static struct skeleton* fbx_read_skeleton(struct fbx_record* objs, struct fbx_in
     /* Joint names */
     skel->joint_names = realloc(skel->joint_names, skel->rest_pose->num_joints * sizeof(char*));
     memset(skel->joint_names, 0, skel->rest_pose->num_joints * sizeof(char*));
-    printf("Num joints: %u\n", jcount);
+    //printf("Num joints: %u\n", jcount);
 
     /* Iterate joints type Model nodes */
     const char* mdl_node_name = "Model";
