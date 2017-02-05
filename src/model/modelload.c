@@ -6,11 +6,11 @@
 
 struct model* model_from_mem_buf(const unsigned char* data, size_t sz, const char* hint)
 {
-    if (strcmp(hint, "obj") == 0)
+    if (strcmpi(hint, "obj") == 0)
         return model_from_obj(data, sz);
-    else if (strcmp(hint, "fbx") == 0)
+    else if (strcmpi(hint, "fbx") == 0)
         return model_from_fbx(data, sz);
-    else if (strcmp(hint, "iqm") == 0)
+    else if (strcmpi(hint, "iqm") == 0)
         return model_from_iqm(data, sz);
     /* No image parser found */
     return 0;

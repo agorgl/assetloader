@@ -32,5 +32,6 @@
 #define _UTIL_H_
 
 const char* get_filename_ext(const char* filename);
+int strcmpi(const char* s1, const char* s2);
 
 #endif // ! _UTIL_H_

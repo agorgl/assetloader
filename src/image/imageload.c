@@ -5,13 +5,13 @@
 #include <string.h>
 
 struct image* image_from_mem_buf(const unsigned char* data, size_t sz, const char* hint) {
-    if(strcmp(hint, "png") == 0) {
+    if(strcmpi(hint, "png") == 0) {
         return image_from_png(data, sz);
-    } else if (strcmp(hint, "jpg") == 0 || strcmp(hint, "jpeg") == 0) {
+    } else if (strcmpi(hint, "jpg") == 0 || strcmpi(hint, "jpeg") == 0) {
         return image_from_jpeg(data, sz);
-    } else if (strcmp(hint, "tif") == 0 || strcmp(hint, "tiff") == 0) {
+    } else if (strcmpi(hint, "tif") == 0 || strcmpi(hint, "tiff") == 0) {
         return image_from_tiff(data, sz);
-    } else if (strcmp(hint, "tga") == 0) {
+    } else if (strcmpi(hint, "tga") == 0) {
         return image_from_tga(data, sz);
     }
     /* No image parser found */

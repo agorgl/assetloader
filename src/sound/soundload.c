@@ -5,9 +5,9 @@
 #include <string.h>
 
 struct sound* sound_from_mem_buf(const unsigned char* data, size_t sz, const char* hint) {
-    if(strcmp(hint, "wav") == 0) {
+    if(strcmpi(hint, "wav") == 0) {
         return sound_from_wav(data, sz);
-    } else if (strcmp(hint, "ogg") == 0) {
+    } else if (strcmpi(hint, "ogg") == 0) {
         return sound_from_ogg(data, sz);
     }
     /* No image parser found */
