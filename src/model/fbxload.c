@@ -550,7 +550,7 @@ static int fbx_read_transform(struct fbx_indexes* indexes, int64_t mdl_id, mat4*
             /* Local Transforms */
             float s[3] = {1.0f, 1.0f, 1.0f}, r[3] = {0.0f, 0.0f, 0.0f}, t[3] = {0.0f, 0.0f, 0.0f};
             /* Pre/Post rotations */
-            int rot_active = 0; float pre_rot[3] = {0.0f, 0.0f, 0.0f};;
+            int rot_active = 0; float pre_rot[3] = {0.0f, 0.0f, 0.0f};
             if (fbx_read_local_transform(mdl_node, t, r, s, &rot_active, pre_rot)) {
                 mat4 cur;
                 fbx_compose_local_transform(&cur, t, r, s, rot_active, pre_rot);
@@ -1078,7 +1078,7 @@ static float fbx_framerate(struct fbx_record* gsettings)
 }
 
 struct fbx_transform_orientation {
-    size_t indexes[3];
+    size_t indxs[3];
     float signs[3];
 };
 
@@ -1109,6 +1109,62 @@ static void fbx_global_orientation(struct fbx_record* gsettings, float sgn[3], s
     }
     memcpy(sgn, signs, 3 * sizeof(float));
     memcpy(val, values, 3 * sizeof(size_t));
+}
+
+/* TODO: Implement something that works */
+/*
+static void fbx_joint_reorient(struct joint* jnt, float sgn[3], size_t idx[3])
+{
+    float old_scl[3], old_pos[3];
+    memcpy(old_scl, jnt->scaling, 3 * sizeof(float));
+    memcpy(old_pos, jnt->position, 3 * sizeof(float));
+    for (int i = 0; i < 3; ++i) {
+        jnt->scaling[idx[i]]  = sgn[i] * old_scl[i];
+        jnt->position[idx[i]] = sgn[i] * old_pos[i];
+    }
+
+    vec3 old_eu = quat_to_euler(
+        quat_new(jnt->rotation[0],
+                 jnt->rotation[1],
+                 jnt->rotation[2],
+                 jnt->rotation[3]));
+    vec3 new_eu;
+    for (int i = 0; i < 3; ++i)
+        new_eu.xyz[idx[i]] = sgn[i] * old_eu.xyz[i];
+    quat nq = quat_from_euler(new_eu);
+    memcpy(jnt->rotation, nq.xyzw, 4 * sizeof(float));
+}
+*/
+
+static void fbx_reorient(struct model* m, float sgn[3], size_t idx[3])
+{
+    mat4 tm = mat4_zero();
+    tm.m2[idx[0]][0] = sgn[0];
+    tm.m2[idx[1]][1] = sgn[1];
+    tm.m2[idx[2]][2] = sgn[2];
+    tm.m2[3][3] = 1;
+
+    /* Transform mesh vertices */
+    for (int i = 0; i < m->num_meshes; ++i)
+        fbx_transform_vertices(m->meshes[i], tm);
+
+    /* Transform skeleton and frame data */
+    /*
+    if (m->skeleton) {
+        struct frame* rp = m->skeleton->rest_pose;
+        for (size_t i = 0; i < rp->num_joints; ++i) {
+            struct joint* jnt = rp->joints + i;
+            fbx_joint_reorient(jnt, sgn, idx);
+        }
+        for (size_t i = 0; i < m->frameset->num_frames; ++i) {
+            struct frame* f = m->frameset->frames[i];
+            for (size_t j = 0; j < f->num_joints; ++j) {
+                struct joint* jnt = f->joints + j;
+                fbx_joint_reorient(jnt, sgn, idx);
+            }
+        }
+    }
+     */
 }
 
 #define convert_fbx_time(time) (((float)time) / 46186158000L)
@@ -1344,7 +1400,7 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
     /* Parse orientation settings */
     struct fbx_record* gsettings = fbx_find_subrecord_with_name(fbx.root, "GlobalSettings");
     struct fbx_transform_orientation gorient;
-    fbx_global_orientation(gsettings, gorient.signs, gorient.indexes);
+    fbx_global_orientation(gsettings, gorient.signs, gorient.indxs);
 
     /* Gather model data from parsed tree  */
     struct model* m = fbx_read_model(objs, &indexes);
@@ -1358,6 +1414,13 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
     /* Read frameset */
     if (m->skeleton)
         m->frameset = fbx_read_frames(objs, &indexes, fr);
+
+    /* Apply orientation */
+    int is_orientation_default =
+        (gorient.signs[0] == 1 && gorient.signs[1] == 1 && gorient.signs[2] == 1)
+     && (gorient.indxs[0] == 0 && gorient.indxs[1] == 1 && gorient.indxs[2] == 2);
+    if (!is_orientation_default)
+        fbx_reorient(m, gorient.signs, gorient.indxs);
 
     /* Free indexes */
     fbx_destroy_indexes(&indexes);
