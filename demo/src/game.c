@@ -223,6 +223,7 @@ static struct {
     float translation[3];
     float rotation[3];
     float scaling;
+    int use_fscale;
 } scene_objects[] = {
     {
         /* Podium */
@@ -232,7 +233,8 @@ static struct {
         },
         .translation   = {0.0f, -0.5f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
-        .scaling       = 0.08f
+        .scaling       = 0.08f,
+        .use_fscale    = 0
     },
     {
         /* Warrior Woman */
@@ -244,7 +246,8 @@ static struct {
         },
         .translation   = {0.0f, -0.4f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
-        .scaling       = 0.008f
+        .scaling       = 0.8f,
+        .use_fscale    = 1
     },
     {
         /* Artorias Sword */
@@ -254,7 +257,8 @@ static struct {
         },
         .translation   = {0.0f, -0.4f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
-        .scaling       = 0.0006f
+        .scaling       = 6.0f,
+        .use_fscale    = 1
     },
     {
         /* Alduin */
@@ -265,7 +269,8 @@ static struct {
         },
         .translation   = {0.4f, -0.4f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
-        .scaling       = 0.0025f
+        .scaling       = 0.25f,
+        .use_fscale    = 1
     },
     {
         /* Mr Fixit */
@@ -276,7 +281,8 @@ static struct {
         },
         .translation   = {0.0f, -0.4f, 0.0f},
         .rotation      = {90.0f, 0.0f, 0.0f},
-        .scaling       = 0.2f
+        .scaling       = 0.2f,
+        .use_fscale    = 0
     },
     {
         /* Cube */
@@ -286,7 +292,8 @@ static struct {
         },
         .translation   = {0.0f, 0.1f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
-        .scaling       = 1.0f
+        .scaling       = 1.0f,
+        .use_fscale    = 0
     },
     {
         /* Cube2 */
@@ -296,7 +303,8 @@ static struct {
         },
         .translation   = {0.0f, 0.1f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
-        .scaling       = 0.01f
+        .scaling       = 1.0f,
+        .use_fscale    = 0
     },
     {
         /* Barrel */
@@ -306,7 +314,8 @@ static struct {
         },
         .translation   = {0.0f, -0.4f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
-        .scaling       = 0.02f
+        .scaling       = 20.0f,
+        .use_fscale    = 1
     },
 };
 
@@ -332,7 +341,8 @@ static void setup_data(struct game_context* ctx)
         /* Construct model matrix */
         float* pos = scene_objects[i].translation;
         float* rot = scene_objects[i].rotation;
-        float scl = scene_objects[i].scaling;
+        float unit_scale = (scene_objects[i].use_fscale ? 0.01f : 1.0f);
+        float scl = scene_objects[i].scaling * unit_scale;
         go.transform = mat4_mul_mat4(
             mat4_mul_mat4(
                 mat4_translation(vec3_new(pos[0], pos[1], pos[2])),

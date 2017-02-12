@@ -509,7 +509,10 @@ static void fbx_compose_local_transform(mat4* transform, float t[3], float r[3],
                                                                                            radians(pre_rot[0]),
                                                                                            radians(pre_rot[2])))));
     /* Lcl Scaling */
+    (void) s;
+    /*
     *transform = mat4_mul_mat4(*transform, mat4_scale(vec3_new(s[0], s[1], s[2])));
+     */
 }
 
 static int fbx_read_transform(struct fbx_indexes* indexes, int64_t mdl_id, mat4* out)
