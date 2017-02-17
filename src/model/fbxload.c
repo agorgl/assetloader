@@ -629,6 +629,7 @@ static int fbx_read_acn_transform(struct fbx_indexes* indexes, int64_t mdl_id, f
 
 static void fbx_transform_vertices(struct mesh* m, mat4 transform)
 {
+    mat3 nm_mat = mat4_to_mat3(mat4_transpose(mat4_inverse(transform)));
     for (int i = 0; i < m->num_verts; ++i) {
         /* Transform positions */
         float* pos = m->vertices[i].position;
@@ -638,7 +639,7 @@ static void fbx_transform_vertices(struct mesh* m, mat4 transform)
         pos[2] = npos.z;
         /* Transform normals */
         float* nm = m->vertices[i].normal;
-        vec3 nnm = vec3_normalize(mat4_mul_vec3(transform, vec3_new(nm[0], nm[1], nm[2])));
+        vec3 nnm = vec3_normalize(mat3_mul_vec3(nm_mat, vec3_new(nm[0], nm[1], nm[2])));
         nm[0] = nnm.x;
         nm[1] = nnm.y;
         nm[2] = nnm.z;
