@@ -75,6 +75,7 @@ static struct fbx_property* fbx_find_layer_property(struct fbx_record* geom, con
 enum fbx_data_mapping_type {
     MT_BY_POLYGON_VERTEX,
     MT_BY_VERTEX,
+    MT_BY_POLYGON,
     MT_ALL_SAME,
     MT_INVALID
 };
@@ -85,6 +86,8 @@ static enum fbx_data_mapping_type fbx_find_prop_mapping_type(struct fbx_property
         return MT_BY_POLYGON_VERTEX;
     else if (strncmp("ByVertex", mapping->data.str, 8) == 0 || strncmp("ByVertice", mapping->data.str, 9) == 0)
         return MT_BY_VERTEX;
+    else if (strncmp("ByPolygon", mapping->data.str, 9) == 0)
+        return MT_BY_POLYGON;
     else if (strncmp("AllSame", mapping->data.str, 7) == 0)
         return MT_ALL_SAME;
     else
@@ -132,6 +135,11 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, i
     assert(nm_mapping == MT_BY_POLYGON_VERTEX || nm_mapping == MT_BY_VERTEX);
     enum fbx_data_reference_type nm_reference = fbx_find_prop_reference_type(norms_reference);
     assert(nm_reference == RT_DIRECT);
+    enum fbx_data_mapping_type mt_mapping = MT_INVALID;
+    if (mats) {
+        mt_mapping = fbx_find_prop_mapping_type(mats_mapping);
+        assert(mt_mapping == MT_ALL_SAME || mt_mapping == MT_BY_POLYGON);
+    }
 
     /* Create mesh */
     struct mesh* mesh = mesh_new();
@@ -143,6 +151,7 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, i
 
     /* Allocate top limit */
     mesh->vertices = realloc(mesh->vertices, stored_indices * sizeof(struct vertex));
+    /* TODO: Add capacity counter to avoid possible overflows */
     mesh->indices = realloc(mesh->indices, stored_indices * 2 * sizeof(uint32_t));
     memset(mesh->vertices, 0, stored_indices * sizeof(struct vertex));
     if (vw_index) {
@@ -159,7 +168,7 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, i
     int tot_pols = 0; /* Counter of polygons encountered so far */
     for (int i = *indice_offset; i < stored_indices; ++i) {
         /* Check if mesh has multiple materials or not */
-        if (mats && strncmp("AllSame", mats_mapping->data.str, 7) != 0) {
+        if (mats && mt_mapping != MT_ALL_SAME) {
             /* Gather material for current vertice */
             cur_material = *(mats->data.ip + tot_pols);
         } else {
