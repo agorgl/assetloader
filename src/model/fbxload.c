@@ -91,6 +91,22 @@ static enum fbx_data_mapping_type fbx_find_prop_mapping_type(struct fbx_property
         return MT_INVALID;
 }
 
+enum fbx_data_reference_type {
+    RT_INDEX,
+    RT_DIRECT,
+    RT_INVALID
+};
+
+static enum fbx_data_reference_type fbx_find_prop_reference_type(struct fbx_property* reference)
+{
+    if (strncmp("IndexToDirect", reference->data.str, 13) == 0)
+        return RT_INDEX;
+    else if (strncmp("Direct", reference->data.str, 6) == 0)
+        return RT_DIRECT;
+    else
+        return RT_INVALID;
+}
+
 static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, int* mat_id, struct hashmap* vw_index)
 {
     /* Check if geometry node contains any vertices */
@@ -103,6 +119,7 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, i
     struct fbx_property* indices = fbx_find_subrecord_with_name(geom, "PolygonVertexIndex")->properties;
     struct fbx_property* norms = fbx_find_layer_property(geom, "LayerElementNormal", "Normals");
     struct fbx_property* norms_mapping = fbx_find_layer_property(geom, "LayerElementNormal", "MappingInformationType");
+    struct fbx_property* norms_reference = fbx_find_layer_property(geom, "LayerElementNormal", "ReferenceInformationType");
     struct fbx_property* tangents = fbx_find_layer_property(geom, "LayerElementTangent", "Tangents");
     struct fbx_property* binormals = fbx_find_layer_property(geom, "LayerElementBinormal", "Binormals");
     struct fbx_property* uvs = fbx_find_layer_property(geom, "LayerElementUV", "UV");
@@ -113,6 +130,8 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, i
     /* Fill in each data array's mapping type */
     enum fbx_data_mapping_type nm_mapping = fbx_find_prop_mapping_type(norms_mapping);
     assert(nm_mapping == MT_BY_POLYGON_VERTEX || nm_mapping == MT_BY_VERTEX);
+    enum fbx_data_reference_type nm_reference = fbx_find_prop_reference_type(norms_reference);
+    assert(nm_reference == RT_DIRECT);
 
     /* Create mesh */
     struct mesh* mesh = mesh_new();
