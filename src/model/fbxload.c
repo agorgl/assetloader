@@ -110,7 +110,7 @@ static enum fbx_data_reference_type fbx_find_prop_reference_type(struct fbx_prop
         return RT_INVALID;
 }
 
-static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, int* mat_id, struct hashmap* vw_index)
+static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, int* tot_pols, int* mat_id, struct hashmap* vw_index)
 {
     /* Check if geometry node contains any vertices */
     struct fbx_record* verts_nod = fbx_find_subrecord_with_name(geom, "Vertices");
@@ -165,24 +165,24 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, i
 
     /* Populate mesh */
     int fc = 0; /* Counter of vertices in running face */
-    int tot_pols = 0; /* Counter of polygons encountered so far */
     for (int i = *indice_offset; i < stored_indices; ++i) {
         /* Check if mesh has multiple materials or not */
-        if (mats && mt_mapping != MT_ALL_SAME) {
+        if (mats) {
             /* Gather material for current vertice */
-            cur_material = *(mats->data.ip + tot_pols);
+            if (mt_mapping == MT_ALL_SAME)
+                cur_material = *(mats->data.ip + 0);
+            else if (mt_mapping == MT_BY_POLYGON)
+                cur_material = *(mats->data.ip + *tot_pols);
+            /* Check if new mesh should be created according to current material */
+            if (last_material != -1 && last_material != cur_material) {
+                *indice_offset = i;
+                cur_material = last_material;
+                goto cleanup;
+            }
+            last_material = cur_material;
         } else {
             cur_material = 0;
         }
-        /* Initial value for last_material */
-        if (last_material == -1)
-            last_material = cur_material;
-        /* Check if new mesh should be created according to current material */
-        if (last_material != cur_material) {
-            *indice_offset = i;
-            goto cleanup;
-        }
-        last_material = cur_material;
         /* NOTE!
          * Negative array values in the positions' indices array exist
          * to indicate the last index of a polygon.
@@ -191,7 +191,7 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, i
         int32_t pos_ind = indices->data.ip[i];
         if (pos_ind < 0) {
             pos_ind = -1 * pos_ind - 1;
-            ++tot_pols;
+            ++(*tot_pols);
         }
         uint32_t uv_ind = 0;
         if (uvs)
@@ -835,9 +835,10 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_indexes* 
          * in current geom node, or with a value that must be passed to subsequent
          * calls of the fbx_read_mesh function to gather next meshes. */
         int indice_offset = 0;
-        int mat_idx = 0;
+        int tot_pols = 0; /* Counter of polygons encountered so far */
         do {
-            struct mesh* nm = fbx_read_mesh(geom, &indice_offset, &mat_idx, vw_index);
+            int mat_idx = -1;
+            struct mesh* nm = fbx_read_mesh(geom, &indice_offset, &tot_pols, &mat_idx, vw_index);
             if (nm) {
                 /* Append new mesh */
                 model->num_meshes++;
@@ -853,7 +854,7 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_indexes* 
                 }
                 /* Set material */
                 if (mat_ids.size > 0) {
-                    int64_t fbx_mat_id = *(int64_t*)vector_at(&mat_ids, mat_idx);
+                    int64_t fbx_mat_id = *(int64_t*)vector_at(&mat_ids, mat_ids.size - mat_idx - 1);
                     /* Try to find fbx material id in materials map,
                      * if not add it as a new pair with next available id */
                     hm_ptr* p = hashmap_get(&mat_map, hm_cast(fbx_mat_id));
