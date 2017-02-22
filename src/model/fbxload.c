@@ -37,12 +37,9 @@ static void fbx_cpy_fa(float* dst, void* src, size_t len, size_t unit_sz)
 static size_t vertex_hash(hm_ptr key)
 {
     struct vertex* v = (struct vertex*)hm_pcast(key);
-    return (size_t)(v->position[0]
-                  * v->position[1]
-                  * v->position[2]
-                  * v->normal[0]
-                  * v->normal[1]
-                  * v->normal[2]);
+    return (size_t)((uint32_t)v->position[0]
+                  ^ (uint32_t)v->position[1]
+                  ^ (uint32_t)v->position[2]);
 }
 
 static int vertex_eql(hm_ptr k1, hm_ptr k2)
