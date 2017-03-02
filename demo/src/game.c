@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <assets/assetload.h>
 #include <assets/abstractfs.h>
+#include <prof.h>
 
 static void APIENTRY gl_debug_proc(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* user_param)
 {
@@ -407,7 +408,10 @@ void game_init(struct game_context* ctx)
     ctx->cur_obj = 1;
 
     /* Load data from files into the GPU */
+    timepoint_t t1 = millisecs();
     setup_data(ctx);
+    timepoint_t t2 = millisecs();
+    printf("Total time: %lu:%lu\n", (t2 - t1) / 1000, (t2 - t1) % 1000);
 
     /* Load shaders */
     ctx->prog = load_shader_from_files(
