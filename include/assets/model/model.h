@@ -34,65 +34,63 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Vertex */
-struct vertex {
-    float position[3];
-    float normal[3];
-    float tangent[3];
-    float binormal[3];
-    float color[4];
-    float uvs[2];
-};
-
-/* Vertex weight */
-struct vertex_weight {
-    uint32_t bone_ids[4];
-    float bone_weights[4];
-};
-
-/* Mesh */
-struct mesh {
-    int num_verts;
-    int num_indices;
-    struct vertex* vertices;
-    uint32_t* indices;
-    int mat_index;
-    struct vertex_weight* weights;
-};
-
-/* Joint */
-struct joint {
-    struct joint* parent;
-    float position[3];
-    float rotation[4]; /* quat */
-    float scaling[3];
-};
-
 /* Frame */
 struct frame {
-    struct joint* joints;
+    /* Joint */
+    struct joint {
+        struct joint* parent;
+        float position[3];
+        float rotation[4]; /* quat */
+        float scaling[3];
+    }* joints;
     size_t num_joints;
-};
-
-/* Frameset */
-struct frameset {
-    struct frame** frames;
-    size_t num_frames;
-};
-
-/* Skeleton */
-struct skeleton {
-    struct frame* rest_pose;
-    char** joint_names;
 };
 
 /* Model */
 struct model {
+    /* Meshes */
+    struct mesh {
+        /* Vertices */
+        struct vertex {
+            float position[3];
+            float normal[3];
+            float tangent[3];
+            float binormal[3];
+            float color[4];
+            float uvs[2];
+        }* vertices;
+        struct vertex_weight {
+            uint32_t bone_ids[4];
+            float bone_weights[4];
+        }* weights;
+        int num_verts;
+        /* Indices */
+        uint32_t* indices;
+        int num_indices;
+        /* Material index */
+        int mat_index; /* Relative to the parent mesh group */
+    }** meshes;
     int num_meshes;
-    struct mesh** meshes;
-    int num_materials;
-    struct skeleton* skeleton;
-    struct frameset* frameset;
+
+    /* Skeleton */
+    struct skeleton {
+        struct frame* rest_pose;
+        char** joint_names;
+    }* skeleton;
+    /* Frameset */
+    struct frameset {
+        struct frame** frames;
+        size_t num_frames;
+    }* frameset;
+
+    /* Model nodes */
+    struct mesh_group {
+        const char* name;
+        unsigned int num_materials;
+        size_t* mesh_offsets;
+        size_t num_mesh_offs;
+    }** mesh_groups;
+    size_t num_mesh_groups;
 };
 
 struct model* model_new();
@@ -100,6 +98,9 @@ void model_delete(struct model*);
 
 struct mesh* mesh_new();
 void mesh_delete(struct mesh*);
+
+struct mesh_group* mesh_group_new();
+void mesh_group_delete(struct mesh_group*);
 
 struct skeleton* skeleton_new();
 void skeleton_delete(struct skeleton*);

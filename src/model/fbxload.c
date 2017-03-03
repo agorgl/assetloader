@@ -808,10 +808,6 @@ static int mat_id_eql(hm_ptr k1, hm_ptr k2) { return k1 == k2; }
  *-----------------------------------------------------------------*/
 static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_indexes* indexes)
 {
-    /* Map that maps internal material ids to ours */
-    struct hashmap mat_map;
-    hashmap_init(&mat_map, mat_id_hash, mat_id_eql);
-
     /* Gather model data */
     struct model* model = model_new();
     struct fbx_record* geom = fbx_find_subrecord_with_name(obj, "Geometry");
@@ -819,10 +815,24 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_indexes* 
         /* Get model node corresponding to current geometry node */
         int64_t model_node_id = fbx_get_first_connection_id(&indexes->cidx, geom->properties[0].data.l);
         struct fbx_record* mdl_node = fbx_find_object_type_with_id(&indexes->objs_idx, "Model", model_node_id);
+
+        /* Create and append mesh group for current Model node */
+        struct mesh_group* mgroup = mesh_group_new();
+        mgroup->name = strdup(mdl_node->properties[1].data.str);
+        model->num_mesh_groups++;
+        model->mesh_groups = realloc(model->mesh_groups, model->num_mesh_groups * sizeof(struct mesh_group*));
+        model->mesh_groups[model->num_mesh_groups - 1] = mgroup;
+
         /* Create a list with the material ids */
         struct vector mat_ids;
         vector_init(&mat_ids, sizeof(int64_t));
         fbx_find_materials_for_model(obj, &indexes->cidx, model_node_id, &mat_ids);
+        mgroup->num_materials = mat_ids.size;
+
+        /* Map that maps internal material ids to ours */
+        struct hashmap mat_map;
+        hashmap_init(&mat_map, mat_id_hash, mat_id_eql);
+
         /* Create vertex weight index */
         struct hashmap* vw_index = 0;
         fbx_build_vertex_weights_index(geom, obj, indexes, &vw_index);
@@ -841,6 +851,9 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_indexes* 
                 model->num_meshes++;
                 model->meshes = realloc(model->meshes, model->num_meshes * sizeof(struct mesh*));
                 model->meshes[model->num_meshes - 1] = nm;
+                mgroup->num_mesh_offs++;
+                mgroup->mesh_offsets = realloc(mgroup->mesh_offsets, mgroup->num_mesh_offs * sizeof(size_t));
+                mgroup->mesh_offsets[mgroup->num_mesh_offs - 1] = model->num_meshes - 1;
                 /* Check if a transform matrix is available and transform if appropriate */
                 if (mdl_node) {
                     mat4 transform;
@@ -868,14 +881,14 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_indexes* 
         /* Free vertex weights index */
         if (vw_index)
             fbx_destroy_weight_index(vw_index);
+        /* Free materials map */
+        hashmap_destroy(&mat_map);
         /* Free materials list */
         vector_destroy(&mat_ids);
         /* Process next mesh */
         geom = fbx_find_sibling_with_name(geom, "Geometry");
     }
 
-    /* Free materials map */
-    hashmap_destroy(&mat_map);
     return model;
 }
 

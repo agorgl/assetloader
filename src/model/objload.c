@@ -76,6 +76,7 @@ struct parser_state {
     struct vector texcoords; /* Array of mesh texture coordinates */
     struct vector faces;     /* Array of face indice triplets */
     struct hashmap found_materials; /* Hashmap of already found materials */
+    int mat_id_cnt;  /* Material id counter */
     int cur_mat_idx; /* Current material index set to meshes when being flushed */
     int has_normals; /* Set if normals found for current mesh */
 };
@@ -161,6 +162,23 @@ static void flush_mesh(struct parser_state* ps, struct model* m)
     m->num_meshes++;
     m->meshes = realloc(m->meshes, m->num_meshes * sizeof(struct mesh*));
     m->meshes[m->num_meshes - 1] = mesh_from_parser_state(ps);
+
+    /* Lazily create root mesh group */
+    struct mesh_group* mgroup = 0;
+    if (!m->num_mesh_groups) {
+        mgroup = mesh_group_new();
+        mgroup->name = strdup("root_group");
+        m->num_mesh_groups++;
+        m->mesh_groups = realloc(m->mesh_groups, m->num_mesh_groups * sizeof(struct mesh_group*));
+        m->mesh_groups[m->num_mesh_groups - 1] = mgroup;
+    } else {
+        mgroup = m->mesh_groups[m->num_mesh_groups - 1];
+    }
+    /* Add current mesh to mesh group */
+    mgroup->num_materials = ps->mat_id_cnt;
+    mgroup->num_mesh_offs++;
+    mgroup->mesh_offsets = realloc(mgroup->mesh_offsets, mgroup->num_mesh_offs * sizeof(size_t));
+    mgroup->mesh_offsets[mgroup->num_mesh_offs - 1] = m->num_meshes - 1;
 
     /* Generate normals if needed */
     if (!ps->has_normals)
@@ -325,11 +343,9 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
         if (fmat) {
             free(material);
             ps->cur_mat_idx = *(int*)fmat;
-        }
-        else {
-            ++m->num_materials;
-            ps->cur_mat_idx = m->num_materials - 1;
-            hashmap_put(&ps->found_materials, hm_cast(material), hm_cast(m->num_materials - 1));
+        } else {
+            ps->cur_mat_idx = ps->mat_id_cnt++;
+            hashmap_put(&ps->found_materials, hm_cast(material), hm_cast(ps->mat_id_cnt - 1));
         }
     }
 }

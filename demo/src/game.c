@@ -109,29 +109,51 @@ static void on_mouse_button(struct window* wnd, int button, int action, int mods
     }
 }
 
+static void print_model_info(const char* filename, struct model* m)
+{
+    printf("Model: %s\n", filename);
+    printf(" Num meshes: %d\n", m->num_meshes);
+
+    unsigned int total_verts = 0;
+    unsigned int total_indices = 0;
+    for (int i = 0; i < m->num_meshes; ++i) {
+        struct mesh* mesh = m->meshes[i];
+        total_verts += mesh->num_verts;
+        total_indices += mesh->num_indices;
+    }
+    printf(" Num vertices: %d\n", total_verts);
+    printf(" Num indices: %d\n", total_indices);
+
+    for (size_t i = 0; i < m->num_mesh_groups; ++i) {
+        struct mesh_group* mgroup = m->mesh_groups[i];
+        printf(" Mesh group \"%s\" (%lu meshes, %u materials)\n",
+                 mgroup->name, mgroup->num_mesh_offs, mgroup->num_materials);
+        for (unsigned int j = 0; j < mgroup->num_mesh_offs; ++j) {
+            size_t mesh_ofs = mgroup->mesh_offsets[j];
+            struct mesh* mesh = m->meshes[mesh_ofs];
+            printf("  Mesh[%u] material: %d\n", j, mesh->mat_index);
+        }
+    }
+}
+
 static void upload_model_geom_data(const char* filename, struct model_handle* model)
 {
-    /* Parse obj */
-    printf("Model: %s\n", filename);
+    /* Parse file */
     clock_t t1 = clock();
     struct model* m = model_from_file(filename);
     clock_t t2 = clock();
-    printf("Load time %lu msec\n", 1000 * (t2 - t1) / CLOCKS_PER_SEC);
-    printf("Num meshes: %d\n", m->num_meshes);
-    printf("Num materials: %d\n", m->num_materials);
+    print_model_info(filename, m);
+    printf("Load time %lu msec\n\n", 1000 * (t2 - t1) / CLOCKS_PER_SEC);
 
     /* Allocate handle memory */
     model->num_meshes = m->num_meshes;
     model->meshes = malloc(m->num_meshes * sizeof(struct mesh_handle));
     memset(model->meshes, 0, model->num_meshes * sizeof(struct mesh_handle));
 
-    unsigned int total_verts = 0;
-    unsigned int total_indices = 0;
     for (unsigned int i = 0; i < model->num_meshes; ++i) {
         struct mesh* mesh = m->meshes[i];
         struct mesh_handle* mh = model->meshes + i;
         mh->mat_idx = mesh->mat_index;
-        printf("Using material: %d\n", mesh->mat_index);
 
         /* Create vao */
         glGenVertexArrays(1, &mh->vao);
@@ -180,19 +202,16 @@ static void upload_model_geom_data(const char* filename, struct model_handle* mo
                 mesh->indices,
                 GL_STATIC_DRAW);
         mh->indice_count = mesh->num_indices;
-        total_verts += mesh->num_verts;
-        total_indices += mesh->num_indices;
     }
-
-    /* Print some info */
-    printf("Num vertices: %d\n", total_verts);
-    printf("Num indices: %d\n", total_indices);
 
     /* Move skeleton and frameset */
     model->skel = m->skeleton;
     model->fset = m->frameset;
+    model->mesh_groups = m->mesh_groups;
+    model->num_mesh_groups = m->num_mesh_groups;
     m->skeleton = 0;
     m->frameset = 0;
+    m->mesh_groups = 0;
 
     /* Free model data */
     model_delete(m);
@@ -221,6 +240,7 @@ static unsigned int upload_texture(const char* filename)
 static struct {
     const char* model_loc;
     const char* diff_tex_locs[10];
+    size_t diff_tex_refs[16];
     float translation[3];
     float rotation[3];
     float scaling;
@@ -232,6 +252,7 @@ static struct {
         .diff_tex_locs = {
             "models/podium/podium.png"
         },
+        .diff_tex_refs = {0},
         .translation   = {0.0f, -0.5f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
         .scaling       = 0.08f,
@@ -245,6 +266,7 @@ static struct {
             "models/warrior_woman/Head.png",
             "models/warrior_woman/Kiem.png"
         },
+        .diff_tex_refs = {0, 0, 0, 1, 2, 2, 2},
         .translation   = {0.0f, -0.4f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
         .scaling       = 0.8f,
@@ -256,6 +278,7 @@ static struct {
         .diff_tex_locs = {
             "models/artorias_sword/Sword_albedo.jpg"
         },
+        .diff_tex_refs = {0},
         .translation   = {0.0f, -0.4f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
         .scaling       = 6.0f,
@@ -268,6 +291,7 @@ static struct {
             "models/alduin/tex/alduin.jpg",
             "models/alduin/tex/alduineyes.jpg"
         },
+        .diff_tex_refs = {0, 1},
         .translation   = {0.4f, -0.4f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
         .scaling       = 0.25f,
@@ -280,6 +304,7 @@ static struct {
             "models/mrfixit/Body.tga",
             "models/mrfixit/Head.tga"
         },
+        .diff_tex_refs = {0, 1},
         .translation   = {0.0f, -0.4f, 0.0f},
         .rotation      = {90.0f, 0.0f, 0.0f},
         .scaling       = 0.2f,
@@ -291,6 +316,7 @@ static struct {
         .diff_tex_locs = {
             "textures/floor.tga"
         },
+        .diff_tex_refs = {0},
         .translation   = {0.0f, 0.1f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
         .scaling       = 1.0f,
@@ -302,6 +328,7 @@ static struct {
         .diff_tex_locs = {
             "textures/Bark2.tif"
         },
+        .diff_tex_refs = {0},
         .translation   = {0.0f, 0.1f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
         .scaling       = 1.0f,
@@ -313,6 +340,7 @@ static struct {
         .diff_tex_locs = {
             "models/barrel/barrel.tif"
         },
+        .diff_tex_refs = {0},
         .translation   = {0.0f, -0.4f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
         .scaling       = 20.0f,
@@ -339,6 +367,7 @@ static void setup_data(struct game_context* ctx)
             GLuint tex_id = upload_texture(diff_tex_loc);
             vector_append(&go.diff_textures, &tex_id);
         }
+        memcpy(go.mat_refs, scene_objects[i].diff_tex_refs, 16 * sizeof(size_t));
         /* Construct model matrix */
         float* pos = scene_objects[i].translation;
         float* rot = scene_objects[i].rotation;
@@ -663,19 +692,26 @@ void game_render(void* userdata, float interpolation)
         glUniform1i(glGetUniformLocation(ctx->prog, "animated"), gobj->model.fset != 0);
         /* Upload bones */
         game_upload_bones(ctx, ctx->prog);
-        /* Render mesh by mesh */
-        for (unsigned int i = 0; i < mdlh->num_meshes; ++i) {
-            struct mesh_handle* mh = mdlh->meshes + i;
-            /* Set diffuse texture */
-            glActiveTexture(GL_TEXTURE0);
-            GLuint diff_tex = *(GLuint*)vector_at(&gobj->diff_textures, mh->mat_idx);
-            glBindTexture(GL_TEXTURE_2D, diff_tex);
-            /* Render */
-            glBindVertexArray(mh->vao);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mh->ebo);
-            glDrawElements(GL_TRIANGLES, mh->indice_count, GL_UNSIGNED_INT, (void*)0);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-            glBindVertexArray(0);
+        /* Render mesh_group by mesh_group */
+        unsigned int mat_list_ofs = 0;
+        for (unsigned int i = 0; i < mdlh->num_mesh_groups; ++i) {
+            struct mesh_group* mgroup = mdlh->mesh_groups[i];
+            for (unsigned int j = 0; j < mgroup->num_mesh_offs; ++j) {
+                size_t mesh_ofs = mgroup->mesh_offsets[j];
+                struct mesh_handle* mh = mdlh->meshes + mesh_ofs;
+                /* Set diffuse texture */
+                glActiveTexture(GL_TEXTURE0);
+                size_t mat_idx = gobj->mat_refs[mat_list_ofs + mh->mat_idx];
+                GLuint diff_tex = *(GLuint*)vector_at(&gobj->diff_textures, mat_idx);
+                glBindTexture(GL_TEXTURE_2D, diff_tex);
+                /* Render */
+                glBindVertexArray(mh->vao);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mh->ebo);
+                glDrawElements(GL_TRIANGLES, mh->indice_count, GL_UNSIGNED_INT, (void*)0);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+                glBindVertexArray(0);
+            }
+            mat_list_ofs += mgroup->num_materials;
         }
     }
 
@@ -746,6 +782,10 @@ void game_shutdown(struct game_context* ctx)
         /* Free frameset if exists */
         if (gobj->model.fset)
             frameset_delete(gobj->model.fset);
+        /* Free mesh group info */
+        for (unsigned int i = 0; i < gobj->model.num_mesh_groups; ++i)
+            mesh_group_delete(gobj->model.mesh_groups[i]);
+        free(gobj->model.mesh_groups);
     }
     vector_destroy(&ctx->gobjects);
 

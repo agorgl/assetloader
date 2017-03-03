@@ -54,6 +54,8 @@ struct model_handle
     unsigned int num_meshes;
     struct skeleton* skel;
     struct frameset* fset;
+    struct mesh_group** mesh_groups;
+    unsigned int num_mesh_groups;
 };
 
 struct game_object
@@ -61,6 +63,7 @@ struct game_object
     struct model_handle model;
     mat4 transform;
     struct vector diff_textures;
+    size_t mat_refs[16];
 };
 
 struct game_context

@@ -191,20 +191,30 @@ static struct model* iqm_read_model(struct iqm_file* iqm)
 {
     struct hashmap material_ids;
     hashmap_init(&material_ids, int_hash, int_eql);
+
     struct model* model = model_new();
+    model->num_mesh_groups = 1;
+    model->mesh_groups = realloc(model->mesh_groups, model->num_mesh_groups * sizeof(struct mesh_group*));
+    struct mesh_group* mgroup = mesh_group_new();
+    mgroup->name = strdup("root_group");
+    model->mesh_groups[0] = mgroup;
+
     for (uint32_t i = 0; i < iqm->header.num_meshes; ++i) {
         struct mesh* nm = iqm_read_mesh(iqm, i, i == 0 ? 0 : model->meshes[i - 1]->num_verts);
         model->num_meshes++;
         model->meshes = realloc(model->meshes, model->num_meshes * sizeof(struct mesh*));
         model->meshes[model->num_meshes - 1] = nm;
+        mgroup->num_mesh_offs++;
+        mgroup->mesh_offsets = realloc(mgroup->mesh_offsets, mgroup->num_mesh_offs * sizeof(size_t));
+        mgroup->mesh_offsets[mgroup->num_mesh_offs - 1] = model->num_meshes - 1;
 
         /* Assign actual material index */
         void* material = hashmap_get(&material_ids, hm_cast(nm->mat_index));
         if (material) {
             nm->mat_index = *(uint32_t*)material;
         } else {
-            nm->mat_index = model->num_materials;
-            ++model->num_materials;
+            nm->mat_index = mgroup->num_materials;
+            ++mgroup->num_materials;
         }
     }
     hashmap_destroy(&material_ids);

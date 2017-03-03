@@ -20,11 +20,24 @@ struct mesh* mesh_new()
     return mesh;
 }
 
+struct mesh_group* mesh_group_new()
+{
+    struct mesh_group* mg = malloc(sizeof(struct mesh_group));
+    memset(mg, 0, sizeof(struct mesh_group));
+    mg->mesh_offsets = malloc(0);
+    return mg;
+}
+
 void model_delete(struct model* m)
 {
     for (int i = 0; i < m->num_meshes; ++i)
         mesh_delete(m->meshes[i]);
     free(m->meshes);
+    if (m->mesh_groups) {
+        for (size_t i = 0; i < m->num_mesh_groups; ++i)
+            mesh_group_delete(m->mesh_groups[i]);
+        free(m->mesh_groups);
+    }
     if (m->skeleton)
         skeleton_delete(m->skeleton);
     if (m->frameset)
@@ -39,6 +52,14 @@ void mesh_delete(struct mesh* mesh)
     free(mesh->vertices);
     free(mesh->indices);
     free(mesh);
+}
+
+void mesh_group_delete(struct mesh_group* mg)
+{
+    if (mg->name)
+        free((void*)mg->name);
+    free(mg->mesh_offsets);
+    free(mg);
 }
 
 struct skeleton* skeleton_new()
