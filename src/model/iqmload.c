@@ -17,8 +17,6 @@ static struct frameset* iqm_read_frames(struct iqm_file* iqm)
     struct frame** frames = malloc(h->num_frames * sizeof(struct frame*));
     memset(frames, 0, h->num_frames * sizeof(struct frame*));
 
-    printf("Num frames: %u\n", h->num_frames);
-    printf("Num poses: %u\n", h->num_poses);
     for (uint32_t i = 0; i < h->num_frames; ++i) {
         /* Setup empty frame */
         struct frame* f = frame_new();
@@ -69,7 +67,6 @@ static struct skeleton* iqm_read_skeleton(struct iqm_file* iqm)
     skel->joint_names = realloc(skel->joint_names, skel->rest_pose->num_joints * sizeof(char*));
     memset(skel->joint_names, 0, skel->rest_pose->num_joints * sizeof(char*));
 
-    printf("Num joints: %u\n", h->num_joints);
     for (uint32_t i = 0; i < h->num_joints; ++i) {
         struct iqm_joint* joint = (struct iqm_joint*)(base + h->ofs_joints + i * sizeof(struct iqm_joint));
 
