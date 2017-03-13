@@ -4,37 +4,27 @@
 
 void triangle_tangent(float tangent[3], struct vertex* v1, struct vertex* v2, struct vertex* v3)
 {
-    vec3 pos1 = *(vec3*)v1->position;
-    vec3 pos2 = *(vec3*)v2->position;
-    vec3 pos3 = *(vec3*)v3->position;
-
     vec2 uv1 = *(vec2*)v1->uvs;
     vec2 uv2 = *(vec2*)v2->uvs;
     vec2 uv3 = *(vec2*)v3->uvs;
 
-    /* Get component vectors */
-    float x1 = pos2.x - pos1.x;
-    float x2 = pos3.x - pos1.x;
-
-    float y1 = pos2.y - pos1.y;
-    float y2 = pos3.y - pos1.y;
-
-    float z1 = pos2.z - pos1.z;
-    float z2 = pos3.z - pos1.z;
+    /* Calculate edges */
+    vec3 e1 = vec3_sub(*(vec3*)v2->position, *(vec3*)v1->position);
+    vec3 e2 = vec3_sub(*(vec3*)v3->position, *(vec3*)v1->position);
 
     /* Generate uv space vectors */
     float s1 = uv2.x - uv1.x;
-    float s2 = uv3.x - uv1.x;
-
     float t1 = uv2.y - uv1.y;
+
+    float s2 = uv3.x - uv1.x;
     float t2 = uv3.y - uv1.y;
 
-    float r = 1.0f / ((s1 * t2) - (s2 * t1));
+    float f = 1.0f / ((s1 * t2) - (s2 * t1));
 
     vec3 tdir = vec3_new(
-            (s1 * x2 - s2 * x1) * r,
-            (s1 * y2 - s2 * y1) * r,
-            (s1 * z2 - s2 * z1) * r);
+        f * (t2 * e1.x - t1 * e2.x),
+        f * (t2 * e1.y - t1 * e2.y),
+        f * (t2 * e1.z - t1 * e2.z));
 
     tdir = vec3_normalize(tdir);
     memcpy(tangent, &tdir, 3 * sizeof(float));
@@ -42,37 +32,27 @@ void triangle_tangent(float tangent[3], struct vertex* v1, struct vertex* v2, st
 
 void triangle_binormal(float binormal[3], struct vertex* v1, struct vertex* v2, struct vertex* v3)
 {
-    vec3 pos1 = *(vec3*)v1->position;
-    vec3 pos2 = *(vec3*)v2->position;
-    vec3 pos3 = *(vec3*)v3->position;
-
     vec2 uv1 = *(vec2*)v1->uvs;
     vec2 uv2 = *(vec2*)v2->uvs;
     vec2 uv3 = *(vec2*)v3->uvs;
 
-    /* Get component Vectors */
-    float x1 = pos2.x - pos1.x;
-    float x2 = pos3.x - pos1.x;
-
-    float y1 = pos2.y - pos1.y;
-    float y2 = pos3.y - pos1.y;
-
-    float z1 = pos2.z - pos1.z;
-    float z2 = pos3.z - pos1.z;
+    /* Calculate edges */
+    vec3 e1 = vec3_sub(*(vec3*)v2->position, *(vec3*)v1->position);
+    vec3 e2 = vec3_sub(*(vec3*)v3->position, *(vec3*)v1->position);
 
     /* Generate uv space vectors */
     float s1 = uv2.x - uv1.x;
-    float s2 = uv3.x - uv1.x;
-
     float t1 = uv2.y - uv1.y;
+
+    float s2 = uv3.x - uv1.x;
     float t2 = uv3.y - uv1.y;
 
-    float r = 1.0f / ((s1 * t2) - (s2 * t1));
+    float f = 1.0f / ((s1 * t2) - (s2 * t1));
 
     vec3 sdir = vec3_new(
-            (t2 * x1 - t1 * x2) * r,
-            (t2 * y1 - t1 * y2) * r,
-            (t2 * z1 - t1 * z2) * r);
+        f * (-s2 * e1.x - s1 * e2.x),
+        f * (-s2 * e1.y - s1 * e2.y),
+        f * (-s2 * e1.z - s1 * e2.z));
     sdir = vec3_normalize(sdir);
     memcpy(binormal, &sdir, 3 * sizeof(float));
 }
