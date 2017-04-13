@@ -1,6 +1,7 @@
 #include "assets/model/model.h"
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <vector.h>
 #include <hashmap.h>
 #include "assets/model/postprocess.h"
@@ -284,10 +285,12 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
          * Negative reference numbers for v can be used
          */
         ++cur;
-        int32_t f[12];
+        const int max_face_vertices = 16;
+        int32_t f[3 * max_face_vertices];
         memset(f, 0, sizeof(f));
         int i = 0;
         while (cur != line_end) {
+            assert(i < max_face_vertices);
             /* Skip whitespace to next word */
             while (cur < line_end && is_space(*cur))
                 ++cur;
