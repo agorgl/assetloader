@@ -707,9 +707,15 @@ void game_render(void* userdata, float interpolation)
                 struct mesh_handle* mh = mdlh->meshes + mesh_ofs;
                 /* Set diffuse texture */
                 glActiveTexture(GL_TEXTURE0);
-                size_t mat_idx = gobj->mat_refs[mat_list_ofs + mh->mat_idx];
-                GLuint diff_tex = *(GLuint*)vector_at(&gobj->diff_textures, mat_idx);
-                glBindTexture(GL_TEXTURE_2D, diff_tex);
+                if (gobj->diff_textures.size) {
+                    size_t mat_idx = gobj->mat_refs[mat_list_ofs + mh->mat_idx];
+                    GLuint diff_tex = *(GLuint*)vector_at(&gobj->diff_textures, mat_idx);
+                    glBindTexture(GL_TEXTURE_2D, diff_tex);
+                    glUniform3f(glGetUniformLocation(ctx->prog, "diffCol"), 0.0f, 0.0f, 0.0f);
+                } else {
+                    glBindTexture(GL_TEXTURE_2D, 0);
+                    glUniform3f(glGetUniformLocation(ctx->prog, "diffCol"), 1.0f, 1.0f, 1.0f);
+                }
                 /* Render */
                 glBindVertexArray(mh->vao);
                 glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mh->ebo);
