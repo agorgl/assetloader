@@ -10,6 +10,8 @@ struct model* model_from_mem_buf(const unsigned char* data, size_t sz, const cha
         return model_from_obj(data, sz);
     else if (strcmpi(hint, "fbx") == 0)
         return model_from_fbx(data, sz);
+    else if (strcmpi(hint, "ply") == 0)
+        return model_from_ply(data, sz);
     else if (strcmpi(hint, "iqm") == 0)
         return model_from_iqm(data, sz);
     /* No image parser found */

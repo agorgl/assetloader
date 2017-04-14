@@ -348,6 +348,16 @@ static struct {
         .scaling       = 20.0f,
         .use_fscale    = 1
     },
+    {
+        /* Cow */
+        .model_loc     = "models/cow/cow2.ply",
+        .diff_tex_locs = {},
+        .diff_tex_refs = {},
+        .translation   = {0.1f, -0.5f, 0.2f},
+        .rotation      = {0.0f, -20.0f, 0.0f},
+        .scaling       = 0.1f,
+        .use_fscale    = 0
+    }
 };
 
 static void setup_data(struct game_context* ctx)
