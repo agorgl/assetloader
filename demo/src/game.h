@@ -82,6 +82,8 @@ struct game_context
     float rotation_prev;
     int is_rotating;
     size_t cur_obj;
+    /* Wireframe visualization */
+    int show_wireframe;
     /* Normals visualization */
     int visualizing_normals;
     unsigned int vis_nrm_prog;

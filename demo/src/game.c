@@ -93,6 +93,8 @@ static void on_key(struct window* wnd, int key, int scancode, int action, int mo
         window_grub_cursor(wnd, 0);
         ctx->is_rotating = 1;
     }
+    else if (action ==  KEY_ACTION_RELEASE && key == KEY_O)
+        ctx->show_wireframe = !ctx->show_wireframe;
     else if (action ==  KEY_ACTION_RELEASE && key == KEY_N)
         ctx->visualizing_normals = !ctx->visualizing_normals;
     else if (action ==  KEY_ACTION_RELEASE && key == KEY_B)
@@ -454,6 +456,9 @@ void game_init(struct game_context* ctx)
     ctx->cam.pos = vec3_new(0.0, 1.4, 3.0);
     ctx->cam.front = vec3_normalize(vec3_mul(ctx->cam.pos, -1));
 
+    /* Wireframe visualization */
+    ctx->show_wireframe = 0;
+
     /* Normal visualization */
     game_visualize_normals_setup(ctx);
 
@@ -681,6 +686,7 @@ void game_render(void* userdata, float interpolation)
     };
     /* Loop through objects */
     for (unsigned int i = 0; i < 2; ++i) {
+        glPolygonMode(GL_FRONT_AND_BACK, (i > 0 && ctx->show_wireframe) ? GL_LINE : GL_FILL);
         /* Setup game object to be rendered */
         struct game_object* gobj = gobjl[i];
         struct model_handle* mdlh = &gobj->model;
@@ -715,6 +721,7 @@ void game_render(void* userdata, float interpolation)
         }
     }
 
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glUseProgram(0);
 
     /* Visualize normals */
