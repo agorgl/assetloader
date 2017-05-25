@@ -19,6 +19,47 @@ struct fbx_vertex_weight {
 };
 
 /*-----------------------------------------------------------------
+ * Data mapping and reference types
+ *-----------------------------------------------------------------*/
+enum fbx_data_mapping_type {
+    MT_BY_POLYGON_VERTEX,
+    MT_BY_VERTEX,
+    MT_BY_POLYGON,
+    MT_ALL_SAME,
+    MT_INVALID
+};
+
+enum fbx_data_reference_type {
+    RT_INDEX,
+    RT_DIRECT,
+    RT_INVALID
+};
+
+static enum fbx_data_mapping_type fbx_find_prop_mapping_type(struct fbx_property* mapping)
+{
+    if (strncmp("ByPolygonVertex", mapping->data.str, 15) == 0)
+        return MT_BY_POLYGON_VERTEX;
+    else if (strncmp("ByVertex", mapping->data.str, 8) == 0 || strncmp("ByVertice", mapping->data.str, 9) == 0)
+        return MT_BY_VERTEX;
+    else if (strncmp("ByPolygon", mapping->data.str, 9) == 0)
+        return MT_BY_POLYGON;
+    else if (strncmp("AllSame", mapping->data.str, 7) == 0)
+        return MT_ALL_SAME;
+    else
+        return MT_INVALID;
+}
+
+static enum fbx_data_reference_type fbx_find_prop_reference_type(struct fbx_property* reference)
+{
+    if (strncmp("IndexToDirect", reference->data.str, 13) == 0)
+        return RT_INDEX;
+    else if (strncmp("Direct", reference->data.str, 6) == 0)
+        return RT_DIRECT;
+    else
+        return RT_INVALID;
+}
+
+/*-----------------------------------------------------------------
  * Model construction
  *-----------------------------------------------------------------*/
 /* Copy float array */
@@ -67,44 +108,6 @@ static struct fbx_property* fbx_find_layer_property(struct fbx_record* geom, con
     if (!r2)
         return 0;
     return r2->properties;
-}
-
-enum fbx_data_mapping_type {
-    MT_BY_POLYGON_VERTEX,
-    MT_BY_VERTEX,
-    MT_BY_POLYGON,
-    MT_ALL_SAME,
-    MT_INVALID
-};
-
-static enum fbx_data_mapping_type fbx_find_prop_mapping_type(struct fbx_property* mapping)
-{
-    if (strncmp("ByPolygonVertex", mapping->data.str, 15) == 0)
-        return MT_BY_POLYGON_VERTEX;
-    else if (strncmp("ByVertex", mapping->data.str, 8) == 0 || strncmp("ByVertice", mapping->data.str, 9) == 0)
-        return MT_BY_VERTEX;
-    else if (strncmp("ByPolygon", mapping->data.str, 9) == 0)
-        return MT_BY_POLYGON;
-    else if (strncmp("AllSame", mapping->data.str, 7) == 0)
-        return MT_ALL_SAME;
-    else
-        return MT_INVALID;
-}
-
-enum fbx_data_reference_type {
-    RT_INDEX,
-    RT_DIRECT,
-    RT_INVALID
-};
-
-static enum fbx_data_reference_type fbx_find_prop_reference_type(struct fbx_property* reference)
-{
-    if (strncmp("IndexToDirect", reference->data.str, 13) == 0)
-        return RT_INDEX;
-    else if (strncmp("Direct", reference->data.str, 6) == 0)
-        return RT_DIRECT;
-    else
-        return RT_INVALID;
 }
 
 static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, int* tot_pols, int* mat_id, struct hashmap* vw_index)
