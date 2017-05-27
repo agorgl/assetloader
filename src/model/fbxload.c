@@ -60,6 +60,102 @@ static enum fbx_data_reference_type fbx_find_prop_reference_type(struct fbx_prop
 }
 
 /*-----------------------------------------------------------------
+ * Geometry node properties
+ *-----------------------------------------------------------------*/
+struct fbx_geom_props {
+    /* Vertices */
+    union {
+        float* fp;
+        double* dp;
+    } verts;
+    size_t vu_sz;
+    /* Indices */
+    int32_t* indices;
+    size_t num_indices;
+    /* Normals */
+    double* norms;
+    enum fbx_data_mapping_type nm_mapping;
+    enum fbx_data_reference_type nm_reference;
+    /* UVs */
+    double* uvs;
+    int32_t* uv_idxs;
+    /* Tangents and Bitangents */
+    double* tangs;
+    double* bitangs;
+    /* Materials */
+    enum fbx_data_mapping_type mt_mapping;
+    int32_t* mats;
+};
+
+static struct fbx_property* fbx_find_layer_property(struct fbx_record* geom, const char* layer, const char* subrec)
+{
+    struct fbx_record* r1 = fbx_find_subrecord_with_name(geom, layer);
+    if (!r1)
+        return 0;
+
+    /* Try to find Layer number 0 */
+    struct fbx_record* nr = r1;
+    while (nr) {
+        if (nr->properties[0].data.i == 0) {
+            r1 = nr;
+            break;
+        }
+        nr = fbx_find_sibling_with_name(nr, layer);
+    }
+
+    struct fbx_record* r2 = fbx_find_subrecord_with_name(r1, subrec);
+    if (!r2)
+        return 0;
+    return r2->properties;
+}
+
+static inline int fbx_find_geom_props(struct fbx_record* geom, struct fbx_geom_props* gprops)
+{
+    /* Check if geometry node contains any vertices */
+    struct fbx_record* verts_nod = fbx_find_subrecord_with_name(geom, "Vertices");
+    struct fbx_property* verts = verts_nod ? verts_nod->properties : 0;
+
+    /* Find data nodes */
+    struct fbx_property* indices         = fbx_find_subrecord_with_name(geom, "PolygonVertexIndex")->properties;
+    struct fbx_property* norms           = fbx_find_layer_property(geom, "LayerElementNormal",   "Normals");
+    struct fbx_property* norms_mapping   = fbx_find_layer_property(geom, "LayerElementNormal",   "MappingInformationType");
+    struct fbx_property* norms_reference = fbx_find_layer_property(geom, "LayerElementNormal",   "ReferenceInformationType");
+    struct fbx_property* tangents        = fbx_find_layer_property(geom, "LayerElementTangent",  "Tangents");
+    struct fbx_property* binormals       = fbx_find_layer_property(geom, "LayerElementBinormal", "Binormals");
+    struct fbx_property* uvs             = fbx_find_layer_property(geom, "LayerElementUV",       "UV");
+    struct fbx_property* uv_idxs         = fbx_find_layer_property(geom, "LayerElementUV",       "UVIndex");
+    struct fbx_property* mats            = fbx_find_layer_property(geom, "LayerElementMaterial", "Materials");
+    struct fbx_property* mats_mapping    = fbx_find_layer_property(geom, "LayerElementMaterial", "MappingInformationType");
+
+    /* Store data */
+    gprops->verts.dp     = verts ? verts->data.dp : 0;
+    gprops->vu_sz        = fbx_pt_unit_size(verts->type);
+    gprops->indices      = indices->data.ip;
+    gprops->num_indices  = indices->length / fbx_pt_unit_size(indices->type);
+    gprops->norms        = norms->data.dp;
+    gprops->nm_mapping   = fbx_find_prop_mapping_type(norms_mapping);
+    gprops->nm_reference = fbx_find_prop_reference_type(norms_reference);
+    gprops->uvs          = uvs ? uvs->data.dp : 0;
+    gprops->uv_idxs      = uv_idxs ? uv_idxs->data.ip : 0;
+    gprops->tangs        = tangents ? tangents->data.dp : 0;
+    gprops->bitangs      = binormals ? binormals->data.dp : 0;
+    gprops->mats         = mats ? mats->data.ip : 0;
+    gprops->mt_mapping   = mats ? fbx_find_prop_mapping_type(mats_mapping) : MT_INVALID;
+
+    return 0;
+}
+
+static inline int fbx_check_geom_props(struct fbx_geom_props* gp)
+{
+    assert(gp->verts.dp);
+    assert(gp->nm_mapping == MT_BY_POLYGON_VERTEX || gp->nm_mapping == MT_BY_VERTEX);
+    assert(gp->nm_reference == RT_DIRECT);
+    if (gp->mats)
+        assert(gp->mt_mapping == MT_ALL_SAME || gp->mt_mapping == MT_BY_POLYGON);
+    return 0;
+}
+
+/*-----------------------------------------------------------------
  * Model construction
  *-----------------------------------------------------------------*/
 /* Copy float array */
@@ -88,65 +184,19 @@ static int vertex_eql(hm_ptr k1, hm_ptr k2)
     return memcmp(hm_pcast(k1), hm_pcast(k2), sizeof(struct vertex)) == 0; /* Compare obj vertex index triplets */
 }
 
-static struct fbx_property* fbx_find_layer_property(struct fbx_record* geom, const char* layer, const char* subrec)
-{
-    struct fbx_record* r1 = fbx_find_subrecord_with_name(geom, layer);
-    if (!r1)
-        return 0;
-
-    /* Try to find Layer number 0 */
-    struct fbx_record* nr = r1;
-    while (nr) {
-        if (nr->properties[0].data.i == 0) {
-            r1 = nr;
-            break;
-        }
-        nr = fbx_find_sibling_with_name(nr, layer);
-    }
-
-    struct fbx_record* r2 = fbx_find_subrecord_with_name(r1, subrec);
-    if (!r2)
-        return 0;
-    return r2->properties;
-}
-
 static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, int* tot_pols, int* mat_id, struct hashmap* vw_index)
 {
-    /* Check if geometry node contains any vertices */
-    struct fbx_record* verts_nod = fbx_find_subrecord_with_name(geom, "Vertices");
-    if (!verts_nod)
+    /* Find needed data from geometry record */
+    struct fbx_geom_props gp;
+    fbx_find_geom_props(geom, &gp);
+    if (fbx_check_geom_props(&gp) != 0)
         return 0;
-    struct fbx_property* verts = verts_nod->properties;
-
-    /* Find data nodes */
-    struct fbx_property* indices = fbx_find_subrecord_with_name(geom, "PolygonVertexIndex")->properties;
-    struct fbx_property* norms = fbx_find_layer_property(geom, "LayerElementNormal", "Normals");
-    struct fbx_property* norms_mapping = fbx_find_layer_property(geom, "LayerElementNormal", "MappingInformationType");
-    struct fbx_property* norms_reference = fbx_find_layer_property(geom, "LayerElementNormal", "ReferenceInformationType");
-    struct fbx_property* tangents = fbx_find_layer_property(geom, "LayerElementTangent", "Tangents");
-    struct fbx_property* binormals = fbx_find_layer_property(geom, "LayerElementBinormal", "Binormals");
-    struct fbx_property* uvs = fbx_find_layer_property(geom, "LayerElementUV", "UV");
-    struct fbx_property* uv_idxs = fbx_find_layer_property(geom, "LayerElementUV", "UVIndex");
-    struct fbx_property* mats = fbx_find_layer_property(geom, "LayerElementMaterial", "Materials");
-    struct fbx_property* mats_mapping = fbx_find_layer_property(geom, "LayerElementMaterial", "MappingInformationType");
-
-    /* Fill in each data array's mapping type */
-    enum fbx_data_mapping_type nm_mapping = fbx_find_prop_mapping_type(norms_mapping);
-    assert(nm_mapping == MT_BY_POLYGON_VERTEX || nm_mapping == MT_BY_VERTEX);
-    enum fbx_data_reference_type nm_reference = fbx_find_prop_reference_type(norms_reference);
-    assert(nm_reference == RT_DIRECT);
-    enum fbx_data_mapping_type mt_mapping = MT_INVALID;
-    if (mats) {
-        mt_mapping = fbx_find_prop_mapping_type(mats_mapping);
-        assert(mt_mapping == MT_ALL_SAME || mt_mapping == MT_BY_POLYGON);
-    }
 
     /* Create mesh */
     struct mesh* mesh = mesh_new();
-    size_t vu_sz = fbx_pt_unit_size(verts->type);
     mesh->num_verts = 0;
     mesh->num_indices = 0;
-    int stored_indices = indices->length / fbx_pt_unit_size(indices->type);
+    int stored_indices = gp.num_indices;
     int last_material = -1, cur_material = -1;
 
     /* Allocate top limit */
@@ -167,12 +217,13 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, i
     int fc = 0; /* Counter of vertices in running face */
     for (int i = *indice_offset; i < stored_indices; ++i) {
         /* Check if mesh has multiple materials or not */
-        if (mats) {
+        if (gp.mats) {
             /* Gather material for current vertice */
-            if (mt_mapping == MT_ALL_SAME)
-                cur_material = *(mats->data.ip + 0);
-            else if (mt_mapping == MT_BY_POLYGON)
-                cur_material = *(mats->data.ip + *tot_pols);
+            if (gp.mt_mapping == MT_ALL_SAME)
+                cur_material = *(gp.mats + 0);
+            else if (gp.mt_mapping == MT_BY_POLYGON)
+                cur_material = *(gp.mats + *tot_pols);
+
             /* Check if new mesh should be created according to current material */
             if (last_material != -1 && last_material != cur_material) {
                 *indice_offset = i;
@@ -188,31 +239,35 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, i
          * to indicate the last index of a polygon.
          * To find the actual indice value we must negate it
          * and substract 1 from that value */
-        int32_t pos_ind = indices->data.ip[i];
+        int32_t pos_ind = gp.indices[i];
         if (pos_ind < 0) {
             pos_ind = -1 * pos_ind - 1;
             ++(*tot_pols);
         }
-        uint32_t uv_ind = 0;
-        if (uvs)
-            uv_ind = uv_idxs->data.ip[i];
+        uint32_t uv_ind = gp.uvs ? gp.uv_idxs[i] : 0;
         uint32_t nm_ind = 0;
-        if (nm_mapping == MT_BY_VERTEX)
-            nm_ind = pos_ind;
-        else /* ByPolygonVertex is default */
-            nm_ind = i;
+        switch (gp.nm_mapping) {
+            case MT_BY_VERTEX:
+                nm_ind = pos_ind;
+                break;
+            case MT_BY_POLYGON_VERTEX:
+                nm_ind = i;
+                break;
+            default:
+                break;
+        }
 
         /* Fill temporary vertex */
         struct vertex tv;
         memset(&tv, 0, sizeof(struct vertex));
-        fbx_cpy_fa(tv.position, verts->data.dp + pos_ind * 3, 3, vu_sz);
-        fbx_cpy_fa(tv.normal, norms->data.dp + nm_ind * 3, 3, vu_sz);
-        if (tangents)
-            fbx_cpy_fa(tv.tangent, tangents->data.dp + i * 3, 3, vu_sz);
-        if (binormals)
-            fbx_cpy_fa(tv.binormal, binormals->data.dp + i * 3, 3, vu_sz);
-        if (uvs)
-            fbx_cpy_fa(tv.uvs, uvs->data.dp + uv_ind * 2, 2, vu_sz);
+        fbx_cpy_fa(tv.position, gp.verts.dp + pos_ind * 3, 3, gp.vu_sz);
+        fbx_cpy_fa(tv.normal, gp.norms + nm_ind * 3, 3, gp.vu_sz);
+        if (gp.tangs)
+            fbx_cpy_fa(tv.tangent, gp.tangs + i * 3, 3, gp.vu_sz);
+        if (gp.bitangs)
+            fbx_cpy_fa(tv.binormal, gp.bitangs + i * 3, 3, gp.vu_sz);
+        if (gp.uvs)
+            fbx_cpy_fa(tv.uvs, gp.uvs + uv_ind * 2, 2, gp.vu_sz);
 
         /* Check if current vertex is already stored */
         hm_ptr* stored_indice = hashmap_get(&stored_vertices, hm_cast(&tv));
@@ -257,7 +312,7 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, i
         }
 
         /* Reset the fc when we reach the end of a face else increase it */
-        fc = indices->data.ip[i] < 0 ? 0 : fc + 1;
+        fc = gp.indices[i] < 0 ? 0 : fc + 1;
         ++mesh->num_indices;
     }
 
