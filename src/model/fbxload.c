@@ -159,7 +159,7 @@ static inline int fbx_check_geom_props(struct fbx_geom_props* gp)
  * Model construction
  *-----------------------------------------------------------------*/
 /* Copy float array */
-static void fbx_cpy_fa(float* dst, void* src, size_t len, size_t unit_sz)
+static inline void fbx_cpy_fa(float* dst, void* src, size_t len, size_t unit_sz)
 {
     if (unit_sz != sizeof(float)) {
         for (size_t i = 0; i < len; ++i) {
@@ -234,6 +234,7 @@ static struct mesh* fbx_read_mesh(struct fbx_record* geom, int* indice_offset, i
         } else {
             cur_material = 0;
         }
+
         /* NOTE!
          * Negative array values in the positions' indices array exist
          * to indicate the last index of a polygon.
@@ -532,7 +533,7 @@ static void fbx_destroy_indexes(struct fbx_indexes* indexes)
  * Transform post process
  *-----------------------------------------------------------------*/
 /* Reads vec3 from Properties70 subrecord */
-static void fbx_read_transform_vec(struct fbx_record* r, float* v)
+static inline void fbx_read_transform_vec(struct fbx_record* r, float* v)
 {
     for (int i = 0; i < 3; ++i)
         v[i] = r->properties[4 + i].data.d;
@@ -953,7 +954,7 @@ static struct model* fbx_read_model(struct fbx_record* obj, struct fbx_indexes* 
 /*-----------------------------------------------------------------
  * Skeleton
  *-----------------------------------------------------------------*/
-static int fbx_is_joint_type(const char* type)
+static inline int fbx_is_joint_type(const char* type)
 {
     return strncmp("LimbNode", type, 8) == 0
         || strncmp("Null", type, 4) == 0;
