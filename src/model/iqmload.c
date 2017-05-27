@@ -119,7 +119,7 @@ static struct mesh* iqm_read_mesh(struct iqm_file* iqm, uint32_t mesh_idx, uint3
     }
 
     /* Populate vertices */
-    for (int i = 0; i < m->num_verts; ++i) {
+    for (size_t i = 0; i < m->num_verts; ++i) {
         struct vertex* cur_vert = m->vertices + i;
         struct vertex_weight* cur_weight = m->weights + i;
         /* Iterate vertex arrays filling current vertex with data */

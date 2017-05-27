@@ -30,7 +30,7 @@ struct mesh_group* mesh_group_new()
 
 void model_delete(struct model* m)
 {
-    for (int i = 0; i < m->num_meshes; ++i)
+    for (size_t i = 0; i < m->num_meshes; ++i)
         mesh_delete(m->meshes[i]);
     free(m->meshes);
     if (m->mesh_groups) {

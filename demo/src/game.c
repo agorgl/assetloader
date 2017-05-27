@@ -114,11 +114,11 @@ static void on_mouse_button(struct window* wnd, int button, int action, int mods
 static void print_model_info(const char* filename, struct model* m)
 {
     printf("Model: %s\n", filename);
-    printf(" Num meshes: %d\n", m->num_meshes);
+    printf(" Num meshes: %lu\n", m->num_meshes);
 
     unsigned int total_verts = 0;
     unsigned int total_indices = 0;
-    for (int i = 0; i < m->num_meshes; ++i) {
+    for (size_t i = 0; i < m->num_meshes; ++i) {
         struct mesh* mesh = m->meshes[i];
         total_verts += mesh->num_verts;
         total_indices += mesh->num_indices;
@@ -133,7 +133,7 @@ static void print_model_info(const char* filename, struct model* m)
         for (unsigned int j = 0; j < mgroup->num_mesh_offs; ++j) {
             size_t mesh_ofs = mgroup->mesh_offsets[j];
             struct mesh* mesh = m->meshes[mesh_ofs];
-            printf("  Mesh[%u] material: %d\n", j, mesh->mat_index);
+            printf("  Mesh[%u] material: %lu\n", j, mesh->mat_index);
         }
     }
 }

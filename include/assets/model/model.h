@@ -63,14 +63,14 @@ struct model {
             uint32_t bone_ids[4];
             float bone_weights[4];
         }* weights;
-        int num_verts;
+        size_t num_verts;
         /* Indices */
         uint32_t* indices;
-        int num_indices;
+        size_t num_indices;
         /* Material index */
-        int mat_index; /* Relative to the parent mesh group */
+        size_t mat_index; /* Relative to the parent mesh group */
     }** meshes;
-    int num_meshes;
+    size_t num_meshes;
 
     /* Skeleton */
     struct skeleton {

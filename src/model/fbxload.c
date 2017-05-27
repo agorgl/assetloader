@@ -713,7 +713,7 @@ static int fbx_read_acn_transform(struct fbx_indexes* indexes, int64_t mdl_id, f
 static void fbx_transform_vertices(struct mesh* m, mat4 transform)
 {
     mat3 nm_mat = mat4_to_mat3(mat4_transpose(mat4_inverse(transform)));
-    for (int i = 0; i < m->num_verts; ++i) {
+    for (size_t i = 0; i < m->num_verts; ++i) {
         /* Transform positions */
         float* pos = m->vertices[i].position;
         vec3 npos = mat4_mul_vec3(transform, vec3_new(pos[0], pos[1], pos[2]));
@@ -1246,7 +1246,7 @@ static void fbx_reorient(struct model* m, float sgn[3], size_t idx[3])
     tm.m2[3][3] = 1;
 
     /* Transform mesh vertices */
-    for (int i = 0; i < m->num_meshes; ++i)
+    for (size_t i = 0; i < m->num_meshes; ++i)
         fbx_transform_vertices(m->meshes[i], tm);
 
     /* Transform skeleton and frame data */

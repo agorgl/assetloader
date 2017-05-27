@@ -71,13 +71,13 @@ static void vec3_append(float v[3], float val[3]) { v[0] += val[0]; v[1] += val[
 void mesh_generate_tangents(struct mesh* m)
 {
     /* Clear all tangents to 0,0,0 */
-    for (int i = 0; i < m->num_verts; i++) {
+    for (size_t i = 0; i < m->num_verts; i++) {
         memset(m->vertices[i].tangent, 0, sizeof(m->vertices[i].tangent));
         memset(m->vertices[i].binormal, 0, sizeof(m->vertices[i].binormal));
     }
 
     /* Loop over faces, calculate tangent and append to verticies of that face */
-    int i = 0;
+    size_t i = 0;
     while (i < m->num_indices) {
         uint32_t t_i1 = m->indices[i];
         uint32_t t_i2 = m->indices[i + 1];
@@ -102,7 +102,7 @@ void mesh_generate_tangents(struct mesh* m)
     }
 
     /* Normalize all tangents */
-    for (int i = 0; i < m->num_verts; i++) {
+    for (size_t i = 0; i < m->num_verts; i++) {
         vec3 ntangent = vec3_normalize(*(vec3*)m->vertices[i].tangent);
         vec3 nbinormal = vec3_normalize(*(vec3*)m->vertices[i].binormal);
         memcpy(m->vertices[i].tangent, &ntangent, 3 * sizeof(float));
@@ -113,11 +113,11 @@ void mesh_generate_tangents(struct mesh* m)
 void mesh_generate_normals(struct mesh* m)
 {
     /* Clear all normals to 0,0,0 */
-    for (int i = 0; i < m->num_verts; i++)
+    for (size_t i = 0; i < m->num_verts; i++)
         memset(m->vertices[i].normal, 0, sizeof(m->vertices[i].normal));
 
     /* Loop over faces, calculate normals and append to verticies of that face */
-    int i = 0;
+    size_t i = 0;
     while (i < m->num_indices) {
         int t_i1 = m->indices[i];
         int t_i2 = m->indices[i + 1];
@@ -137,7 +137,7 @@ void mesh_generate_normals(struct mesh* m)
     }
 
     /* Normalize all normals */
-    for (int i = 0; i < m->num_verts; i++) {
+    for (size_t i = 0; i < m->num_verts; i++) {
         vec3 nnormal = vec3_normalize(*(vec3*)m->vertices[i].normal);
         memcpy(m->vertices[i].normal, &nnormal, 3 * sizeof(float));
     }
@@ -146,13 +146,13 @@ void mesh_generate_normals(struct mesh* m)
 void mesh_generate_orthagonal_tangents(struct mesh* m)
 {
     /* Clear all tangents to 0,0,0 */
-    for (int i = 0; i < m->num_verts; i++) {
+    for (size_t i = 0; i < m->num_verts; i++) {
         memset(m->vertices[i].tangent, 0, sizeof(m->vertices[i].tangent));
         memset(m->vertices[i].binormal, 0, sizeof(m->vertices[i].binormal));
     }
 
     /* Loop over faces, calculate tangent and append to verticies of that face */
-    int i = 0;
+    size_t i = 0;
     while (i < m->num_indices) {
         int t_i1 = m->indices[i];
         int t_i2 = m->indices[i + 1];
@@ -180,7 +180,7 @@ void mesh_generate_orthagonal_tangents(struct mesh* m)
     }
 
     /* Normalize all tangents */
-    for (int i = 0; i < m->num_verts; i++) {
+    for (size_t i = 0; i < m->num_verts; i++) {
         vec3 ntangent = vec3_normalize(*(vec3*)m->vertices[i].tangent);
         vec3 nbinormal = vec3_normalize(*(vec3*)m->vertices[i].binormal);
         memcpy(m->vertices[i].tangent, &ntangent, 3 * sizeof(float));
@@ -195,7 +195,7 @@ void mesh_generate_texcoords_cylinder(struct mesh* m)
     float max_height = -99999999;
     float min_height = 99999999;
 
-    for (int i = 0; i < m->num_verts; i++) {
+    for (size_t i = 0; i < m->num_verts; i++) {
         float v = m->vertices[i].position[1];
         max_height = max(max_height, v);
         min_height = min(min_height, v);
@@ -209,30 +209,30 @@ void mesh_generate_texcoords_cylinder(struct mesh* m)
     }
 
     float scale = (max_height - min_height);
-    for (int i = 0; i < m->num_verts; i++)
+    for (size_t i = 0; i < m->num_verts; i++)
         m->vertices[i].uvs[1] = m->vertices[i].uvs[1] / scale;
 }
 
 void model_generate_normals(struct model* m)
 {
-    for (int i = 0; i < m->num_meshes; i++)
+    for (size_t i = 0; i < m->num_meshes; i++)
         mesh_generate_normals(m->meshes[i]);
 }
 
 void model_generate_tangents(struct model* m)
 {
-    for (int i = 0; i < m->num_meshes; i++)
+    for (size_t i = 0; i < m->num_meshes; i++)
         mesh_generate_tangents(m->meshes[i]);
 }
 
 void model_generate_orthagonal_tangents(struct model* m)
 {
-    for (int i = 0; i < m->num_meshes; i++)
+    for (size_t i = 0; i < m->num_meshes; i++)
         mesh_generate_orthagonal_tangents(m->meshes[i]);
 }
 
 void model_generate_texcoords_cylinder(struct model* m)
 {
-    for (int i = 0; i < m->num_meshes; i++)
+    for (size_t i = 0; i < m->num_meshes; i++)
         mesh_generate_texcoords_cylinder(m->meshes[i]);
 }
