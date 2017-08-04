@@ -40,10 +40,9 @@ struct mainloop_data
     mainloop_render_fn render_callback;
     int should_terminate;
     int updates_per_second;
-    int max_frameskip;
     void* userdata;
 };
 
 void mainloop(struct mainloop_data*);
 
-#endif // ! _MAINLOOP_H_
+#endif /* ! _MAINLOOP_H_ */
