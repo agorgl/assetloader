@@ -37,3 +37,30 @@ struct model* model_from_file(const char* fpath)
     /* Return parsed image */
     return m;
 }
+
+struct frameset* frameset_from_mem_buf(const unsigned char* data, size_t sz, const char* hint)
+{
+    (void) data; (void) sz; (void) hint;
+    /* No animation parser found */
+    return 0;
+}
+
+struct frameset* frameset_from_file(const char* fpath)
+{
+    /* Check file for existence */
+    long filesz = filesize(fpath);
+    if (filesz == -1)
+        return 0;
+
+    /* Gather file contents */
+    unsigned char* data_buf = malloc(filesz);
+    read_file_to_mem(fpath, data_buf, filesz);
+
+    /* Parse frameset data from memory */
+    const char* ext = get_filename_ext(fpath);
+    struct frameset* fset = frameset_from_mem_buf(data_buf, filesz, ext);
+    free(data_buf);
+
+    /* Return parsed image */
+    return fset;
+}

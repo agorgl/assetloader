@@ -37,6 +37,8 @@
 /* Public API functions */
 struct model* model_from_mem_buf(const unsigned char* data, size_t sz, const char* hint);
 struct model* model_from_file(const char* fpath);
+struct frameset* frameset_from_mem_buf(const unsigned char* data, size_t sz, const char* hint);
+struct frameset* frameset_from_file(const char* fpath);
 
 /* Internal loaders */
 struct model* model_from_obj(const unsigned char* data, size_t sz);

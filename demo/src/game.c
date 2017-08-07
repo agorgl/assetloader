@@ -138,7 +138,13 @@ static void print_model_info(const char* filename, struct model* m)
     }
 }
 
-static void upload_model_geom_data(const char* filename, struct model_handle* model)
+static void print_animation_info(const char* filename, struct frameset* fset)
+{
+    printf("Animation: %s\n", filename);
+    printf(" Num frames: %lu\n", fset->num_frames);
+}
+
+static void upload_model_geom_data(const char* filename, const char* anm_filename, struct model_handle* model)
 {
     /* Parse file */
     clock_t t1 = clock();
@@ -215,6 +221,20 @@ static void upload_model_geom_data(const char* filename, struct model_handle* mo
     m->frameset = 0;
     m->mesh_groups = 0;
 
+    /* Load animation file if given */
+    if (anm_filename) {
+        /* Load and parse */
+        t1 = clock();
+        struct frameset* fset = frameset_from_file(anm_filename);
+        t2 = clock();
+        print_animation_info(anm_filename, fset);
+        printf("Load time %lu msec\n\n", 1000 * (t2 - t1) / CLOCKS_PER_SEC);
+        /* Override possible existing animation */
+        if (model->fset)
+            frameset_delete(model->fset);
+        model->fset = fset;
+    }
+
     /* Free model data */
     model_delete(m);
 }
@@ -241,6 +261,7 @@ static unsigned int upload_texture(const char* filename)
 
 static struct {
     const char* model_loc;
+    const char* anim_loc;
     const char* diff_tex_locs[10];
     size_t diff_tex_refs[16];
     float translation[3];
@@ -251,6 +272,7 @@ static struct {
     {
         /* Podium */
         .model_loc     = "models/podium/podium.obj",
+        .anim_loc      = 0,
         .diff_tex_locs = {
             "models/podium/podium.png"
         },
@@ -263,6 +285,7 @@ static struct {
     {
         /* Warrior Woman */
         .model_loc     = "models/warrior_woman/Medieval_character_01.fbx",
+        .anim_loc      = 0,
         .diff_tex_locs = {
             "models/warrior_woman/Armor_01.png",
             "models/warrior_woman/Head.png",
@@ -277,6 +300,7 @@ static struct {
     {
         /* Artorias Sword */
         .model_loc     = "models/artorias_sword/Artorias_Sword.fbx",
+        .anim_loc      = 0,
         .diff_tex_locs = {
             "models/artorias_sword/Sword_albedo.jpg"
         },
@@ -289,6 +313,7 @@ static struct {
     {
         /* Alduin */
         .model_loc     = "models/alduin/alduin.obj",
+        .anim_loc      = 0,
         .diff_tex_locs = {
             "models/alduin/tex/alduin.jpg",
             "models/alduin/tex/alduineyes.jpg"
@@ -302,6 +327,7 @@ static struct {
     {
         /* Mr Fixit */
         .model_loc     = "models/mrfixit/mrfixit.iqm",
+        .anim_loc      = 0,
         .diff_tex_locs = {
             "models/mrfixit/Body.tga",
             "models/mrfixit/Head.tga"
@@ -315,6 +341,7 @@ static struct {
     {
         /* Cube */
         .model_loc     = "models/cube.obj",
+        .anim_loc      = 0,
         .diff_tex_locs = {
             "textures/floor.tga"
         },
@@ -327,6 +354,7 @@ static struct {
     {
         /* Cube2 */
         .model_loc     = "models/cube.fbx",
+        .anim_loc      = 0,
         .diff_tex_locs = {
             "textures/Bark2.tif"
         },
@@ -339,6 +367,7 @@ static struct {
     {
         /* Barrel */
         .model_loc     = "models/barrel/barrel.fbx",
+        .anim_loc      = 0,
         .diff_tex_locs = {
             "models/barrel/barrel.tif"
         },
@@ -351,6 +380,7 @@ static struct {
     {
         /* Cow */
         .model_loc     = "models/cow/cow2.ply",
+        .anim_loc      = 0,
         .diff_tex_locs = {},
         .diff_tex_refs = {},
         .translation   = {0.1f, -0.5f, 0.2f},
@@ -369,7 +399,7 @@ static void setup_data(struct game_context* ctx)
     for (size_t i = 0; i < num_scene_objects; ++i) {
         struct game_object go;
         /* Load, parse and upload model */
-        upload_model_geom_data(scene_objects[i].model_loc, &go.model);
+        upload_model_geom_data(scene_objects[i].model_loc, scene_objects[i].anim_loc, &go.model);
         /* Load, parse and upload each texture */
         vector_init(&go.diff_textures, sizeof(GLuint));
         for (int j = 0; j < 10; ++j) {
