@@ -1535,3 +1535,41 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
     fbx_record_destroy(r);
     return m;
 }
+
+struct frameset* frameset_from_fbx(const unsigned char* data, size_t sz)
+{
+    /* Initialize parser state */
+    struct parser_state ps;
+    memset(&ps, 0, sizeof(struct parser_state));
+    ps.data = (unsigned char*) data;
+    ps.cur = (unsigned char*) data;
+    ps.bufend = (unsigned char*) data + sz;
+
+    /* Initialize fbx file */
+    struct fbx_file fbx;
+    memset(&fbx, 0, sizeof(struct fbx_file));
+
+    /* Read header */
+    if (!fbx_read_header(&ps, &fbx)) {
+        fprintf(stderr, "Not a fbx file!\n");
+        return 0;
+    }
+
+    /* Parse fbx file */
+    struct fbx_record* r = fbx_read_root_record(&ps);
+    fbx.root = r;
+
+    /* Build indexes */
+    struct fbx_record* conns = fbx_find_subrecord_with_name(fbx.root, "Connections");
+    struct fbx_record* objs = fbx_find_subrecord_with_name(fbx.root, "Objects");
+    struct fbx_indexes indexes;
+    fbx_build_indexes(&indexes, conns, objs);
+
+    /* Retrieve animation framerate */
+    struct fbx_record* gsettings = fbx_find_subrecord_with_name(fbx.root, "GlobalSettings");
+    float fr = fbx_framerate(gsettings);
+
+    /* Gather animation frames */
+    struct frameset* fset = fbx_read_frames(objs, &indexes, fr);
+    return fset;
+}

@@ -40,7 +40,8 @@ struct model* model_from_file(const char* fpath)
 
 struct frameset* frameset_from_mem_buf(const unsigned char* data, size_t sz, const char* hint)
 {
-    (void) data; (void) sz; (void) hint;
+    if (strcmpi(hint, "fbx") == 0)
+        return frameset_from_fbx(data, sz);
     /* No animation parser found */
     return 0;
 }
