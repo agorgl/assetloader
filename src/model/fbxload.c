@@ -1514,8 +1514,13 @@ struct model* model_from_fbx(const unsigned char* data, size_t sz)
     float fr = fbx_framerate(gsettings);
 
     /* Read frameset */
-    if (m->skeleton)
+    if (m->skeleton) {
         m->frameset = fbx_read_frames(objs, &indexes, fr);
+        if (m->frameset->num_frames == 0) {
+            frameset_delete(m->frameset);
+            m->frameset = 0;
+        }
+    }
 
     /* Apply orientation */
     int is_orientation_default =
