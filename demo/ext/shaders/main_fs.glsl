@@ -7,6 +7,9 @@ uniform sampler2D diffTex;
 
 void main()
 {
-    vec3 Color = texture(diffTex, UV).rgb + diffCol;
+    vec4 albedo = texture(diffTex, UV);
+    vec3 Color = albedo.rgb + diffCol;
+    if (albedo.a < 0.01)
+        discard;
     out_color = vec4(Color, 1.0);
 }
