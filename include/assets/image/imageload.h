@@ -42,5 +42,6 @@ struct image* image_from_jpeg(const unsigned char* data, size_t sz);
 struct image* image_from_png(const unsigned char* data, size_t sz);
 struct image* image_from_tga(const unsigned char* data, size_t sz);
 struct image* image_from_tiff(const unsigned char* data, size_t sz);
+struct image* image_from_ktx(const unsigned char* data, size_t sz);
 
-#endif // ! _IMAGELOAD_H_
+#endif /* ! _IMAGELOAD_H_ */

@@ -37,10 +37,12 @@ struct image {
     int width;
     int height;
     int channels;
+    int compression_type;
     unsigned char* data;
+    size_t data_sz;
 };
 
 struct image* image_blank(int width, int height, int channels);
 void image_delete(struct image* i);
 
-#endif // ! _IMAGE_H_
+#endif /* ! _IMAGE_H_ */

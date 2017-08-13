@@ -6,7 +6,9 @@ struct image* image_blank(int width, int height, int channels) {
     i->width = width;
     i->height = height;
     i->channels = channels;
-    i->data = malloc(width * height * channels * sizeof(unsigned char));
+    i->compression_type = 0;
+    i->data_sz = width * height * channels * sizeof(unsigned char);
+    i->data = malloc(i->data_sz);
     return i;
 }
 

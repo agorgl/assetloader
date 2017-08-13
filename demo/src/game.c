@@ -248,13 +248,22 @@ static unsigned int upload_texture(const char* filename)
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     struct image* im = image_from_file(filename);
-    glTexImage2D(
-        GL_TEXTURE_2D, 0,
-        im->channels == 4 ? GL_RGBA : GL_RGB,
-        im->width, im->height, 0,
-        im->channels == 4 ? GL_RGBA : GL_RGB,
-        GL_UNSIGNED_BYTE,
-        im->data);
+    if (im->compression_type == 0) {
+        glTexImage2D(
+            GL_TEXTURE_2D, 0,
+            im->channels == 4 ? GL_RGBA : GL_RGB,
+            im->width, im->height, 0,
+            im->channels == 4 ? GL_RGBA : GL_RGB,
+            GL_UNSIGNED_BYTE,
+            im->data);
+    } else {
+        glCompressedTexImage2D(
+            GL_TEXTURE_2D, 0,
+            im->compression_type,
+            im->width,
+            im->height,
+            0, im->data_sz, im->data);
+    }
     image_delete(im);
     return id;
 }

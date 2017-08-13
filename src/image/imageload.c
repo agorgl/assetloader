@@ -13,6 +13,8 @@ struct image* image_from_mem_buf(const unsigned char* data, size_t sz, const cha
         return image_from_tiff(data, sz);
     } else if (strcmpi(hint, "tga") == 0) {
         return image_from_tga(data, sz);
+    } else if (strcmpi(hint, "ktx") == 0) {
+        return image_from_ktx(data, sz);
     }
     /* No image parser found */
     return 0;
