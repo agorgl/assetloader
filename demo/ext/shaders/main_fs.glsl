@@ -9,7 +9,7 @@ void main()
 {
     vec4 albedo = texture(diffTex, UV);
     vec3 Color = albedo.rgb + diffCol;
-    if (albedo.a < 0.01)
+    if (albedo.a < 0.1)
         discard;
     out_color = vec4(Color, 1.0);
 }
