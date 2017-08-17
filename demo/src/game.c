@@ -307,6 +307,19 @@ static struct {
         .use_fscale    = 1
     },
     {
+        /* Micro Ghoul */
+        .model_loc     = "models/micro_ghoul/micro_ghoul.mdl",
+        .anim_loc      = "models/micro_ghoul/micro_ghoul_idle.anm",
+        .diff_tex_locs = {
+            "models/micro_ghoul/micro_ghoul_col.ktx"
+        },
+        .diff_tex_refs = {0},
+        .translation   = {0.0f, -0.4f, 0.0f},
+        .rotation      = {0.0f, 0.0f, 0.0f},
+        .scaling       = 0.4f,
+        .use_fscale    = 1
+    },
+    {
         /* Artorias Sword */
         .model_loc     = "models/artorias_sword/Artorias_Sword.fbx",
         .anim_loc      = 0,

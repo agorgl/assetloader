@@ -45,6 +45,8 @@ struct model* model_from_obj(const unsigned char* data, size_t sz);
 struct model* model_from_fbx(const unsigned char* data, size_t sz);
 struct model* model_from_ply(const unsigned char* data, size_t sz);
 struct model* model_from_iqm(const unsigned char* data, size_t sz);
+struct model* model_from_mdl(const unsigned char* data, size_t sz);
 struct frameset* frameset_from_fbx(const unsigned char* data, size_t sz);
+struct frameset* frameset_from_anm(const unsigned char* data, size_t sz);
 
 #endif /* ! _MODELLOAD_H_ */

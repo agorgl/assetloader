@@ -14,7 +14,9 @@ struct model* model_from_mem_buf(const unsigned char* data, size_t sz, const cha
         return model_from_ply(data, sz);
     else if (strcmpi(hint, "iqm") == 0)
         return model_from_iqm(data, sz);
-    /* No image parser found */
+    else if (strcmpi(hint, "mdl") == 0)
+        return model_from_mdl(data, sz);
+    /* No model parser found */
     return 0;
 }
 
@@ -42,6 +44,8 @@ struct frameset* frameset_from_mem_buf(const unsigned char* data, size_t sz, con
 {
     if (strcmpi(hint, "fbx") == 0)
         return frameset_from_fbx(data, sz);
+    if (strcmpi(hint, "anm") == 0)
+        return frameset_from_anm(data, sz);
     /* No animation parser found */
     return 0;
 }
