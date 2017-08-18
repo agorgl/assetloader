@@ -181,23 +181,60 @@ end
  * is abundant room for confusion. */
 #endif
 
+static inline int is_ktx(const void* data)
+{
+    const unsigned char magic[12] = KTX_MAGIC;
+    struct ktx_header* h = (struct ktx_header*)data;
+    return memcmp(h->identifier, magic, sizeof(magic)) == 0;
+}
+
+static inline const void* mip_data_and_size(const void* data, unsigned int face_idx, unsigned int mip_idx, uint32_t* sz)
+{
+    const void* result = 0;
+    const struct ktx_header* h = data;
+    const void* ptr = data + sizeof(struct ktx_header) + h->bytes_of_key_value_data;
+    for (unsigned int i = 0; i < mip_idx + 1; ++i) {
+        const unsigned int face_size = *(unsigned int*)ptr;
+        /* Set result to start of face data within mip level */
+        result = ptr + 4 + (face_size * face_idx);
+        *sz = face_size;
+        /* Advance to start of next mip level */
+        int mip_padding = 3 - ((face_size + 3) % 4);
+        ptr += 4 + (face_size * h->number_of_faces) + mip_padding;
+    }
+    return result;
+}
+
 struct image* image_from_ktx(const unsigned char* data, size_t sz)
 {
     (void)sz;
-    /* Check magic */
-    const unsigned char magic[12] = KTX_MAGIC;
+
+    /* Header */
     struct ktx_header* h = (struct ktx_header*)data;
-    if (memcmp(h->identifier, magic, sizeof(magic)) != 0) {
+    /* Check if ktx */
+    if (!is_ktx(data)) {
         set_last_asset_load_error("Ktx identifier mismatch");
         return 0;
     }
+    /* Check if endianness matches */
+    if (h->endianness != 0x04030201) {
+        set_last_asset_load_error("Mismatching endianness!");
+        return 0;
+    }
+    /* Check if array texture */
+    if (h->number_of_array_elements > 0) {
+        set_last_asset_load_error("Array textures unsupported!");
+        return 0;
+    }
+    /* Check number of faces */
+    if (!(h->number_of_faces == 1 || h->number_of_faces == 6)) {
+        set_last_asset_load_error("Incorrect number of faces!");
+        return 0;
+    }
 
-    /* Data */
-    const void* ptr = data + sizeof(struct ktx_header) + h->bytes_of_key_value_data;
-
-    /* Current mipmap size */
-    uint32_t image_size = *((uint32_t*)ptr);
-    ptr += sizeof(uint32_t);
+    /* Get mipmap 0 */
+    uint32_t image_size = 0;
+    const void* image_data = mip_data_and_size(data, 0, 0, &image_size);
 
     /* Create image */
     const int level = 0; /* Load base mipmap */
@@ -216,7 +253,6 @@ struct image* image_from_ktx(const unsigned char* data, size_t sz)
     }
 
     /* Copy image data */
-    const void* image_data = ptr;
     memcpy(im->data, image_data, image_size);
 
     return im;
