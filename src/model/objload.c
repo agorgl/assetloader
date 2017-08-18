@@ -157,6 +157,15 @@ static struct mesh* mesh_from_parser_state(struct parser_state* ps)
     return mesh;
 }
 
+static void flush_mgroup(const char* name, struct model* m)
+{
+    struct mesh_group* mgroup = mesh_group_new();
+    mgroup->name = strdup(name);
+    m->num_mesh_groups++;
+    m->mesh_groups = realloc(m->mesh_groups, m->num_mesh_groups * sizeof(struct mesh_group*));
+    m->mesh_groups[m->num_mesh_groups - 1] = mgroup;
+}
+
 static void flush_mesh(struct parser_state* ps, struct model* m)
 {
     /* Create new mesh entry from parser state */
@@ -175,11 +184,8 @@ static void flush_mesh(struct parser_state* ps, struct model* m)
     } else {
         mgroup = m->mesh_groups[m->num_mesh_groups - 1];
     }
-    /* Add current mesh to mesh group */
-    mgroup->num_materials = ps->mat_id_cnt;
-    mgroup->num_mesh_offs++;
-    mgroup->mesh_offsets = realloc(mgroup->mesh_offsets, mgroup->num_mesh_offs * sizeof(size_t));
-    mgroup->mesh_offsets[mgroup->num_mesh_offs - 1] = m->num_meshes - 1;
+    /* Assign mesh group index */
+    m->meshes[m->num_meshes - 1]->mgroup_idx = m->num_mesh_groups - 1;
 
     /* Generate normals if needed */
     if (!ps->has_normals)
@@ -320,9 +326,17 @@ static void parse_line(struct parser_state* ps, struct model* m, const unsigned 
         /* Store data */
         vector_append(&ps->faces, f);
     } else if (strncmp("o", (const char*) cur, next_word_sz) == 0) {
+        const unsigned char* name = cur + next_word_sz;
+        while(name < line_end && is_space(*name))
+            ++name;
+        flush_mgroup((const char*)name, m);
         if (ps->faces.size > 0)
             flush_mesh(ps, m);
     } else if (strncmp("g", (const char*) cur, next_word_sz) == 0) {
+        const unsigned char* name = cur + next_word_sz;
+        while(name < line_end && is_space(*name))
+            ++name;
+        flush_mgroup((const char*)name, m);
         if (ps->faces.size > 0)
             flush_mesh(ps, m);
     } else if (strncmp("usemtl", (const char*) cur, next_word_sz) == 0) {
@@ -392,6 +406,9 @@ struct model* model_from_obj(const unsigned char* data, size_t sz)
 
     /* Flush final mesh */
     flush_mesh(&ps, m);
+
+    /* Total materials */
+    m->num_materials = ps.found_materials.size;
 
     /* Deallocate parser state arrays */
     hashmap_iter(&ps.found_materials, found_materials_iter);

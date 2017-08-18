@@ -470,22 +470,18 @@ struct model* model_from_ply(const unsigned char* data, size_t sz)
     /* Read mesh */
     struct mesh* mesh = ply_read_mesh(&ply_header, &ply_data);
     mesh_generate_normals(mesh);
+    mesh->mgroup_idx = 0;
 
     /* Setup model struct */
     struct model* m = model_new();
     m->num_meshes++;
     m->meshes = realloc(m->meshes, m->num_meshes * sizeof(struct mesh*));
     m->meshes[m->num_meshes - 1] = mesh;
+    m->num_materials = 1;
 
-    /* Setup the mesh group */
+    /* Create and append the root mesh group */
     struct mesh_group* mgroup = mesh_group_new();
     mgroup->name = strdup("root_group");
-    mgroup->num_mesh_offs++;
-    mgroup->mesh_offsets = realloc(mgroup->mesh_offsets, mgroup->num_mesh_offs * sizeof(size_t));
-    mgroup->mesh_offsets[mgroup->num_mesh_offs - 1] = m->num_meshes - 1;
-    mgroup->num_materials++;
-
-    /* Append the mesh group */
     m->num_mesh_groups++;
     m->mesh_groups = realloc(m->mesh_groups, m->num_mesh_groups * sizeof(struct mesh_group*));
     m->mesh_groups[m->num_mesh_groups - 1] = mgroup;

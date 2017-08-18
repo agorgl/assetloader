@@ -115,6 +115,7 @@ static void print_model_info(const char* filename, struct model* m)
 {
     printf("Model: %s\n", filename);
     printf(" Num meshes: %lu\n", m->num_meshes);
+    printf(" Num materials: %lu\n", m->num_materials);
 
     unsigned int total_verts = 0;
     unsigned int total_indices = 0;
@@ -126,15 +127,10 @@ static void print_model_info(const char* filename, struct model* m)
     printf(" Num vertices: %d\n", total_verts);
     printf(" Num indices: %d\n", total_indices);
 
-    for (size_t i = 0; i < m->num_mesh_groups; ++i) {
-        struct mesh_group* mgroup = m->mesh_groups[i];
-        printf(" Mesh group \"%s\" (%lu meshes, %u materials)\n",
-                 mgroup->name, mgroup->num_mesh_offs, mgroup->num_materials);
-        for (unsigned int j = 0; j < mgroup->num_mesh_offs; ++j) {
-            size_t mesh_ofs = mgroup->mesh_offsets[j];
-            struct mesh* mesh = m->meshes[mesh_ofs];
-            printf("  Mesh[%u] material: %lu\n", j, mesh->mat_index);
-        }
+    for (unsigned int i = 0; i < m->num_meshes; ++i) {
+        struct mesh* mesh = m->meshes[i];
+        const char* grp_name = m->mesh_groups[mesh->mgroup_idx]->name;
+        printf(" Mesh[%u]: (mat: %lu, grp: \"%s\")\n", i, mesh->mat_index, grp_name);
     }
 }
 
@@ -300,7 +296,7 @@ static struct {
             "models/warrior_woman/Head.png",
             "models/warrior_woman/Kiem.png"
         },
-        .diff_tex_refs = {0, 0, 0, 1, 2, 2, 2},
+        .diff_tex_refs = {0, 1, 2},
         .translation   = {0.0f, -0.4f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
         .scaling       = 0.8f,
@@ -313,7 +309,7 @@ static struct {
         .diff_tex_locs = {
             "models/micro_ghoul/micro_ghoul_col.ktx"
         },
-        .diff_tex_refs = {0},
+        .diff_tex_refs = {0, 0},
         .translation   = {0.0f, -0.4f, 0.0f},
         .rotation      = {0.0f, 0.0f, 0.0f},
         .scaling       = 0.4f,
@@ -761,31 +757,25 @@ void game_render(void* userdata, float interpolation)
         /* Upload bones */
         game_upload_bones(ctx, ctx->prog);
         /* Render mesh_group by mesh_group */
-        unsigned int mat_list_ofs = 0;
-        for (unsigned int i = 0; i < mdlh->num_mesh_groups; ++i) {
-            struct mesh_group* mgroup = mdlh->mesh_groups[i];
-            for (unsigned int j = 0; j < mgroup->num_mesh_offs; ++j) {
-                size_t mesh_ofs = mgroup->mesh_offsets[j];
-                struct mesh_handle* mh = mdlh->meshes + mesh_ofs;
-                /* Set diffuse texture */
-                glActiveTexture(GL_TEXTURE0);
-                if (gobj->diff_textures.size) {
-                    size_t mat_idx = gobj->mat_refs[mat_list_ofs + mh->mat_idx];
-                    GLuint diff_tex = *(GLuint*)vector_at(&gobj->diff_textures, mat_idx);
-                    glBindTexture(GL_TEXTURE_2D, diff_tex);
-                    glUniform3f(glGetUniformLocation(ctx->prog, "diffCol"), 0.0f, 0.0f, 0.0f);
-                } else {
-                    glBindTexture(GL_TEXTURE_2D, 0);
-                    glUniform3f(glGetUniformLocation(ctx->prog, "diffCol"), 1.0f, 1.0f, 1.0f);
-                }
-                /* Render */
-                glBindVertexArray(mh->vao);
-                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mh->ebo);
-                glDrawElements(GL_TRIANGLES, mh->indice_count, GL_UNSIGNED_INT, (void*)0);
-                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-                glBindVertexArray(0);
+        for (unsigned int i = 0; i < mdlh->num_meshes; ++i) {
+            struct mesh_handle* mh = mdlh->meshes + i;
+            /* Set diffuse texture */
+            glActiveTexture(GL_TEXTURE0);
+            if (gobj->diff_textures.size) {
+                size_t mat_idx = gobj->mat_refs[mh->mat_idx];
+                GLuint diff_tex = *(GLuint*)vector_at(&gobj->diff_textures, mat_idx);
+                glBindTexture(GL_TEXTURE_2D, diff_tex);
+                glUniform3f(glGetUniformLocation(ctx->prog, "diffCol"), 0.0f, 0.0f, 0.0f);
+            } else {
+                glBindTexture(GL_TEXTURE_2D, 0);
+                glUniform3f(glGetUniformLocation(ctx->prog, "diffCol"), 1.0f, 1.0f, 1.0f);
             }
-            mat_list_ofs += mgroup->num_materials;
+            /* Render */
+            glBindVertexArray(mh->vao);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mh->ebo);
+            glDrawElements(GL_TRIANGLES, mh->indice_count, GL_UNSIGNED_INT, (void*)0);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+            glBindVertexArray(0);
         }
     }
 

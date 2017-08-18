@@ -93,7 +93,7 @@ struct model* model_from_mdl(const unsigned char* data, size_t sz)
         }
     }
 
-    /* Mesh name <-> Mesh group map */
+    /* Mesh name <-> Mesh group index map */
     struct hashmap mgroup_map;
     hashmap_init(&mgroup_map, hm_str_hash, hm_str_eql);
 
@@ -131,45 +131,29 @@ struct model* model_from_mdl(const unsigned char* data, size_t sz)
         cur_idx  += mesh->num_indices;
         cur_vert += mesh->num_verts;
 
-        /* Setup the mesh groups */
+        /* Setup mesh groups */
         const char* name = (const char*)(mdl_file.strings + mdl_mesh->ofs_name);
         hm_ptr* p = hashmap_get(&mgroup_map, hm_cast(name));
-        struct mesh_group* mgroup = 0;
         if (p) {
-            mgroup = hm_pcast(*p);
+            mesh->mgroup_idx = (uint32_t)(*p);
         } else {
-            mgroup = mesh_group_new();
+            /* Create mesh group */
+            struct mesh_group* mgroup = mesh_group_new();
             mgroup->name = strdup(name);
-            mgroup->num_materials = 0;
             m->num_mesh_groups++;
             m->mesh_groups = realloc(m->mesh_groups, m->num_mesh_groups * sizeof(struct mesh_group*));
             m->mesh_groups[m->num_mesh_groups - 1] = mgroup;
-            hashmap_put(&mgroup_map, hm_cast(name), hm_cast(mgroup));
+            /* Assign mgroup idx */
+            mesh->mgroup_idx = m->num_mesh_groups - 1;
+            hashmap_put(&mgroup_map, hm_cast(name), hm_cast(mesh->mgroup_idx));
         }
-        mgroup->num_mesh_offs++;
-        mgroup->mesh_offsets = realloc(mgroup->mesh_offsets, mgroup->num_mesh_offs * sizeof(size_t));
-        mgroup->mesh_offsets[mgroup->num_mesh_offs - 1] = i;
     }
     hashmap_destroy(&mgroup_map);
 
-    /* Reassign material indexes per mesh group */
-    for (unsigned int i = 0; i < m->num_mesh_groups; ++i) {
-        struct hashmap mat_map;
-        hashmap_init(&mat_map, hm_u64_hash, hm_u64_eql);
-        struct mesh_group* mgroup = m->mesh_groups[i];
-        for (unsigned int j = 0; j < mgroup->num_mesh_offs; ++j) {
-            struct mesh* mesh = m->meshes[mgroup->mesh_offsets[j]];
-            hm_ptr* p = hashmap_get(&mat_map, hm_cast(mesh->mat_index));
-            if (p) {
-                mesh->mat_index = (uint32_t)(*p);
-            } else {
-                uint32_t nmat_idx = mat_map.size;
-                hashmap_put(&mat_map, hm_cast(mesh->mat_index), hm_cast(nmat_idx));
-                mesh->mat_index = nmat_idx;
-                mgroup->num_materials++;
-            }
-        }
-        hashmap_destroy(&mat_map);
+    /* Find total materials */
+    for (unsigned int i = 0; i < m->num_meshes; ++i) {
+        struct mdl_mesh_desc* mdl_mesh = mdl_file.mesh_desc + i;
+        m->num_materials = max(m->num_materials, mdl_mesh->mat_idx + 1);
     }
 
     /* Read the skeleton */

@@ -24,7 +24,6 @@ struct mesh_group* mesh_group_new()
 {
     struct mesh_group* mg = malloc(sizeof(struct mesh_group));
     memset(mg, 0, sizeof(struct mesh_group));
-    mg->mesh_offsets = malloc(0);
     return mg;
 }
 
@@ -58,7 +57,6 @@ void mesh_group_delete(struct mesh_group* mg)
 {
     if (mg->name)
         free((void*)mg->name);
-    free(mg->mesh_offsets);
     free(mg);
 }
 

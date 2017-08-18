@@ -69,8 +69,13 @@ struct model {
         size_t num_indices;
         /* Material index */
         size_t mat_index; /* Relative to the parent mesh group */
+        /* Mesh group */
+        uint32_t mgroup_idx;
     }** meshes;
     size_t num_meshes;
+
+    /* Materials */
+    size_t num_materials;
 
     /* Skeleton */
     struct skeleton {
@@ -83,12 +88,9 @@ struct model {
         size_t num_frames;
     }* frameset;
 
-    /* Model nodes */
+    /* Mesh groups */
     struct mesh_group {
         const char* name;
-        unsigned int num_materials;
-        size_t* mesh_offsets;
-        size_t num_mesh_offs;
     }** mesh_groups;
     size_t num_mesh_groups;
 };
