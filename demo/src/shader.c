@@ -1,7 +1,12 @@
 #include "shader.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <plat.h>
+#ifdef OS_OSX
+#include <OpenGL/glu.h>
+#else
 #include <GL/glu.h>
+#endif
 
 /* --------------------------------------------------
  * Checks and shows last OpenGL error occurred

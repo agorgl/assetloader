@@ -160,7 +160,9 @@
 /* #undef HAVE_ALLOCA_H */
 
 /* Define if we have malloc.h */
+#ifndef __APPLE__
 #define HAVE_MALLOC_H
+#endif
 
 /* Define if we have ftw.h */
 /* #undef HAVE_FTW_H */

@@ -3,7 +3,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <plat.h>
+#ifdef OS_OSX
+#include <OpenGL/gl.h>
+#else
 #include <GL/gl.h>
+#endif
 
 /*===============================
  * KTX File Format Specification

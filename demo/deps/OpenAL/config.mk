@@ -53,6 +53,9 @@ ifeq ($(TARGET_OS), Windows_NT)
 	SRC += \
 		src/Alc/backends/winmm.c \
 		src/Alc/backends/mmdevapi.c
+else ifeq ($(TARGET_OS), Darwin)
+	SRC += \
+		src/Alc/backends/coreaudio.c
 else
 	SRC += \
 		src/Alc/backends/alsa.c

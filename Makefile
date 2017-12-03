@@ -28,8 +28,15 @@
 #  [7] contains intermediate object files of compiling processes
 MAKEFLAGS += --no-builtin-rules
 
-# CreateProcess NULL bug
+# Detect OS
 ifeq ($(OS), Windows_NT)
+	HOST_OS := Windows
+else
+	HOST_OS := $(shell uname -s)
+endif
+
+# CreateProcess NULL bug
+ifeq ($(HOST_OS), Windows)
 	SHELL = cmd.exe
 endif
 
@@ -46,7 +53,7 @@ TOOLCHAIN ?= GCC
 SILENT ?=
 VERBOSE ?=
 # Default target OS is host if not provided
-TARGET_OS ?= $(OS)
+TARGET_OS ?= $(HOST_OS)
 # Install location
 LOCAL_REPO ?= $(HOME)/.local
 
@@ -57,28 +64,28 @@ LOCAL_REPO ?= $(HOME)/.local
 rwildcard = $(foreach d, $(wildcard $1*), $(call rwildcard, $d/, $2) $(filter $(subst *, %, $2), $d))
 
 # Suppress full command output
-ifeq ($(OS), Windows_NT)
+ifeq ($(HOST_OS), Windows)
 	suppress_out = > nul 2>&1
 else
 	suppress_out = > /dev/null 2>&1
 endif
 
 # Ignore command error
-ifeq ($(OS), Windows_NT)
+ifeq ($(HOST_OS), Windows)
 	ignore_err = || (exit 0)
 else
 	ignore_err = || true
 endif
 
 # Native paths
-ifeq ($(OS), Windows_NT)
+ifeq ($(HOST_OS), Windows)
 	native_path = $(subst /,\,$(1))
 else
 	native_path = $(1)
 endif
 
 # Makedir command
-ifeq ($(OS), Windows_NT)
+ifeq ($(HOST_OS), Windows)
 	MKDIR_CMD = mkdir
 else
 	MKDIR_CMD = mkdir -p
@@ -86,7 +93,7 @@ endif
 mkdir = -$(if $(wildcard $(1)/.*), , $(MKDIR_CMD) $(call native_path, $(1)) $(suppress_out)$(ignore_err))
 
 # Rmdir command
-ifeq ($(OS), Windows_NT)
+ifeq ($(HOST_OS), Windows)
 	RMDIR_CMD = rmdir /s /q
 else
 	RMDIR_CMD = rm -rf
@@ -94,7 +101,7 @@ endif
 rmdir = $(if $(wildcard $(1)/.*), $(RMDIR_CMD) $(call native_path, $(1)),)
 
 # Copy command
-ifeq ($(OS), Windows_NT)
+ifeq ($(HOST_OS), Windows)
 	COPY_CMD = copy /Y
 else
 	COPY_CMD = cp
@@ -102,7 +109,7 @@ endif
 copy = $(COPY_CMD) $(call native_path, $(1)) $(call native_path, $(2)) $(suppress_out)
 
 # Recursive folder copy command
-ifeq ($(OS), Windows_NT)
+ifeq ($(HOST_OS), Windows)
 	RCOPY_CMD = robocopy /S /E $(call native_path, $(1)) $(call native_path, $(2)) $(suppress_out)$(ignore_err)
 else
 	RCOPY_CMD = cp -r $(call native_path, $(1))/* $(call native_path, $(2))
@@ -110,7 +117,7 @@ endif
 rcopy = $(RCOPY_CMD)
 
 # Path separator
-pathsep = $(strip $(if $(filter $(OS), Windows_NT), ;, :))
+pathsep = $(strip $(if $(filter $(HOST_OS), Windows), ;, :))
 
 # Lowercase
 lc = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(subst G,g,\
@@ -163,13 +170,13 @@ extdep-conf = $(call extdep-path, \
 # Global constants
 #---------------------------------------------------------------
 # Os executable extension
-ifeq ($(TARGET_OS), Windows_NT)
+ifeq ($(TARGET_OS), Windows)
 	EXECEXT = .exe
 else
 	EXECEXT = .out
 endif
 # Os dynamic library extension
-ifeq ($(TARGET_OS), Windows_NT)
+ifeq ($(TARGET_OS), Windows)
 	DLEXT = .dll
 else
 	DLEXT = .so
@@ -211,8 +218,8 @@ endif
 #---------------------------------------------------------------
 # Colors
 #---------------------------------------------------------------
-ifneq ($(OS), Windows_NT)
-	ESC := $(shell echo -e -n '\x1b')
+ifneq ($(HOST_OS), Windows)
+	ESC := $(shell printf "\x1b")
 endif
 NO_COLOR       := $(ESC)[0m
 LGREEN_COLOR   := $(ESC)[92m
@@ -277,7 +284,7 @@ else
 	# Linker
 	LD          := g++
 	LDFLAGS     :=
-	ifeq ($(TARGET_OS), Windows_NT)
+	ifeq ($(TARGET_OS), Windows)
 		LDFLAGS += -static-libgcc -static-libstdc++
 	endif
 	LIBFLAG     := -l
@@ -472,7 +479,7 @@ ifeq ($$(PRJTYPE_$(D)), DynLib)
 endif
 # Setup rpath flag parameter for linux systems
 ifeq ($$(PRJTYPE_$(D)), Executable)
-ifneq ($(TARGET_OS), Windows_NT)
+ifneq ($(TARGET_OS), Windows)
 	# Path from executable location to project root
 	RELPPREFIX_$(D)  := $$(subst $$(space),,$$(foreach dir, $$(subst /,$$(space),$$(dir $$(MASTEROUT_$(D)))),../))
 	# Library paths relative to the executable
@@ -581,8 +588,8 @@ CCOMPILE_$(D)   = $(CC) $(CFLAGS) $$(MCFLAGS_$(D)) $$(CPPFLAGS_$(D)) $$(INCDIR_$
 CXXCOMPILE_$(D) = $(CXX) $(CFLAGS) $(CXXFLAGS) $$(MCFLAGS_$(D)) $$(CPPFLAGS_$(D)) $$(INCDIR_$(D)) $$< $(COUTFLAG) $$@ $$(MORECFLAGS_$(D))
 
 # Generate compile rules
-$(call compile-rule, c, $$(CCOMPILE_$(D)), $(DP))
-$(foreach ext, cpp cxx cc, $(call compile-rule, $(ext), $$(CXXCOMPILE_$(D)), $(DP))${\n})
+$(foreach ext, c m, $(call compile-rule, $(ext), $$(CCOMPILE_$(D)), $(DP))${\n})
+$(foreach ext, cpp cxx cc mm, $(call compile-rule, $(ext), $$(CXXCOMPILE_$(D)), $(DP))${\n})
 
 # Include extra rules
 -include $(DP)rules.mk
