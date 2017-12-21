@@ -17,4 +17,4 @@ ADDLIBDIR = ../lib \
 			../deps/Freetype/lib \
 			../deps/PhysFS/lib
 MOREDEPS = ..
-EXTDEPS = macu::0.0.2dev orb::dev gfxwnd::0.0.0dev
+EXTDEPS = macu::0.0.2dev orb::dev gfxwnd::0.0.1dev
