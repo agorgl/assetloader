@@ -62,6 +62,8 @@ LOCAL_REPO ?= $(HOME)/.local
 #---------------------------------------------------------------
 # Recursive wildcard func
 rwildcard = $(foreach d, $(wildcard $1*), $(call rwildcard, $d/, $2) $(filter $(subst *, %, $2), $d))
+# Keeps only paths corresponding to files
+filter-files = $(filter-out $(patsubst %/., %, $(wildcard $(addsuffix /., $(1)))), $(1))
 
 # Suppress full command output
 ifeq ($(HOST_OS), Windows)
@@ -502,6 +504,39 @@ INSTDEPS_$(D) := $$(addprefix install_, $$(DEPS_$(D)))
 endif
 endef
 
+#--------------------------------------------------
+#=- Populate project install values
+# 1 = dst file 2 = src file
+define copy-file-rule
+$(1): $(2)
+	$$(info $(LGREEN_COLOR)[>] Copying$(NO_COLOR) $(LYELLOW_COLOR)$(strip $(2)) -> $$(subst \,/,$(strip $(1)))$(NO_COLOR))
+	$(showcmd)$$(call mkdir, $$(@D))
+	$(showcmd)$$(call copy, $(2), $$(@D))
+INSTALL_FILES += $(1)
+endef
+
+# 1 = dst folder 2 = src folder
+define copy-folder-rule
+$(foreach f, $(call filter-files, $(call rwildcard, $(2), *)), \
+	$(call copy-file-rule, $(1)/$(call canonical_path, $(abspath $(2)), $(f)), $(f))${\n})
+endef
+
+define populate-install-values
+${subproj-template-prologue}
+# Reset install file list
+$(eval undefine INSTALL_FILES)
+ifneq ($$(PRJTYPE_$(D)), Executable)
+# Copy header folder
+$$(eval $$(call copy-folder-rule, $$(INSTALL_PREFIX_$(D))/include, $$(DP)include))
+endif
+# Copy master output folder
+$$(eval $$(call copy-folder-rule, $$(INSTALL_PREFIX_$(D))/$$(lastword $$(subst /, , $$(TARGETDIR_$(D)))), $$(dir $$(MASTEROUT_$(D)))))
+# Save install file list
+INSTALL_FILES_$(D) := $$(INSTALL_FILES)
+# Package description file
+PKG_INFO_$(D) := $$(call extdep-conf, $$(INSTALL_PAIR_$(D)))
+endef
+
 #---------------------------------------------------------------
 # Rules
 #---------------------------------------------------------------
@@ -520,21 +555,18 @@ run_$(D): build_$(D)
 	@$$(eval export PATH := $(PATH)$(pathsep)$$(subst $$(space),$(pathsep),$$(addprefix $$(CURDIR)/, $$(LIBPATHS_$(D)))))
 	@cd $(D) && $$(call native_path, $$(call canonical_path, $$(abspath $$(CURDIR)/$(D)), $$(MASTEROUT_$(D))))
 
-ifneq ($$(PRJTYPE_$(D)), Executable)
 # Pkg.mk file contents
 define PCFG_$(D)
 PKGDEPS := $$(strip $$(EXTDEPS_$(D)) $$(foreach dep, $$(DEPS_$(D)), $$(INSTALL_PAIR_$$(dep))))
 endef
 
-# Installs target to repository
-install_$(D): $$(INSTDEPS_$(D)) $$(MASTEROUT_$(D))
-	$$(info $(LGREEN_COLOR)[>] Installing$(NO_COLOR) $(LYELLOW_COLOR)$$(TARGETNAME_$(D)) to $$(subst \,/,$$(INSTALL_PREFIX_$(D)))$(NO_COLOR))
-	$(showcmd)$$(call mkdir, $$(INSTALL_PREFIX_$(D))/lib)
-	$(showcmd)$$(call mkdir, $$(INSTALL_PREFIX_$(D))/include)
-	$(showcmd)$$(call rcopy, $(DP)include, $$(INSTALL_PREFIX_$(D))/include)
-	$(showcmd)$$(call copy, $$(MASTEROUT_$(D)), $$(INSTALL_PREFIX_$(D))/lib)
-	$(showcmd)echo $$(PCFG_$(D)) > $$(call extdep-conf, $$(INSTALL_PAIR_$(D)))
-endif
+# Creates package info file
+$$(PKG_INFO_$(D)): $(DP)config.mk
+	$$(info $(LGREEN_COLOR)[>] Pkginfo $(NO_COLOR)$(LYELLOW_COLOR)$$(@F) -> $$(@)$(NO_COLOR))
+	$(showcmd)echo $$(PCFG_$(D)) > $$(@)
+
+# Installs files to repository
+install_$(D): $$(INSTDEPS_$(D)) $$(INSTALL_FILES_$(D)) $$(PKG_INFO_$(D))
 
 # Show banner for current build execution
 $$(BANNERFILE_$(D)):
@@ -558,7 +590,7 @@ showvars_$(D): $$(BANNERFILE_$(D))
 	@echo LIBSDIR:   $$(LIBSDIR_$(D))
 	@echo LIBFLAGS:  $$(LIBFLAGS_$(D))
 	@echo HDEPS:     $$(HDEPS_$(D))
-	@echo INSTALL:   $$(INSTALL_PREFIX_$(D))
+	@echo INSTALL:   $$(INSTALL_PREFIX_$(D)): $$(INSTALL_FILES_$(D))
 	@echo EXTDEPS:   $$(EXTDEPS_$(D))
 	@echo EXTPATHS:  $$(EXTDEPPATHS_$(D))
 
@@ -608,6 +640,7 @@ $(foreach generator, \
 			populate-dep-values       \
 			populate-path-values      \
 			populate-flag-values      \
+			populate-install-values   \
 			populate-rule-dep-values, \
 		$(foreach subproj, $(SUBPROJS), $(eval $(call $(generator), $(subproj)))))
 # Create sublists with dependency and main projects
@@ -655,6 +688,7 @@ endif
 PHONYRULETYPES := build run install showvars showincpaths showdefines
 PHONYPREREQS := $(foreach ruletype, $(PHONYRULETYPES), $(addprefix $(ruletype)_, $(SUBPROJS))) \
 		run \
+		install \
 		showvars \
 		showvars_all \
 		clean
