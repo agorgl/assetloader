@@ -221,7 +221,7 @@ endif
 # Colors
 #---------------------------------------------------------------
 ifneq ($(HOST_OS), Windows)
-	ESC := $(shell printf "\x1b")
+	ESC := $(shell printf "\033")
 endif
 NO_COLOR       := $(ESC)[0m
 LGREEN_COLOR   := $(ESC)[92m
